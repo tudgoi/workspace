@@ -1,0 +1,13 @@
+name = "Droupadi Murmu"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/e/e7/President_of_India_Droupadi_Murmu_official_portrait_%28cropped%29.jpg"
+attribution = "President's Secretariat (GODL-India), GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
+
+[link]
+wikipedia = "Droupadi_Murmu"
+
+[[tenure]]
+office = "poi"
+start = "2022-07-25"
+

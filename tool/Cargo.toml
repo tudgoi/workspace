@@ -1,0 +1,14 @@
+[package]
+name = "xform"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.99"
+clap = { version = "4.5.45", features = ["derive"] }
+gumdrop = "0.8.1"
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+serde = "1.0.219"
+serde_derive = "1.0.219"
+toml = { version = "0.9.5", features = ["serde"] }
+
