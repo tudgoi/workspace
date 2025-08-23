@@ -1,9 +1,10 @@
-use std::path::PathBuf;
+use std::{path::PathBuf};
 use clap::{Parser, Subcommand};
-use anyhow::{ensure, anyhow, Context, Result};
+use anyhow::{ensure, Context, Result};
 use rusqlite::Connection;
 use std::fs;
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize};
+use tera::{Tera};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -21,6 +22,7 @@ enum Commands {
     
     Render {
         db: PathBuf,
+        templates: PathBuf,
         output: PathBuf,
     }
 }
@@ -57,7 +59,7 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Index { source, output} => run_index(source, output)
             .with_context(|| format!("error running `index` command"))?,
-        Commands::Render { db, output } => run_render(db, output)
+        Commands::Render { db, templates, output } => run_render(db, templates, output)
             .with_context(|| format!("error running `render` command"))?
     }
 
@@ -139,8 +141,24 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn run_render(db: PathBuf, output: PathBuf) -> Result<()> {
-    println!("rendering {:?} to {:?}...", db, output);
+fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
+    let templates_glob = templates
+        .join("**")
+        .join("*.html");
+    let templates_glob_str = templates_glob
+        .to_str()
+        .context(format!("could not convert template path {:?}", templates))?;
+    let tera = Tera::new(templates_glob_str)
+        .with_context(|| format!("could not create Tera instance"))?;
+    
+    // person
+    let mut context = tera::Context::new();
+    context.insert("name", "Droupadi Murmu");
+    let str = tera.render("person.html", &context)
+        .with_context(|| format!("could not render template"))?;
+    
+    println!("{}", str);
+
     fs::create_dir(output.as_path())
         .with_context(|| format!("could not create output directory {:?}", output))?;
 
