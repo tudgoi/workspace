@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use clap::{Parser};
+use clap::{Parser, Subcommand};
 use anyhow::{ensure, anyhow, Context, Result};
 use rusqlite::Connection;
 use std::fs;
@@ -8,8 +8,21 @@ use serde_derive::Deserialize;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
-    source: PathBuf,
-    output: PathBuf,
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Index {
+        source: PathBuf,
+        output: PathBuf,
+    },
+    
+    Render {
+        db: PathBuf,
+        output: PathBuf,
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -41,11 +54,22 @@ struct Tenure {
 fn main() -> Result<()> {
     let args = Cli::parse();
     
-    ensure!(!args.output.exists(), "output DB already exists at {:?}", args.output);
+    match args.command {
+        Commands::Index { source, output} => run_index(source, output)
+            .with_context(|| format!("error running `index` command"))?,
+        Commands::Render { db, output } => run_render(db, output)
+            .with_context(|| format!("error running `render` command"))?
+    }
+
+    Ok(())
+}
+
+fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
+    ensure!(!output.exists(), "output DB already exists at {:?}", output);
     
     // setup sqlite DB
-    let conn = Connection::open(args.output.as_path())
-        .with_context(|| format!("could not create sqlite DB at {:?}", args.output))?;
+    let conn = Connection::open(output.as_path())
+        .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
 
     conn.execute(
         "CREATE TABLE person (
@@ -64,7 +88,7 @@ fn main() -> Result<()> {
     ).with_context(|| format!("could not create `office` table"))?;
     
     // process person
-    let data_dir = args.source.join("person");
+    let data_dir = source.join("person");
     let paths = data_dir.read_dir()
         .with_context(|| format!("could not open person directory {:?}",
             data_dir
@@ -88,7 +112,7 @@ fn main() -> Result<()> {
     }
     
     // process office
-    let data_dir = args.source.join("office");
+    let data_dir = source.join("office");
     let paths = data_dir.read_dir()
         .with_context(|| format!("could not open office directory {:?}",
             data_dir
@@ -111,6 +135,14 @@ fn main() -> Result<()> {
         (id, data),
         )?;
     }
+    
+    Ok(())
+}
+
+fn run_render(db: PathBuf, output: PathBuf) -> Result<()> {
+    println!("rendering {:?} to {:?}...", db, output);
+    fs::create_dir(output.as_path())
+        .with_context(|| format!("could not create output directory {:?}", output))?;
 
     Ok(())
 }
