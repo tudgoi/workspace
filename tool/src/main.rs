@@ -150,17 +150,22 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         .context(format!("could not convert template path {:?}", templates))?;
     let tera = Tera::new(templates_glob_str)
         .with_context(|| format!("could not create Tera instance"))?;
-    
-    // person
     let mut context = tera::Context::new();
+    
+    fs::create_dir(output.as_path())
+        .with_context(|| format!{"could not create output dir {:?}", output})?;
+
+    // person
+    let person_path = output.join("person");
+    fs::create_dir(person_path.as_path())
+        .with_context(|| format!("could not create person dir {:?}", person_path))?;
+    let output_path = person_path.join("droupadm.html");
     context.insert("name", "Droupadi Murmu");
     let str = tera.render("person.html", &context)
         .with_context(|| format!("could not render template"))?;
     
-    println!("{}", str);
-
-    fs::create_dir(output.as_path())
-        .with_context(|| format!("could not create output directory {:?}", output))?;
-
+    fs::write(output_path.as_path(), str)
+        .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+    
     Ok(())
 }
