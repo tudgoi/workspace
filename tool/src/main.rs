@@ -3,8 +3,9 @@ use clap::{Parser, Subcommand};
 use anyhow::{ensure, Context, Result};
 use rusqlite::Connection;
 use std::fs;
-use serde_derive::{Deserialize};
+use serde_derive::{Serialize, Deserialize};
 use tera::{Tera};
+use tera;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -27,7 +28,13 @@ enum Commands {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Debug)]
+struct PersonRecord {
+    id: String,
+    person: Person,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct Person {
     name: String,
     photo: Option<Photo>,
@@ -35,18 +42,18 @@ struct Person {
     tenure: Option<Vec<Tenure>>
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Photo {
     url: String,
     attribution: String
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Link {
     wikipedia: Option<String>
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Tenure {
     office: String,
     start: String,
@@ -76,7 +83,7 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
     conn.execute(
         "CREATE TABLE person (
             id    TEXT PRIMARY KEY,
-            data  TEXT NOT NULL
+            name  TEXT NOT NULL
         )",
         (),
     ).with_context(|| format!("could not create `person` table"))?;
@@ -108,8 +115,8 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
         let value: Person = toml::from_str(&data)
             .with_context(|| format!("Could not parse person from {:?}", file_entry.path()))?;
         conn.execute(
-            "INSERT INTO person (id, data) VALUES (?1, ?2)",
-        (id, data),
+            "INSERT INTO person (id, name) VALUES (?1, ?2)",
+        (id, value.name),
         )?;
     }
     
@@ -142,6 +149,7 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
 }
 
 fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
+    // open template
     let templates_glob = templates
         .join("**")
         .join("*.html");
@@ -150,22 +158,45 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         .context(format!("could not convert template path {:?}", templates))?;
     let tera = Tera::new(templates_glob_str)
         .with_context(|| format!("could not create Tera instance"))?;
-    let mut context = tera::Context::new();
     
     fs::create_dir(output.as_path())
         .with_context(|| format!{"could not create output dir {:?}", output})?;
 
+    // open DB
+    let conn = Connection::open(db.as_path())
+        .with_context(|| format!("could not open DB at {:?}", db))?;
+    
     // person
     let person_path = output.join("person");
     fs::create_dir(person_path.as_path())
         .with_context(|| format!("could not create person dir {:?}", person_path))?;
-    let output_path = person_path.join("droupadm.html");
-    context.insert("name", "Droupadi Murmu");
-    let str = tera.render("person.html", &context)
-        .with_context(|| format!("could not render template"))?;
+
+    let mut stmt = conn.prepare("SELECT id, name FROM person")
+        .with_context(|| format!("could not create statement for reading person table"))?;
+    let iter = stmt.query_map([], |row| {
+        
+        Ok(PersonRecord {
+            id: row.get(0)?,
+            person: Person {
+                name: row.get(1)?,
+                photo: None,
+                link: None,
+                tenure: None
+            }
+        })
+    }).with_context(|| format!("querying person table failed"))?;
+
+    for result in iter {
+        let record = result.with_context(|| format!("could not read person from DB"))?;
+        let context = tera::Context::from_serialize(&record)
+            .with_context(|| format!("could not create convert person to context"))?;
+        let output_path = person_path.join(format!("{}.html", record.id));
+        let str = tera.render("person.html", &context)
+            .with_context(|| format!("could not render template"))?;
     
-    fs::write(output_path.as_path(), str)
-        .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+        fs::write(output_path.as_path(), str)
+            .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+    }
     
     Ok(())
 }
