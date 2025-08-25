@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% import "macros.html" as macros %}
+{% block content %}
+<script src="https://kit.fontawesome.com/ebcc86461e.js" crossorigin="anonymous"></script>
+
+<style>
+  div.maintenance {
+    grid-area: maintenance;
+  }
+  div.photo {
+    grid-area: photo;
+  }
+
+  div.title {
+    grid-area: title;
+  }
+
+  div.contacts {
+    grid-area: contacts;
+  }
+
+  div.links {
+    grid-area: links;
+  }
+
+  div.backlinks {
+    grid-area: backlinks;
+  }
+
+  div.sources {
+    grid-area: sources;
+  }
+
+  main {
+    display: grid;
+    column-gap: 1em;
+    row-gap: 0.5em;
+    grid-template-areas:
+      "maintenance"
+      "title"
+      "photo"
+      "contacts"
+      "links"
+      "backlinks"
+      "sources";
+    margin-bottom: 1em;
+  }
+  @media (min-width: 40em) {
+    main {
+      grid-template-columns: 1fr 3fr;
+      grid-template-rows: min-content min-content min-content 1fr auto auto;
+      grid-template-areas:
+        "maintenance maintenance"
+        "photo title"
+        "photo contacts"
+        "photo links"
+        "backlinks backlinks"
+        "sources sources";
+    }
+  }
+  .dl-single-line {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 0.5em;
+  }
+</style>
+<main>
+  <div class="maintenance">
+    {% if page.taxonomies.maintenance and page.taxonomies.maintenance | length > 0 %}
+    <blockquote>
+      <dl class="dl-single-line">
+        <dt>🚧</dt>
+        <dd>
+          <p>
+            {% if incomplete %}
+                This page is incomplete.
+            {% endif %}
+          </p>
+          <p>
+            Please consider sending a <a href="https://en.wikipedia.org/wiki/Fork_and_pull_model">PR</a> at
+            <a href="{{ config.base_url }}">{{ config.base_url | trim_start_matches(pat="https://") }}</a>
+          </p>
+        </dd>
+      </dl>
+    </blockquote>
+    {% endif %}
+  </div>
+  <div class="photo">
+    {% if photo %}
+      {% set photo_url = page.extra.photo %}
+    {% else %}
+      {% set photo_url = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg" %}
+    {% endif %}
+    {{ macros::photo(url=photo_url, alt=name) }}
+  </div>
+  <div class="title">
+    <h2>{{ name }}</h2>
+    {% if description %}
+        {{ description }}
+    {% endif %}
+    <hr>
+  </div>
+  <div class="contacts">
+    <style>
+      dl.contact-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 0.5em;
+      }
+    </style>
+    <dl class="contact-list">
+      {% if page.extra.contacts %}
+      {% for key, value in page.extra.contacts %}
+        <div class="dl-single-line">
+          <dt><i class="{{ config.contact.icons[key] }}"></i></dt>
+          <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
+        </div>
+      {% endfor %}
+      {% endif %}
+    </dl>
+    <hr>
+  </div>
+  <div class="links">
+    <dl>
+      {% if page %}
+      {% for name, terms in page.taxonomies %}
+        {% if config.link.labels is containing(name) %}
+          {% set label = config.link.labels[name] %}
+          <div class="dl-single-line">
+              <dt>{{ label }} </dt>
+              <dd>
+                {% for term in terms %}
+                  {{ macros::link_term(term=term) }}<br>
+                {% endfor %}
+              </dd>
+          </div>
+        {% endif %}
+      {% endfor %}
+      {% endif %}
+    </dl>
+  </div>
+  <div class="backlinks">
+    {% set this = path | trim_end_matches(pat="/") | trim_start_matches(pat="/") %}
+    <hr>
+    <dl class="backlink-list">
+      {% if config.backlinks %}
+      {% for name, label in config.backlink.labels %}
+        {% set term = get_taxonomy_term(kind=name, term=this, required=false) %}
+        {% if term %}
+          <dt>{{ config.backlink.labels[name] }}</dt>
+          <dd>
+            <ul>
+              {% for item in term.pages %}
+                <li>{{ macros::link_page(page=item) }}</li>
+              {% endfor %}
+            </ul>
+          </dd>
+        {% endif %}
+      {% endfor %}
+      {% endif %}
+    </dl>
+  </div>
+  <div class="sources">
+    {% if page.extra.sources %}
+    <hr>
+    <details>
+      <summary>Sources</summary>
+      <ul>
+        {% for url in page.extra.sources %}
+          <li><a href="{{ url }}">{{ url }}</a></li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </div>
+</main>
+{% endblock content %}
+
+{% block updated %}
+  {% if page %}
+  Last updated on {{ page.updated | date(format="%d %B, %Y")}}
+  {% endif %}
+{% endblock updated %}

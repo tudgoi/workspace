@@ -1,0 +1,32 @@
+# WARNING change the title in content/_index.md too
+title = "The Unofficial Directory — Government of India"
+
+# The URL the site will be built for
+base_url = "https://arunkd13.github.io/directory-gov-in"
+
+[contact.icons]
+phone = "fa-solid fa-phone"
+email = "fa-solid fa-envelope"
+website = "fa-solid fa-globe"
+wikipedia = "fa-brands fa-wikipedia-w"
+x = "fa-brands fa-x-twitter"
+facebook = "fa-brands fa-facebook"
+instagram = "fa-brands fa-instagram"
+youtube = "fa-brands fa-youtube"
+address = "fa-solid fa-map-location-dot"
+
+[labels]
+adviser = "Adviser"
+during_the_pleasure_of = "During the pleasure of"
+head = "Head"
+member_of = "Member of"
+responsible_to = "Responsible to"
+elected_by = "Elected by"
+
+[backlink.labels]
+adviser = "Advises"
+during_the_pleasure_of = "During their pleasure"
+head = "Heads"
+member_of = "Members"
+responsible_to = "Under their responsibility"
+elected_by = "Elected by them"

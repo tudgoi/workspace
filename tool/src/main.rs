@@ -28,10 +28,47 @@ enum Commands {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct PersonRecord {
     id: String,
     person: Person,
+    config: Config
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Config {
+    title: String,
+    base_url: String,
+    contact: Contact,
+    labels: Labels,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Contact {
+    icons: Icons
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Icons {
+    phone: String,
+    email: String,
+    website: String,
+    wikipedia: String,
+    x: String,
+    facebook: String,
+    instagram: String,
+    youtube: String,
+    address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Labels {
+    adviser: String,
+    during_the_pleasure_of: String,
+    head: String,
+    member_of: String,
+    responsible_to: String,
+    elected_by: String
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -182,16 +219,46 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
                 photo: None,
                 link: None,
                 tenure: None
+            },
+            config: Config {
+                title: "The Title".to_string(),
+                base_url: "http://arunkd13.org".to_string(),
+                contact: Contact {
+                    icons: Icons {
+                        phone: String::new(),
+                        email: String::new(),
+                        website: String::new(),
+                        wikipedia: String::new(),
+                        x: String::new(),
+                        facebook: String::new(),
+                        instagram: String::new(),
+                        youtube: String::new(),
+                        address: String::new(),
+                        
+                    }
+                },
+                labels: Labels {
+                    adviser: String::new(),
+                    during_the_pleasure_of: String::new(),
+                    head: String::new(),
+                    member_of: String::new(),
+                    responsible_to: String::new(),
+                    elected_by: String::new()
+                }
             }
         })
     }).with_context(|| format!("querying person table failed"))?;
 
     for result in iter {
         let record = result.with_context(|| format!("could not read person from DB"))?;
-        let context = tera::Context::from_serialize(&record)
+        let mut context = tera::Context::from_serialize(&record.person)
             .with_context(|| format!("could not create convert person to context"))?;
+        context.insert("id", &record.id);
+        context.insert("config", &record.config);
+        context.insert("incomplete", &true);
+        context.insert("path", "");
         let output_path = person_path.join(format!("{}.html", record.id));
-        let str = tera.render("person.html", &context)
+        let str = tera.render("page.html", &context)
             .with_context(|| format!("could not render template"))?;
     
         fs::write(output_path.as_path(), str)

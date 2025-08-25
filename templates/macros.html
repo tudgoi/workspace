@@ -1,0 +1,62 @@
+{% macro render_contact(key, value) %}
+    {% if key == "address" %}
+        {{ value }}
+    {% elif key == "phone" %}
+        {% for item in value %}
+            <a href="tel:{{ item }}">{{ item }}</a><br>
+        {% endfor %}
+    {% elif key == "email" %}
+        <a href="mailto:{{ value }}">{{ value }}</a>
+    {% elif key == "website" %}
+        {{ macros::render_url(url=value) }}
+    {% elif key == "wikipedia" %}
+        <a href="https://en.wikipedia.org/wiki/{{ value }}">{{ value }}</a>
+    {% elif key == "x" %}
+        <a href="https://x.com/{{ value }}">@{{ value }}</a>
+    {% elif key == "facebook" %}
+        <a href="https://www.facebook.com/{{ value }}">{{ value }}</a>
+    {% elif key == "instagram" %}
+        <a href="https://www.instagram.com/{{ value }}">{{ value }}
+    {% elif key == "youtube" %}
+        <a href="https://www.youtube.com/{{ value }}">{{ value }}</a>
+    {% endif %}
+{% endmacro contacts %}
+
+{% macro render_url(url) %}
+    <a href="{{ url}}">{{ url }}</a>
+{% endmacro render_url %}
+
+{% macro photo(url, alt) %}
+    <style>
+        div.photo-bg {
+            background-color: aliceblue;
+            padding: 0.75em;
+            display: inline-block
+        }
+        div.photo-bg img {
+            width: 12em;
+            margin: 0em;
+        }
+    </style>
+    <div class="photo-bg">
+        <img src="{{ url }}" alt="{{ alt }}" />
+    </div>
+{% endmacro photo %}
+
+{% macro link_page(page) %}
+    <a href="{{ page.permalink }}">{{ page.title }}</a>
+    {%- set term_name = page.path | trim_start_matches(pat="/") %}
+    {%- if term_name is starting_with("person/") -%}
+    <span>, {{ page.description }}</span>
+    {% else %}
+        {% if page.description %}
+            ({{ page.description }})
+        {% endif %}
+    {% endif %}
+{% endmacro link_page %}
+
+{% macro link_term(term) %}
+    {% set page_path = term ~ '.md' %}
+    {% set page = get_page(path = page_path) %}
+    {{ macros::link_page(page=page) }}
+{% endmacro link_term %}
