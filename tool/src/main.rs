@@ -1,7 +1,8 @@
-use std::{path::PathBuf};
+use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use anyhow::{ensure, Context, Result};
 use rusqlite::Connection;
+use serde::{de::DeserializeOwned, Deserialize};
 use std::fs;
 use serde_derive::{Serialize, Deserialize};
 use tera::{Tera};
@@ -32,7 +33,6 @@ enum Commands {
 struct PersonRecord {
     id: String,
     person: Person,
-    config: Config
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -110,6 +110,15 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn from_toml_file<T>(path: PathBuf) -> Result<T> where T: DeserializeOwned {
+    let str = fs::read_to_string(path.as_path())
+        .with_context(|| format!("could not read toml file {:?}", path))?;
+    let value = toml::from_str(&str)
+        .with_context(|| format!("failed to parse toml file {:?}", path))?;
+
+    Ok(value)
+}
+
 fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
     ensure!(!output.exists(), "output DB already exists at {:?}", output);
     
@@ -128,7 +137,7 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
     conn.execute(
         "CREATE TABLE office (
             id    TEXT PRIMARY KEY,
-            data  TEXT NOT NULL
+            name  TEXT NOT NULL
         )",
         (),
     ).with_context(|| format!("could not create `office` table"))?;
@@ -172,13 +181,12 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
             .with_context(|| format!("invalid file name {:?} in office directory", file_path))?;
         let id = file_stem.to_str()
             .context(format!("could not convert filename {:?} to string", file_stem))?;
-        let data = fs::read_to_string(file_entry.path())
-            .with_context(|| format!("could not read office data file {:?}", file_entry.path()))?;
-        let value: Person = toml::from_str(&data)
-            .with_context(|| format!("Could not parse office from {:?}", file_entry.path()))?;
+        
+        let value: Person = from_toml_file(file_entry.path())
+            .with_context(|| format!("failed to parse template"))?;
         conn.execute(
-            "INSERT INTO office (id, data) VALUES (?1, ?2)",
-        (id, data),
+            "INSERT INTO office (id, name) VALUES (?1, ?2)",
+        (id, value.name),
         )?;
     }
     
@@ -186,6 +194,10 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
 }
 
 fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
+    // read config
+    let config: Config = from_toml_file(templates.join("config.toml"))
+        .with_context(|| format!("could not parse config"))?;
+    
     // open template
     let templates_glob = templates
         .join("**")
@@ -196,6 +208,7 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
     let tera = Tera::new(templates_glob_str)
         .with_context(|| format!("could not create Tera instance"))?;
     
+    // setup output
     fs::create_dir(output.as_path())
         .with_context(|| format!{"could not create output dir {:?}", output})?;
 
@@ -220,32 +233,6 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
                 link: None,
                 tenure: None
             },
-            config: Config {
-                title: "The Title".to_string(),
-                base_url: "http://arunkd13.org".to_string(),
-                contact: Contact {
-                    icons: Icons {
-                        phone: String::new(),
-                        email: String::new(),
-                        website: String::new(),
-                        wikipedia: String::new(),
-                        x: String::new(),
-                        facebook: String::new(),
-                        instagram: String::new(),
-                        youtube: String::new(),
-                        address: String::new(),
-                        
-                    }
-                },
-                labels: Labels {
-                    adviser: String::new(),
-                    during_the_pleasure_of: String::new(),
-                    head: String::new(),
-                    member_of: String::new(),
-                    responsible_to: String::new(),
-                    elected_by: String::new()
-                }
-            }
         })
     }).with_context(|| format!("querying person table failed"))?;
 
@@ -254,7 +241,7 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         let mut context = tera::Context::from_serialize(&record.person)
             .with_context(|| format!("could not create convert person to context"))?;
         context.insert("id", &record.id);
-        context.insert("config", &record.config);
+        context.insert("config", &config);
         context.insert("incomplete", &true);
         context.insert("path", "");
         let output_path = person_path.join(format!("{}.html", record.id));
