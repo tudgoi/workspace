@@ -39,13 +39,8 @@ struct PersonDto {
 struct Config {
     title: String,
     base_url: String,
-    contact: Contact,
+    icons: Icons,
     labels: Labels,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Contact {
-    icons: Icons
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -75,7 +70,7 @@ struct Labels {
 struct Person {
     name: String,
     photo: Option<Photo>,
-    link: Option<Link>,
+    contacts: Option<Contacts>,
     tenure: Option<Vec<Tenure>>
 }
 
@@ -86,7 +81,7 @@ struct Photo {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Link {
+struct Contacts {
     wikipedia: Option<String>
 }
 

@@ -20,7 +20,7 @@
     {% elif key == "youtube" %}
         <a href="https://www.youtube.com/{{ value }}">{{ value }}</a>
     {% endif %}
-{% endmacro contacts %}
+{% endmacro render_contact %}
 
 {% macro render_url(url) %}
     <a href="{{ url}}">{{ url }}</a>

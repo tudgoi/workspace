@@ -109,10 +109,10 @@
       }
     </style>
     <dl class="contact-list">
-      {% if page.extra.contacts %}
-      {% for key, value in page.extra.contacts %}
+      {% if contacts %}
+      {% for key, value in contacts %}
         <div class="dl-single-line">
-          <dt><i class="{{ config.contact.icons[key] }}"></i></dt>
+          <dt><i class="{{ config.icons[key] }}"></i></dt>
           <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
         </div>
       {% endfor %}

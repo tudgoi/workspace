@@ -4,7 +4,7 @@ title = "The Unofficial Directory — Government of India"
 # The URL the site will be built for
 base_url = "https://arunkd13.github.io/directory-gov-in"
 
-[contact.icons]
+[icons]
 phone = "fa-solid fa-phone"
 email = "fa-solid fa-envelope"
 website = "fa-solid fa-globe"
