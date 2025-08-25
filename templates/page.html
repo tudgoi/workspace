@@ -87,7 +87,7 @@
   </div>
   <div class="photo">
     {% if photo %}
-      {% set photo_url = page.extra.photo %}
+      {% set photo_url = photo.url %}
     {% else %}
       {% set photo_url = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg" %}
     {% endif %}

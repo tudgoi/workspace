@@ -30,9 +30,9 @@ enum Commands {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct PersonRecord {
+struct PersonDto {
     id: String,
-    person: Person,
+    person: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -129,7 +129,7 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
     conn.execute(
         "CREATE TABLE person (
             id    TEXT PRIMARY KEY,
-            name  TEXT NOT NULL
+            data  TEXT NOT NULL
         )",
         (),
     ).with_context(|| format!("could not create `person` table"))?;
@@ -161,9 +161,9 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
         let value: Person = toml::from_str(&data)
             .with_context(|| format!("Could not parse person from {:?}", file_entry.path()))?;
         conn.execute(
-            "INSERT INTO person (id, name) VALUES (?1, ?2)",
-        (id, value.name),
-        )?;
+            "INSERT INTO person (id, data) VALUES (?1, ?2)",
+        (id, data),
+        ).with_context(|| format!("could not insert person into DB"))?;
     }
     
     // process office
@@ -221,24 +221,23 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
     fs::create_dir(person_path.as_path())
         .with_context(|| format!("could not create person dir {:?}", person_path))?;
 
-    let mut stmt = conn.prepare("SELECT id, name FROM person")
+    let mut stmt = conn.prepare("SELECT id, data FROM person")
         .with_context(|| format!("could not create statement for reading person table"))?;
     let iter = stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let data: String = row.get(1)?;
         
-        Ok(PersonRecord {
-            id: row.get(0)?,
-            person: Person {
-                name: row.get(1)?,
-                photo: None,
-                link: None,
-                tenure: None
-            },
+        Ok(PersonDto {
+            id: id,
+            person: data
         })
     }).with_context(|| format!("querying person table failed"))?;
 
     for result in iter {
         let record = result.with_context(|| format!("could not read person from DB"))?;
-        let mut context = tera::Context::from_serialize(&record.person)
+        let person: Person = toml::from_str(&record.person)
+            .with_context(|| format!("could not deserialize person from DB"))?;
+        let mut context = tera::Context::from_serialize(&person)
             .with_context(|| format!("could not create convert person to context"))?;
         context.insert("id", &record.id);
         context.insert("config", &config);
