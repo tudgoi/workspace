@@ -95,9 +95,7 @@
   </div>
   <div class="title">
     <h2>{{ name }}</h2>
-    {% if description %}
-        {{ description }}
-    {% endif %}
+      {{ posts | join(sep=", ") | trim_end_matches(pat=", ") }}
     <hr>
   </div>
   <div class="contacts">

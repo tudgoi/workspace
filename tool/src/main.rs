@@ -77,7 +77,7 @@ struct Person {
     name: String,
     photo: Option<Photo>,
     contacts: Option<Contacts>,
-    tenure: Option<Vec<Tenure>>
+    tenures: Option<Vec<Tenure>>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -155,6 +155,16 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
         (),
     ).with_context(|| format!("could not create `office` table"))?;
     
+    conn.execute(
+        "CREATE TABLE tenure (
+            id TEXT NOT NULL,
+            office TEXT NOT NULL,
+            start TEXT NOT NULL,
+            end TEXT
+        )",
+        ()
+    ).with_context(|| format!("could not create `tenure` table"))?;
+    
     // process person
     let data_dir = source.join("person");
     let paths = data_dir.read_dir()
@@ -170,8 +180,6 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
         let id = file_stem.to_str()
             .context(format!("could not convert filename {:?} to string", file_stem))?;
 
-        let data = fs::read_to_string(file_entry.path())
-            .with_context(|| format!("could not read person data file {:?}", file_entry.path()))?;
         let value: Person = from_toml_file(file_entry.path())
             .with_context(|| format!("could not load person"))?;
         let json = serde_json::to_string(&value)
@@ -180,6 +188,15 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
             "INSERT INTO person (id, data) VALUES (?1, ?2)",
         (id, json),
         ).with_context(|| format!("could not insert person into DB"))?;
+        
+        if let Some(tenures) = value.tenures {
+            for tenure in tenures {
+                conn.execute(
+                    "INSERT INTO tenure (id, office, start, end) VALUES (?1, ?2, ?3, ?4)",
+                    (id, tenure.office, tenure.start, tenure.end)
+                ).with_context(|| format!("could not insert tenure into DB for {}", id))?;
+            }
+        }
     }
     
     // process office
@@ -209,6 +226,29 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
     }
     
     Ok(())
+}
+
+fn query_posts_held(conn: &Connection, person_id: &str) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare("
+        SELECT o.data FROM tenure AS t
+        INNER JOIN office AS o
+        ON t.office = o.id
+        WHERE t.id = ?1
+    ").with_context(|| format!("could not prepare statement for qurying posts held"))?;
+    let mut posts= Vec::new();
+    let iter = stmt.query_map([person_id], |row| {
+        let data: String = row.get(0)?;
+        
+        Ok(data)
+    }).with_context(|| format!("could not query posts held"))?;
+    for result in iter {
+        let data = result.with_context(|| format!("could not read tenure from DB"))?;
+        let value: Office = serde_json::from_str(&data)
+            .with_context(|| format!("could not deserialize office data from DB"))?;
+        posts.push(value.name);
+    }
+
+    Ok(posts)
 }
 
 fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
@@ -253,11 +293,13 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
 
     for result in iter {
         let dto = result.with_context(|| format!("could not read person from DB"))?;
+        let posts = query_posts_held(&conn, &dto.id)?;
         let value: serde_json::Value = serde_json::from_str(&dto.data)
             .with_context(|| format!("could not deserialize person from DB"))?;
         let mut context = tera::Context::from_value(value)
             .with_context(|| format!("could not create convert person to context"))?;
         context.insert("id", &dto.id);
+        context.insert("posts", &posts);
         context.insert("config", &config);
         context.insert("incomplete", &true);
         context.insert("path", "");
