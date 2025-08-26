@@ -3,7 +3,7 @@ name = "President of India"
 [supervisor]
 adviser = "union-council-of-ministers"
 
-[link]
+[contacts]
 website = "https://presidentofindia.gov.in/"
 x = "rashtrapatibhvn"
 facebook = "presidentofindia"

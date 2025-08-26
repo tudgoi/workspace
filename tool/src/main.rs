@@ -32,7 +32,13 @@ enum Commands {
 #[derive(Serialize, Deserialize, Debug)]
 struct PersonDto {
     id: String,
-    person: String,
+    data: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct OfficeDto {
+    id: String,
+    data: String
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -92,6 +98,18 @@ struct Tenure {
     end: Option<String>
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Office {
+    name: String,
+    supervisor: Option<Supervisor>,
+    contacts: Option<Contacts>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Supervisor {
+    adviser: Option<String>,
+}
+
 fn main() -> Result<()> {
     let args = Cli::parse();
     
@@ -132,7 +150,7 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
     conn.execute(
         "CREATE TABLE office (
             id    TEXT PRIMARY KEY,
-            name  TEXT NOT NULL
+            data  TEXT NOT NULL
         )",
         (),
     ).with_context(|| format!("could not create `office` table"))?;
@@ -151,13 +169,16 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
             .with_context(|| format!("invalid file name {:?} in person directory", file_path))?;
         let id = file_stem.to_str()
             .context(format!("could not convert filename {:?} to string", file_stem))?;
+
         let data = fs::read_to_string(file_entry.path())
             .with_context(|| format!("could not read person data file {:?}", file_entry.path()))?;
-        let value: Person = toml::from_str(&data)
-            .with_context(|| format!("Could not parse person from {:?}", file_entry.path()))?;
+        let value: Person = from_toml_file(file_entry.path())
+            .with_context(|| format!("could not load person"))?;
+        let json = serde_json::to_string(&value)
+            .with_context(|| format!("could not convert person to JSON"))?;
         conn.execute(
             "INSERT INTO person (id, data) VALUES (?1, ?2)",
-        (id, data),
+        (id, json),
         ).with_context(|| format!("could not insert person into DB"))?;
     }
     
@@ -177,11 +198,13 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
         let id = file_stem.to_str()
             .context(format!("could not convert filename {:?} to string", file_stem))?;
         
-        let value: Person = from_toml_file(file_entry.path())
+        let value: Office = from_toml_file(file_entry.path())
             .with_context(|| format!("failed to parse template"))?;
+        let json = serde_json::to_string(&value)
+            .with_context(|| format!("could not convert office to JSON"))?;
         conn.execute(
-            "INSERT INTO office (id, name) VALUES (?1, ?2)",
-        (id, value.name),
+            "INSERT INTO office (id, data) VALUES (?1, ?2)",
+        (id, json),
         )?;
     }
     
@@ -224,21 +247,21 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         
         Ok(PersonDto {
             id: id,
-            person: data
+            data: data
         })
     }).with_context(|| format!("querying person table failed"))?;
 
     for result in iter {
-        let record = result.with_context(|| format!("could not read person from DB"))?;
-        let person: Person = toml::from_str(&record.person)
+        let dto = result.with_context(|| format!("could not read person from DB"))?;
+        let value: serde_json::Value = serde_json::from_str(&dto.data)
             .with_context(|| format!("could not deserialize person from DB"))?;
-        let mut context = tera::Context::from_serialize(&person)
+        let mut context = tera::Context::from_value(value)
             .with_context(|| format!("could not create convert person to context"))?;
-        context.insert("id", &record.id);
+        context.insert("id", &dto.id);
         context.insert("config", &config);
         context.insert("incomplete", &true);
         context.insert("path", "");
-        let output_path = person_path.join(format!("{}.html", record.id));
+        let output_path = person_path.join(format!("{}.html", dto.id));
         let str = tera.render("page.html", &context)
             .with_context(|| format!("could not render template"))?;
     
