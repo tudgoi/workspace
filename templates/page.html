@@ -106,17 +106,28 @@
         column-gap: 0.5em;
       }
     </style>
+    {% if contacts %}
     <dl class="contact-list">
-      {% if contacts %}
       {% for key, value in contacts %}
         <div class="dl-single-line">
           <dt><i class="{{ config.icons[key] }}"></i></dt>
           <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
         </div>
       {% endfor %}
-      {% endif %}
     </dl>
-    <hr>
+    <hr/>
+    {% endif %}
+    {% if office.contacts %}
+    <dl class="contact-list">
+      {% for key, value in office.contacts %}
+        <div class="dl-single-line">
+          <dt><i class="{{ config.icons[key] }}"></i></dt>
+          <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+    <hr/>
+    {% endif %}
   </div>
   <div class="links">
     <dl>

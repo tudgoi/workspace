@@ -2,7 +2,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use anyhow::{ensure, Context, Result};
 use rusqlite::Connection;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned};
+use serde_with::skip_serializing_none;
 use std::fs;
 use serde_derive::{Serialize, Deserialize};
 use tera::{Tera};
@@ -86,9 +87,18 @@ struct Photo {
     attribution: String
 }
 
+#[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
 struct Contacts {
-    wikipedia: Option<String>
+    phone: Option<String>,
+    email: Option<String>,
+    website: Option<String>,
+    wikipedia: Option<String>,
+    x: Option<String>,
+    facebook: Option<String>,
+    instagram: Option<String>,
+    youtube: Option<String>,
+    address: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -228,27 +238,28 @@ fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn query_posts_held(conn: &Connection, person_id: &str) -> Result<Vec<String>> {
+fn query_office_for_person(conn: &Connection, person_id: &str) -> Result<Option<serde_json::Value>> {
     let mut stmt = conn.prepare("
-        SELECT o.data FROM tenure AS t
-        INNER JOIN office AS o
+        SELECT o.id, o.data
+        FROM tenure AS t INNER JOIN office AS o
         ON t.office = o.id
-        WHERE t.id = ?1
+        WHERE t.id = ?1 AND t.start IS NOT NULL AND t.end IS NULL
+        LIMIT 1
     ").with_context(|| format!("could not prepare statement for qurying posts held"))?;
-    let mut posts= Vec::new();
-    let iter = stmt.query_map([person_id], |row| {
-        let data: String = row.get(0)?;
-        
-        Ok(data)
+    let mut iter = stmt.query_map([person_id], |row| {
+        Ok(OfficeDto {
+            id: row.get(0)?,
+            data: row.get(1)?
+        })
     }).with_context(|| format!("could not query posts held"))?;
-    for result in iter {
-        let data = result.with_context(|| format!("could not read tenure from DB"))?;
-        let value: Office = serde_json::from_str(&data)
+    if let Some(result) = iter.next() {
+        let dto = result.with_context(|| format!("could not read tenure from DB"))?;
+        let value: serde_json::Value = serde_json::from_str(&dto.data)
             .with_context(|| format!("could not deserialize office data from DB"))?;
-        posts.push(value.name);
+        Ok(Some(value))
+    } else {
+        Ok(None)
     }
-
-    Ok(posts)
 }
 
 fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
@@ -293,13 +304,13 @@ fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
 
     for result in iter {
         let dto = result.with_context(|| format!("could not read person from DB"))?;
-        let posts = query_posts_held(&conn, &dto.id)?;
+        let office = query_office_for_person(&conn, &dto.id)?;
         let value: serde_json::Value = serde_json::from_str(&dto.data)
             .with_context(|| format!("could not deserialize person from DB"))?;
         let mut context = tera::Context::from_value(value)
             .with_context(|| format!("could not create convert person to context"))?;
         context.insert("id", &dto.id);
-        context.insert("posts", &posts);
+        context.insert("office", &office);
         context.insert("config", &config);
         context.insert("incomplete", &true);
         context.insert("path", "");
