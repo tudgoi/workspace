@@ -26,6 +26,15 @@
     <a href="{{ url}}">{{ url }}</a>
 {% endmacro render_url %}
 
+{% macro render_officer(officer) %}
+    <a href="{{ macros::link_id(type='person', id=officer.person.id) }}">
+        {{ officer.person.name }}
+    </a>, 
+    <a href="{{ macros::link_id(type='office', id=officer.office.id) }}">
+        {{ officer.office.name }}
+    </a>
+{% endmacro render_officer %}
+
 {% macro photo(url, alt) %}
     <style>
         div.photo-bg {
@@ -55,8 +64,12 @@
     {% endif %}
 {% endmacro link_page %}
 
-{% macro link_term(term) %}
+{% macro link_office(id, name) %}
     {% set page_path = term ~ '.md' %}
     {% set page = get_page(path = page_path) %}
     {{ macros::link_page(page=page) }}
 {% endmacro link_term %}
+
+{% macro link_id(type, id) %}
+    {{ "../" ~ type ~ "/" ~ id ~ ".html"}}
+{% endmacro link_id %}

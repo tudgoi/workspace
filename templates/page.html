@@ -91,10 +91,10 @@
     {% else %}
       {% set photo_url = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg" %}
     {% endif %}
-    {{ macros::photo(url=photo_url, alt=name) }}
+    {{ macros::photo(url=photo_url, alt=person.name) }}
   </div>
   <div class="title">
-    <h2>{{ name }}</h2>
+    <h2>{{ person.name }}</h2>
       {{ office.name }}
     <hr>
   </div>
@@ -131,17 +131,13 @@
   </div>
   <div class="links">
     <dl>
-      {% if page %}
-      {% for name, terms in page.taxonomies %}
-        {% if config.link.labels is containing(name) %}
-          {% set label = config.link.labels[name] %}
+      {% if supervisors %}
+      {% for key, value in supervisors %}
+        {% if config.labels is containing(key) %}
+          {% set label = config.labels[key] %}
           <div class="dl-single-line">
               <dt>{{ label }} </dt>
-              <dd>
-                {% for term in terms %}
-                  {{ macros::link_term(term=term) }}<br>
-                {% endfor %}
-              </dd>
+              <dd>{{ macros::render_officer(officer=value) }}</dd>
           </div>
         {% endif %}
       {% endfor %}
@@ -149,7 +145,7 @@
     </dl>
   </div>
   <div class="backlinks">
-    {% set this = path | trim_end_matches(pat="/") | trim_start_matches(pat="/") %}
+    {% set this = page.path | trim_end_matches(pat="/") | trim_start_matches(pat="/") %}
     <hr>
     <dl class="backlink-list">
       {% if config.backlinks %}

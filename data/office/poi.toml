@@ -1,7 +1,7 @@
 name = "President of India"
 
 [supervisor]
-adviser = "union-council-of-ministers"
+adviser = "ucom"
 
 [contacts]
 website = "https://presidentofindia.gov.in/"

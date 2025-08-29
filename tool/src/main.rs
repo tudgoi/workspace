@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 use clap::{Parser, Subcommand};
-use anyhow::{ensure, Context, Result};
-use rusqlite::Connection;
+use anyhow::{Context, Result};
 use serde::{de::DeserializeOwned};
-use serde_with::skip_serializing_none;
-use std::fs;
-use serde_derive::{Serialize, Deserialize};
-use tera::{Tera};
-use tera;
+use std::{fs};
+
+mod data;
+mod context;
+mod dto;
+mod render;
+mod index;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -30,103 +31,14 @@ enum Commands {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct PersonDto {
-    id: String,
-    data: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct OfficeDto {
-    id: String,
-    data: String
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Config {
-    title: String,
-    base_url: String,
-    icons: Icons,
-    labels: Labels,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Icons {
-    phone: String,
-    email: String,
-    website: String,
-    wikipedia: String,
-    x: String,
-    facebook: String,
-    instagram: String,
-    youtube: String,
-    address: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Labels {
-    adviser: String,
-    during_the_pleasure_of: String,
-    head: String,
-    member_of: String,
-    responsible_to: String,
-    elected_by: String
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Person {
-    name: String,
-    photo: Option<Photo>,
-    contacts: Option<Contacts>,
-    tenures: Option<Vec<Tenure>>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Photo {
-    url: String,
-    attribution: String
-}
-
-#[skip_serializing_none]
-#[derive(Serialize, Deserialize, Debug)]
-struct Contacts {
-    phone: Option<String>,
-    email: Option<String>,
-    website: Option<String>,
-    wikipedia: Option<String>,
-    x: Option<String>,
-    facebook: Option<String>,
-    instagram: Option<String>,
-    youtube: Option<String>,
-    address: Option<String>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Tenure {
-    office: String,
-    start: String,
-    end: Option<String>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Office {
-    name: String,
-    supervisor: Option<Supervisor>,
-    contacts: Option<Contacts>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Supervisor {
-    adviser: Option<String>,
-}
 
 fn main() -> Result<()> {
     let args = Cli::parse();
     
     match args.command {
-        Commands::Index { source, output} => run_index(source, output)
+        Commands::Index { source, output} => index::run(source, output)
             .with_context(|| format!("error running `index` command"))?,
-        Commands::Render { db, templates, output } => run_render(db, templates, output)
+        Commands::Render { db, templates, output } => render::run(db, templates, output)
             .with_context(|| format!("error running `render` command"))?
     }
 
@@ -140,187 +52,4 @@ fn from_toml_file<T>(path: PathBuf) -> Result<T> where T: DeserializeOwned {
         .with_context(|| format!("failed to parse toml file {:?}", path))?;
 
     Ok(value)
-}
-
-fn run_index(source: PathBuf, output: PathBuf) -> Result<()> {
-    ensure!(!output.exists(), "output DB already exists at {:?}", output);
-    
-    // setup sqlite DB
-    let conn = Connection::open(output.as_path())
-        .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
-
-    conn.execute(
-        "CREATE TABLE person (
-            id    TEXT PRIMARY KEY,
-            data  TEXT NOT NULL
-        )",
-        (),
-    ).with_context(|| format!("could not create `person` table"))?;
-
-    conn.execute(
-        "CREATE TABLE office (
-            id    TEXT PRIMARY KEY,
-            data  TEXT NOT NULL
-        )",
-        (),
-    ).with_context(|| format!("could not create `office` table"))?;
-    
-    conn.execute(
-        "CREATE TABLE tenure (
-            id TEXT NOT NULL,
-            office TEXT NOT NULL,
-            start TEXT NOT NULL,
-            end TEXT
-        )",
-        ()
-    ).with_context(|| format!("could not create `tenure` table"))?;
-    
-    // process person
-    let data_dir = source.join("person");
-    let paths = data_dir.read_dir()
-        .with_context(|| format!("could not open person directory {:?}",
-            data_dir
-        ))?;
-
-    for path in paths {
-        let file_entry = path.with_context(|| format!("could not read person data directory {:?}", data_dir))?;
-        let file_path = file_entry.path();
-        let file_stem = file_path.file_stem()
-            .with_context(|| format!("invalid file name {:?} in person directory", file_path))?;
-        let id = file_stem.to_str()
-            .context(format!("could not convert filename {:?} to string", file_stem))?;
-
-        let value: Person = from_toml_file(file_entry.path())
-            .with_context(|| format!("could not load person"))?;
-        let json = serde_json::to_string(&value)
-            .with_context(|| format!("could not convert person to JSON"))?;
-        conn.execute(
-            "INSERT INTO person (id, data) VALUES (?1, ?2)",
-        (id, json),
-        ).with_context(|| format!("could not insert person into DB"))?;
-        
-        if let Some(tenures) = value.tenures {
-            for tenure in tenures {
-                conn.execute(
-                    "INSERT INTO tenure (id, office, start, end) VALUES (?1, ?2, ?3, ?4)",
-                    (id, tenure.office, tenure.start, tenure.end)
-                ).with_context(|| format!("could not insert tenure into DB for {}", id))?;
-            }
-        }
-    }
-    
-    // process office
-    let data_dir = source.join("office");
-    let paths = data_dir.read_dir()
-        .with_context(|| format!("could not open office directory {:?}",
-            data_dir
-        ))?;
-
-    for path in paths {
-        let file_entry = path
-            .with_context(|| format!("could not read office data directory {:?}", data_dir))?;
-        let file_path = file_entry.path();
-        let file_stem = file_path.file_stem()
-            .with_context(|| format!("invalid file name {:?} in office directory", file_path))?;
-        let id = file_stem.to_str()
-            .context(format!("could not convert filename {:?} to string", file_stem))?;
-        
-        let value: Office = from_toml_file(file_entry.path())
-            .with_context(|| format!("failed to parse template"))?;
-        let json = serde_json::to_string(&value)
-            .with_context(|| format!("could not convert office to JSON"))?;
-        conn.execute(
-            "INSERT INTO office (id, data) VALUES (?1, ?2)",
-        (id, json),
-        )?;
-    }
-    
-    Ok(())
-}
-
-fn query_office_for_person(conn: &Connection, person_id: &str) -> Result<Option<serde_json::Value>> {
-    let mut stmt = conn.prepare("
-        SELECT o.id, o.data
-        FROM tenure AS t INNER JOIN office AS o
-        ON t.office = o.id
-        WHERE t.id = ?1 AND t.start IS NOT NULL AND t.end IS NULL
-        LIMIT 1
-    ").with_context(|| format!("could not prepare statement for qurying posts held"))?;
-    let mut iter = stmt.query_map([person_id], |row| {
-        Ok(OfficeDto {
-            id: row.get(0)?,
-            data: row.get(1)?
-        })
-    }).with_context(|| format!("could not query posts held"))?;
-    if let Some(result) = iter.next() {
-        let dto = result.with_context(|| format!("could not read tenure from DB"))?;
-        let value: serde_json::Value = serde_json::from_str(&dto.data)
-            .with_context(|| format!("could not deserialize office data from DB"))?;
-        Ok(Some(value))
-    } else {
-        Ok(None)
-    }
-}
-
-fn run_render(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
-    // read config
-    let config: Config = from_toml_file(templates.join("config.toml"))
-        .with_context(|| format!("could not parse config"))?;
-    
-    // open template
-    let templates_glob = templates
-        .join("**")
-        .join("*.html");
-    let templates_glob_str = templates_glob
-        .to_str()
-        .context(format!("could not convert template path {:?}", templates))?;
-    let tera = Tera::new(templates_glob_str)
-        .with_context(|| format!("could not create Tera instance"))?;
-    
-    // setup output
-    fs::create_dir(output.as_path())
-        .with_context(|| format!{"could not create output dir {:?}", output})?;
-
-    // open DB
-    let conn = Connection::open(db.as_path())
-        .with_context(|| format!("could not open DB at {:?}", db))?;
-    
-    // person
-    let person_path = output.join("person");
-    fs::create_dir(person_path.as_path())
-        .with_context(|| format!("could not create person dir {:?}", person_path))?;
-
-    let mut stmt = conn.prepare("SELECT id, data FROM person")
-        .with_context(|| format!("could not create statement for reading person table"))?;
-    let iter = stmt.query_map([], |row| {
-        let id: String = row.get(0)?;
-        let data: String = row.get(1)?;
-        
-        Ok(PersonDto {
-            id: id,
-            data: data
-        })
-    }).with_context(|| format!("querying person table failed"))?;
-
-    for result in iter {
-        let dto = result.with_context(|| format!("could not read person from DB"))?;
-        let office = query_office_for_person(&conn, &dto.id)?;
-        let value: serde_json::Value = serde_json::from_str(&dto.data)
-            .with_context(|| format!("could not deserialize person from DB"))?;
-        let mut context = tera::Context::from_value(value)
-            .with_context(|| format!("could not create convert person to context"))?;
-        context.insert("id", &dto.id);
-        context.insert("office", &office);
-        context.insert("config", &config);
-        context.insert("incomplete", &true);
-        context.insert("path", "");
-        let output_path = person_path.join(format!("{}.html", dto.id));
-        let str = tera.render("page.html", &context)
-            .with_context(|| format!("could not render template"))?;
-    
-        fs::write(output_path.as_path(), str)
-            .with_context(|| format!("could not write rendered file {:?}", output_path))?;
-    }
-    
-    Ok(())
 }
