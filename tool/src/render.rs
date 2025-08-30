@@ -249,7 +249,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
 
         // office, official_contacts, supervisors, subordinates
         let (office, official_contacts, supervisors, subordinates) = if let Some(dto) = dto.office {
-            let supervisors = if let Some(supervisors) = dto.data.supervisor {
+            let supervisors = if let Some(supervisors) = dto.data.supervisors {
                 let adviser = if let Some(id) = supervisors.adviser {
                     let dto = query_incumbent(&conn, &id)
                         .with_context(|| format!("could not query office {}", id))?;

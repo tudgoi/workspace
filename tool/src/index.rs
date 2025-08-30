@@ -137,7 +137,7 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
             .with_context(|| format!("could not convert office to JSON"))?;
         conn.execute("INSERT INTO office (id, data) VALUES (?1, ?2)", (id, json))?;
 
-        if let Some(supervisors) = value.supervisor {
+        if let Some(supervisors) = value.supervisors {
             if let Some(adviser) = supervisors.adviser {
                 insert_supervisor(&conn, id, "adviser", &adviser)?;
             }

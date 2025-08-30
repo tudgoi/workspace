@@ -1,6 +1,6 @@
 name = "President of India"
 
-[supervisor]
+[supervisors]
 adviser = "ucom"
 
 [contacts]

@@ -39,11 +39,11 @@ pub struct Tenure {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Office {
     pub name: String,
-    pub supervisor: Option<Supervisor>,
+    pub supervisors: Option<Supervisors>,
     pub contacts: Option<Contacts>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Supervisor {
+pub struct Supervisors {
     pub adviser: Option<String>,
 }
