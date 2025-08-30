@@ -97,7 +97,7 @@ pub struct Subordinates {
 #[derive(Serialize, Debug)]
 pub struct Officer {
     pub office: Office,
-    pub person: Option<Person>,
+    pub person: Person,
 }
 
 #[derive(Serialize, Debug)]

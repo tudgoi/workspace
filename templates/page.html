@@ -153,6 +153,7 @@
     <hr>
     <dl class="backlink-list">
       {% for key, value in subordinates %}
+        {% if value %}
         {% set label = config.labels[key] %}
           <dt>{{ label }}</dt>
           <dd>
@@ -162,6 +163,7 @@
               {% endfor %}
             </ul>
           </dd>
+        {% endif %}
       {% endfor %}
     </dl>
   </div>

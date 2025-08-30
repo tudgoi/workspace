@@ -19,7 +19,7 @@ pub struct PersonOffice {
 }
 
 #[derive(Debug)]
-pub struct OfficePerson {
+pub struct Officer {
     pub office: Office,
-    pub person: Option<Person>,
+    pub person: Person,
 }
