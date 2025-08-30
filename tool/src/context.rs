@@ -36,6 +36,8 @@ pub struct PersonContext {
     pub person: Person,
     pub photo: Option<Photo>,
     pub office: Option<Office>,
+    pub contacts: Option<Contacts>,
+    pub official_contacts: Option<Contacts>,
     pub supervisors: Option<Supervisors>,
 
     pub config: Config,
@@ -53,6 +55,19 @@ pub struct Person {
 pub struct Photo {
     pub url: String,
     pub attribution: String
+}
+
+#[derive(Serialize, Debug)]
+pub struct Contacts {
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub website: Option<String>,
+    pub wikipedia: Option<String>,
+    pub x: Option<String>,
+    pub facebook: Option<String>,
+    pub instagram: Option<String>,
+    pub youtube: Option<String>,
+    pub address: Option<String>
 }
 
 #[derive(Serialize, Debug)]

@@ -109,21 +109,25 @@
     {% if contacts %}
     <dl class="contact-list">
       {% for key, value in contacts %}
+        {% if value %}
         <div class="dl-single-line">
           <dt><i class="{{ config.icons[key] }}"></i></dt>
           <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
         </div>
+        {% endif %}
       {% endfor %}
     </dl>
     <hr/>
     {% endif %}
-    {% if office.contacts %}
+    {% if official_contacts %}
     <dl class="contact-list">
-      {% for key, value in office.contacts %}
+      {% for key, value in official_contacts %}
+        {% if value %}
         <div class="dl-single-line">
           <dt><i class="{{ config.icons[key] }}"></i></dt>
           <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
         </div>
+        {% endif %}
       {% endfor %}
     </dl>
     <hr/>

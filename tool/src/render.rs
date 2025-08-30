@@ -156,9 +156,36 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
             name: dto.person.data.name
         };
         
+        // photo
+        let photo = if let Some(photo) = dto.person.data.photo {
+            Some(context::Photo {
+                url: photo.url,
+                attribution: photo.attribution
+            })
+        } else {
+            None
+        };
+        
+        // contacts
+        let contacts = if let Some(contacts) = dto.person.data.contacts {
+            Some(context::Contacts {
+                phone: contacts.phone,
+                email: contacts.email,
+                website: contacts.website,
+                wikipedia: contacts.wikipedia,
+                x: contacts.x,
+                facebook: contacts.facebook,
+                instagram: contacts.instagram,
+                youtube: contacts.youtube,
+                address: contacts.address,
+            })
+        } else {
+            None
+        };
+        
         // office and supervisors
-        let (office, supervisors) = if let Some(office) = dto.office {
-            let supervisors = if let Some(supervisors) = office.data.supervisor {
+        let (office, official_contacts, supervisors) = if let Some(dto) = dto.office {
+            let supervisors = if let Some(supervisors) = dto.data.supervisor {
                 let adviser = if let Some(id) = supervisors.adviser {
                     let dto = query_incumbent(&conn, &id)
                         .with_context(|| format!("could not query office {}", id))?;
@@ -190,23 +217,29 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
             };
 
             let office = Some(context::Office {
-                id: office.id,
-                name: office.data.name
+                id: dto.id,
+                name: dto.data.name
             });
             
-            (office, supervisors)
+            let official_contacts = if let Some(contacts) = dto.data.contacts {
+                Some(context::Contacts {
+                    phone: contacts.phone,
+                    email: contacts.email,
+                    website: contacts.website,
+                    wikipedia: contacts.wikipedia,
+                    x: contacts.x,
+                    facebook: contacts.facebook,
+                    instagram: contacts.instagram,
+                    youtube: contacts.youtube,
+                    address: contacts.address,
+                })
+            } else {
+                None
+            };
+            
+            (office, official_contacts, supervisors)
         } else {
-            (None, None)
-        };
-        
-        // photo
-        let photo = if let Some(photo) = dto.person.data.photo {
-            Some(context::Photo {
-                url: photo.url,
-                attribution: photo.attribution
-            })
-        } else {
-            None
+            (None, None, None)
         };
         
         // page
@@ -225,7 +258,9 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         let  context = tera::Context::from_serialize(context::PersonContext {
             person,
             photo,
+            contacts,
             office,
+            official_contacts,
             supervisors,
             config: config.clone(),
             page,
