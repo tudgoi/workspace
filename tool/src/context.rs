@@ -28,7 +28,14 @@ pub struct Labels {
     pub head: String,
     pub member_of: String,
     pub responsible_to: String,
-    pub elected_by: String
+    pub elected_by: String,
+    
+    pub advises: String,
+    pub during_their_pleasure: String,
+    pub heads: String,
+    pub members: String,
+    pub under_their_responsibility: String,
+    pub elected_by_them: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -39,6 +46,7 @@ pub struct PersonContext {
     pub contacts: Option<Contacts>,
     pub official_contacts: Option<Contacts>,
     pub supervisors: Option<Supervisors>,
+    pub subordinates: Option<Subordinates>,
 
     pub config: Config,
     pub page: Page,
@@ -79,6 +87,11 @@ pub struct Office {
 #[derive(Serialize, Debug)]
 pub struct Supervisors {
     pub adviser: Option<Officer>
+}
+
+#[derive(Serialize, Debug)]
+pub struct Subordinates {
+    pub advises: Vec<Officer>
 }
 
 #[derive(Serialize, Debug)]

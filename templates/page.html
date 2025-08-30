@@ -149,26 +149,23 @@
     </dl>
   </div>
   <div class="backlinks">
-    {% set this = page.path | trim_end_matches(pat="/") | trim_start_matches(pat="/") %}
+    {% if subordinates %}
     <hr>
     <dl class="backlink-list">
-      {% if config.backlinks %}
-      {% for name, label in config.backlink.labels %}
-        {% set term = get_taxonomy_term(kind=name, term=this, required=false) %}
-        {% if term %}
-          <dt>{{ config.backlink.labels[name] }}</dt>
+      {% for key, value in subordinates %}
+        {% set label = config.labels[key] %}
+          <dt>{{ label }}</dt>
           <dd>
             <ul>
-              {% for item in term.pages %}
-                <li>{{ macros::link_page(page=item) }}</li>
+              {% for item in value %}
+                <li>{{ macros::render_officer(officer=item) }}</li>
               {% endfor %}
             </ul>
           </dd>
-        {% endif %}
       {% endfor %}
-      {% endif %}
     </dl>
   </div>
+  {% endif %}
   <div class="sources">
     {% if page.extra.sources %}
     <hr>

@@ -184,7 +184,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         };
         
         // office and supervisors
-        let (office, official_contacts, supervisors) = if let Some(dto) = dto.office {
+        let (office, official_contacts, supervisors, subordinates) = if let Some(dto) = dto.office {
             let supervisors = if let Some(supervisors) = dto.data.supervisor {
                 let adviser = if let Some(id) = supervisors.adviser {
                     let dto = query_incumbent(&conn, &id)
@@ -215,6 +215,18 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
             } else {
                 None
             };
+            
+            let subordinates = Some(context::Subordinates {
+                advises: vec![
+                    context::Officer {
+                        office: context::Office { id: "ucom".to_string(), name: "Union Council of Ministers".to_string() },
+                        person: Some(context::Person {
+                            id: "ucom-modi3".to_string(),
+                            name: "Third Modi ministry".to_string()
+                        })
+                    }
+                ],
+            });
 
             let office = Some(context::Office {
                 id: dto.id,
@@ -237,9 +249,9 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
                 None
             };
             
-            (office, official_contacts, supervisors)
+            (office, official_contacts, supervisors, subordinates)
         } else {
-            (None, None, None)
+            (None, None, None, None)
         };
         
         // page
@@ -262,6 +274,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
             office,
             official_contacts,
             supervisors,
+            subordinates,
             config: config.clone(),
             page,
             metadata,
@@ -274,7 +287,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
     
         fs::write(output_path.as_path(), str)
             .with_context(|| format!("could not write rendered file {:?}", output_path))?;
-
+        
         Ok(())
     })?;
     
