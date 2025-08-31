@@ -32,21 +32,23 @@
     </a>, {{ officer.office.name }}
 {% endmacro render_officer %}
 
-{% macro photo(url, alt) %}
+{% macro render_photo(photo, alt) %}
+    {% if photo %}
+      {% set url = photo.url %}
+      {% set attribution = photo.attribution %}
+    {% else %}
+      {% set url = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg" %}
+    {% endif %}
     <style>
-        div.photo-bg {
-            background-color: aliceblue;
-            padding: 0.75em;
-            display: inline-block
-        }
-        div.photo-bg img {
-            width: 12em;
-            margin: 0em;
-        }
     </style>
-    <div class="photo-bg">
+    <figure class="photo-bg">
         <img src="{{ url }}" alt="{{ alt }}" />
-    </div>
+        {% if attribution %}
+            <figcaption title="{{ attribution }}">
+                Image by {{ attribution }}
+            </figcaption>
+        {% endif %}
+    </figure>
 {% endmacro photo %}
 
 {% macro link_page(page) %}
