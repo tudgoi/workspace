@@ -15,7 +15,8 @@ pub struct Office {
 #[derive(Debug)]
 pub struct PersonOffice {
     pub person: Person,
-    pub office: Option<Office>
+    pub office: Option<Office>,
+    pub updated: String,
 }
 
 #[derive(Debug)]

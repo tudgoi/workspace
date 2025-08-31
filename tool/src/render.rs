@@ -19,7 +19,7 @@ where
     let mut stmt = conn
         .prepare(
             "
-        SELECT p.id, p.data, o.id, o.data
+        SELECT p.id, p.data, p.updated, o.id, o.data
         FROM person AS p
         LEFT JOIN incumbent AS i ON i.person_id=p.id
         INNER JOIN office AS o ON o.id=i.office_id
@@ -30,8 +30,9 @@ where
         .query_map([], |row| {
             let person_id: String = row.get(0)?;
             let person_data: String = row.get(1)?;
-            let office_id: String = row.get(2)?;
-            let office_data: String = row.get(3)?;
+            let updated: String = row.get(2)?;
+            let office_id: String = row.get(3)?;
+            let office_data: String = row.get(4)?;
 
             let person: data::Person = serde_json::from_str(&person_data).map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(
@@ -56,6 +57,7 @@ where
                     id: office_id,
                     data: office,
                 }),
+                updated,
             })
         })
         .with_context(|| format!("querying person table failed"))?;
@@ -318,7 +320,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         // page
         let page = context::Page {
             path: "".to_string(),
-            updated: "2025-08-29".to_string(),
+            updated: dto.updated,
         };
 
         // metadata
