@@ -150,7 +150,7 @@
     <dl>
       {% if supervisors %}
       {% for key, value in supervisors %}
-        {% if config.labels is containing(key) %}
+        {% if value and config.labels is containing(key) %}
           {% set label = config.labels[key] %}
           <div class="dl-single-line">
               <dt>{{ label }} </dt>

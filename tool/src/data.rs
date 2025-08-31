@@ -46,4 +46,5 @@ pub struct Office {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Supervisors {
     pub adviser: Option<String>,
+    pub during_the_pleasure_of: Option<String>,
 }

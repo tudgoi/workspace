@@ -1,5 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
+use crate::dto;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
     pub title: String,
@@ -86,18 +88,35 @@ pub struct Office {
 
 #[derive(Serialize, Debug)]
 pub struct Supervisors {
-    pub adviser: Option<Officer>
+    pub adviser: Option<Officer>,
+    pub during_the_pleasure_of: Option<Officer>,
 }
 
 #[derive(Serialize, Debug)]
 pub struct Subordinates {
-    pub advises: Vec<Officer>
+    pub advises: Vec<Officer>,
+    pub during_their_pleasure: Vec<Officer>,
 }
 
 #[derive(Serialize, Debug)]
 pub struct Officer {
     pub office: Office,
     pub person: Person,
+}
+
+impl From<dto::Officer> for Officer {
+    fn from(value: dto::Officer) -> Self {
+        Officer {
+            office: Office {
+                id: value.office.id,
+                name: value.office.data.name,
+            },
+            person: Person {
+                id: value.person.id,
+                name: value.person.data.name,
+            },
+        }
+    }
 }
 
 #[derive(Serialize, Debug)]

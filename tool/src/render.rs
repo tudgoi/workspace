@@ -213,6 +213,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
     query_for_all_persons(&conn, |result| {
         let dto = result.with_context(|| format!("could not read person from DB"))?;
 
+
         // setup
         let output_path = person_path.join(format!("{}.html", dto.person.id));
 
@@ -256,21 +257,20 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
                     let dto = query_incumbent(&conn, &id)
                         .with_context(|| format!("could not query office {}", id))?;
 
-                    Some(context::Officer {
-                        office: context::Office {
-                            id: dto.office.id,
-                            name: dto.office.data.name,
-                        },
-                        person: context::Person {
-                            id: dto.person.id,
-                            name: dto.person.data.name,
-                        },
-                    })
+                    Some(dto.into())
                 } else {
                     None
                 };
 
-                Some(context::Supervisors { adviser })
+                let during_the_pleasure_of = if let Some(id) = supervisors.during_the_pleasure_of {
+                    let dto = query_incumbent(&conn, &id)
+                        .with_context(|| format!("could not query office {}", id))?;
+
+                    Some(dto.into())
+                } else {
+                    None
+                };
+                Some(context::Supervisors { adviser, during_the_pleasure_of })
             } else {
                 None
             };
@@ -278,18 +278,13 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
             // subordinates
             let mut advises = Vec::new();
             for dto in query_subordinates(&conn, &dto.id, "adviser")? {
-                advises.push(context::Officer {
-                    office: context::Office {
-                        id: dto.office.id,
-                        name: dto.office.data.name,
-                    },
-                    person: context::Person {
-                        id: dto.person.id,
-                        name: dto.person.data.name,
-                    },
-                });
+                advises.push(dto.into());
             }
-            let subordinates = Some(context::Subordinates { advises });
+            let mut during_their_pleasure = Vec::new();
+            for dto in query_subordinates(&conn, &dto.id, "during_the_pleasure_of")? {
+                during_their_pleasure.push(dto.into());
+            }
+            let subordinates = Some(context::Subordinates { advises, during_their_pleasure });
 
             let office = Some(context::Office {
                 id: dto.id,
@@ -328,7 +323,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
             incomplete: true,
             updated: "2025-08-29".to_string(),
         };
-
+        
         // construct context
         let context = tera::Context::from_serialize(context::PersonContext {
             person,

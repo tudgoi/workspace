@@ -172,6 +172,9 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
             if let Some(adviser) = supervisors.adviser {
                 insert_supervisor(&conn, id, "adviser", &adviser)?;
             }
+            if let Some(during_the_pleasure_of) = supervisors.during_the_pleasure_of {
+                insert_supervisor(&conn, id, "during_the_pleasure_of", &during_the_pleasure_of)?;
+            }
         }
     }
 

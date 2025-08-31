@@ -1,0 +1,8 @@
+name = "Governor of Punjab"
+
+[supervisors]
+during_the_pleasure_of = "poi"
+
+[contacts]
+website = "https://punjabrajbhavan.gov.in/home/governor"
+wikipedia = "List_of_governors_of_Punjab,_India"
