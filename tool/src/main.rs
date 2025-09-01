@@ -38,7 +38,7 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Index { source, output} => index::run(source, output)
             .with_context(|| format!("error running `index` command"))?,
-        Commands::Render { db, templates, output } => render::run(db, templates, output)
+        Commands::Render { db, templates, output } => render::run(db, templates, output, true)
             .with_context(|| format!("error running `render` command"))?
     }
 

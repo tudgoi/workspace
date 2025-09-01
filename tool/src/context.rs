@@ -90,12 +90,14 @@ pub struct Office {
 pub struct Supervisors {
     pub adviser: Option<Officer>,
     pub during_the_pleasure_of: Option<Officer>,
+    pub head: Option<Officer>,
 }
 
 #[derive(Serialize, Debug)]
 pub struct Subordinates {
     pub advises: Vec<Officer>,
     pub during_their_pleasure: Vec<Officer>,
+    pub heads: Vec<Officer>,
 }
 
 #[derive(Serialize, Debug)]

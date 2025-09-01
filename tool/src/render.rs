@@ -184,7 +184,7 @@ fn query_subordinates(
     Ok(dtos)
 }
 
-pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
+pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, debug: bool) -> Result<()> {
     // read config
     let config: context::Config = from_toml_file(templates.join("config.toml"))
         .with_context(|| format!("could not parse config"))?;
@@ -253,38 +253,36 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         // office, official_contacts, supervisors, subordinates
         let (office, official_contacts, supervisors, subordinates) = if let Some(dto) = dto.office {
             let supervisors = if let Some(supervisors) = dto.data.supervisors {
-                let adviser = if let Some(id) = supervisors.adviser {
+                let get_optional_supervisor = |id: Option<String>| -> Result<Option<context::Officer>> {
+                    if let Some(id) = id {
                     let dto = query_incumbent(&conn, &id)
                         .with_context(|| format!("could not query office {}", id))?;
 
-                    Some(dto.into())
-                } else {
-                    None
+                    Ok(Some(dto.into()))
+                    } else {
+                        Ok(None)
+                    }
                 };
-
-                let during_the_pleasure_of = if let Some(id) = supervisors.during_the_pleasure_of {
-                    let dto = query_incumbent(&conn, &id)
-                        .with_context(|| format!("could not query office {}", id))?;
-
-                    Some(dto.into())
-                } else {
-                    None
-                };
-                Some(context::Supervisors { adviser, during_the_pleasure_of })
+                let adviser = get_optional_supervisor(supervisors.adviser)?;
+                let during_the_pleasure_of= get_optional_supervisor(supervisors.during_the_pleasure_of)?;
+                let head = get_optional_supervisor(supervisors.head)?;
+                Some(context::Supervisors { adviser, during_the_pleasure_of, head })
             } else {
                 None
             };
 
             // subordinates
-            let mut advises = Vec::new();
-            for dto in query_subordinates(&conn, &dto.id, "adviser")? {
-                advises.push(dto.into());
-            }
-            let mut during_their_pleasure = Vec::new();
-            for dto in query_subordinates(&conn, &dto.id, "during_the_pleasure_of")? {
-                during_their_pleasure.push(dto.into());
-            }
-            let subordinates = Some(context::Subordinates { advises, during_their_pleasure });
+            let get_option_subordinates = |id: &str, relation: &str| -> Result<Vec<context::Officer>> {
+                let mut subordinates = Vec::new();
+                for dto in query_subordinates(&conn, id, relation)? {
+                    subordinates.push(dto.into());
+                }
+                Ok(subordinates)
+            };
+            let advises = get_option_subordinates(&dto.id, "adviser")?;
+            let during_their_pleasure = get_option_subordinates(&dto.id, "during_the_pleasure_of")?;
+            let heads = get_option_subordinates(&dto.id, "head")?;
+            let subordinates = Some(context::Subordinates { advises, during_their_pleasure, heads });
 
             let office = Some(context::Office {
                 id: dto.id,
@@ -325,7 +323,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
         };
         
         // construct context
-        let context = tera::Context::from_serialize(context::PersonContext {
+        let person_context = context::PersonContext {
             person,
             photo,
             contacts,
@@ -336,8 +334,16 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf) -> Result<()> {
             config: config.clone(),
             page,
             metadata,
-        })
-        .with_context(|| format!("could not create convert person to context"))?;
+        };
+        if debug {
+            let output_path = person_path.join(format!("{}.json", person_context.person.id));
+            let context_json = serde_json::to_string(&person_context)?;
+            fs::write(output_path.as_path(), context_json)
+                .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+        }
+        
+        let context = tera::Context::from_serialize(person_context)
+            .with_context(|| format!("could not create convert person to context"))?;
 
         // write output
         let str = tera

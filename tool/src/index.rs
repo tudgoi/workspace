@@ -1,6 +1,7 @@
 use anyhow::bail;
 use anyhow::{Context, Result, ensure};
 use rusqlite::Connection;
+use struct_iterable::Iterable;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -169,11 +170,12 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
         conn.execute("INSERT INTO office (id, data) VALUES (?1, ?2)", (id, json))?;
 
         if let Some(supervisors) = value.supervisors {
-            if let Some(adviser) = supervisors.adviser {
-                insert_supervisor(&conn, id, "adviser", &adviser)?;
-            }
-            if let Some(during_the_pleasure_of) = supervisors.during_the_pleasure_of {
-                insert_supervisor(&conn, id, "during_the_pleasure_of", &during_the_pleasure_of)?;
+            for (name, value) in supervisors.iter() {
+                let option = value.downcast_ref::<Option<String>>()
+                    .context(format!("could not process supervisor relation {:?}", name))?;
+                if let Some(supervisor_office_id) = option {
+                    insert_supervisor(&conn, id, name, &supervisor_office_id)?;
+                }
             }
         }
     }

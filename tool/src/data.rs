@@ -1,5 +1,6 @@
 use serde_derive::{Serialize, Deserialize};
 use serde_with::skip_serializing_none;
+use struct_iterable::Iterable;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Person {
@@ -43,8 +44,9 @@ pub struct Office {
     pub contacts: Option<Contacts>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Iterable, Serialize, Deserialize, Debug)]
 pub struct Supervisors {
     pub adviser: Option<String>,
     pub during_the_pleasure_of: Option<String>,
+    pub head: Option<String>,
 }
