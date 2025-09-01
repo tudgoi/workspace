@@ -49,4 +49,5 @@ pub struct Supervisors {
     pub adviser: Option<String>,
     pub during_the_pleasure_of: Option<String>,
     pub head: Option<String>,
+    pub responsible_to: Option<String>,
 }

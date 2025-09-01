@@ -150,8 +150,8 @@
     <dl>
       {% if supervisors %}
       {% for key, value in supervisors %}
-        {% if value and config.labels is containing(key) %}
-          {% set label = config.labels[key] %}
+        {% if value %}
+          {% set label = config.labels.supervisors[key] %}
           <div class="dl-single-line">
               <dt>{{ label }} </dt>
               <dd>{{ macros::render_officer(officer=value) }}</dd>
@@ -167,7 +167,7 @@
     <dl class="backlink-list">
       {% for key, value in subordinates %}
         {% if value %}
-        {% set label = config.labels[key] %}
+        {% set label = config.labels.subordinates[key] %}
           <dt>{{ label }}</dt>
           <dd>
             <ul>

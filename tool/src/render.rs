@@ -266,7 +266,8 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, debug: bool) -> Res
                 let adviser = get_optional_supervisor(supervisors.adviser)?;
                 let during_the_pleasure_of= get_optional_supervisor(supervisors.during_the_pleasure_of)?;
                 let head = get_optional_supervisor(supervisors.head)?;
-                Some(context::Supervisors { adviser, during_the_pleasure_of, head })
+                let responsible_to = get_optional_supervisor(supervisors.responsible_to)?;
+                Some(context::Supervisors { adviser, during_the_pleasure_of, head, responsible_to })
             } else {
                 None
             };
@@ -279,10 +280,11 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, debug: bool) -> Res
                 }
                 Ok(subordinates)
             };
-            let advises = get_option_subordinates(&dto.id, "adviser")?;
-            let during_their_pleasure = get_option_subordinates(&dto.id, "during_the_pleasure_of")?;
-            let heads = get_option_subordinates(&dto.id, "head")?;
-            let subordinates = Some(context::Subordinates { advises, during_their_pleasure, heads });
+            let adviser = get_option_subordinates(&dto.id, "adviser")?;
+            let during_the_pleasure_of = get_option_subordinates(&dto.id, "during_the_pleasure_of")?;
+            let head = get_option_subordinates(&dto.id, "head")?;
+            let responsible_to = get_option_subordinates(&dto.id, "responsible_to")?;
+            let subordinates = Some(context::Subordinates { adviser, during_the_pleasure_of, head, responsible_to });
 
             let office = Some(context::Office {
                 id: dto.id,

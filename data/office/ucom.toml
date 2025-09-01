@@ -6,6 +6,7 @@ attribution = "Government of India, Public domain, via Wikimedia Commons"
 
 [supervisors]
 head = "pm"
+responsible_to = "ls"
 
 [contacts]
 website = "https://www.india.gov.in/my-government/whos-who/council-ministers"

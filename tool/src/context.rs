@@ -25,19 +25,18 @@ pub struct Icons {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Labels {
+    pub supervisors: SupervisorsLabels,
+    pub subordinates: SupervisorsLabels,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SupervisorsLabels {
     pub adviser: String,
     pub during_the_pleasure_of: String,
     pub head: String,
     pub member_of: String,
     pub responsible_to: String,
     pub elected_by: String,
-    
-    pub advises: String,
-    pub during_their_pleasure: String,
-    pub heads: String,
-    pub members: String,
-    pub under_their_responsibility: String,
-    pub elected_by_them: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -91,13 +90,15 @@ pub struct Supervisors {
     pub adviser: Option<Officer>,
     pub during_the_pleasure_of: Option<Officer>,
     pub head: Option<Officer>,
+    pub responsible_to: Option<Officer>,
 }
 
 #[derive(Serialize, Debug)]
 pub struct Subordinates {
-    pub advises: Vec<Officer>,
-    pub during_their_pleasure: Vec<Officer>,
-    pub heads: Vec<Officer>,
+    pub adviser: Vec<Officer>,
+    pub during_the_pleasure_of: Vec<Officer>,
+    pub head: Vec<Officer>,
+    pub responsible_to: Vec<Officer>,
 }
 
 #[derive(Serialize, Debug)]

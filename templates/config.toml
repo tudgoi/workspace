@@ -15,7 +15,7 @@ instagram = "fa-brands fa-instagram"
 youtube = "fa-brands fa-youtube"
 address = "fa-solid fa-map-location-dot"
 
-[labels]
+[labels.supervisors]
 adviser = "Adviser"
 during_the_pleasure_of = "During the pleasure of"
 head = "Head"
@@ -23,9 +23,10 @@ member_of = "Member of"
 responsible_to = "Responsible to"
 elected_by = "Elected by"
 
-advises = "Advises"
-during_their_pleasure = "During their pleasure"
-heads = "Heads"
-members = "Members"
-under_their_responsibility = "Under their responsibility"
-elected_by_them = "Elected by them"
+[labels.subordinates]
+adviser = "Advises"
+during_the_pleasure_of = "During their pleasure"
+head = "Heads"
+member_of = "Members"
+responsible_to = "Under their responsibility"
+elected_by = "Elected by them"
