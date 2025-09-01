@@ -184,7 +184,7 @@ fn query_subordinates(
     Ok(dtos)
 }
 
-pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, debug: bool) -> Result<()> {
+pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_json: bool) -> Result<()> {
     // read config
     let config: context::Config = from_toml_file(templates.join("config.toml"))
         .with_context(|| format!("could not parse config"))?;
@@ -337,7 +337,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, debug: bool) -> Res
             page,
             metadata,
         };
-        if debug {
+        if output_json {
             let output_path = person_path.join(format!("{}.json", person_context.person.id));
             let context_json = serde_json::to_string(&person_context)?;
             fs::write(output_path.as_path(), context_json)

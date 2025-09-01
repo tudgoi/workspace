@@ -28,6 +28,9 @@ enum Commands {
         db: PathBuf,
         templates: PathBuf,
         output: PathBuf,
+
+        #[arg(long)]
+        output_json: bool,
     }
 }
 
@@ -38,7 +41,12 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Index { source, output} => index::run(source, output)
             .with_context(|| format!("error running `index` command"))?,
-        Commands::Render { db, templates, output } => render::run(db, templates, output, true)
+        Commands::Render {
+            db,
+            templates,
+            output,
+            output_json
+        } => render::run(db, templates, output, output_json)
             .with_context(|| format!("error running `render` command"))?
     }
 
