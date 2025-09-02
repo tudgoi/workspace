@@ -1,0 +1,10 @@
+name = "Ajay Kumar Bhalla"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/b/b1/The_Secretary%2C_Ministry_of_Power%2C_Shri_Ajay_Kumar_Bhalla_in_New_Delhi_on_May_31%2C_2019_%28cropped%29.jpg"
+
+[contacts]
+wikipedia = "Ajay_Kumar_Bhalla"
+
+[[tenures]]
+office = "gomn"

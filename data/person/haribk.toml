@@ -1,0 +1,12 @@
+name = "Kambhampati Hari Babu"
+description = "Governor of Odisha"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/c/cd/Kambhampati_Hari_Babu.jpg"
+
+[contacts]
+website = "https://www.rajbhavanodisha.gov.in/"
+wikipedia = "Kambhampati_Hari_Babu"
+
+[[tenures]]
+office = "good"

@@ -1,0 +1,12 @@
+name = "Governor of Tripura"
+
+[photo]
+url = "https://en.wikipedia.org/wiki/Emblem_of_Tripura"
+attribution = "Wikipedia contributors (article), via Wikipedia"
+
+[supervisors]
+during_the_pleasure_of = "poi"
+
+[contacts]
+website = "https://rajbhavan.tripura.gov.in/"
+wikipedia = "List_of_governors_of_Tripura"

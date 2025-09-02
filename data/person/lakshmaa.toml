@@ -1,0 +1,10 @@
+name = "Lakshman Acharya"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/8/8a/Lakshman_Prasad_Acharya.jpg"
+
+[contacts]
+wikipedia = "Lakshman_Acharya"
+
+[[tenures]]
+office = "goas"

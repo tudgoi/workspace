@@ -1,0 +1,12 @@
+name = "Governor of Kerala"
+
+[photo]
+url = "https://en.wikipedia.org/wiki/Emblem_of_Kerala"
+attribution = "Wikipedia contributors (article), via Wikipedia"
+
+[supervisors]
+during_the_pleasure_of = "poi"
+
+[contacts]
+website = "http://www.rajbhavan.kerala.gov.in/"
+wikipedia = "List_of_governors_of_Kerala"

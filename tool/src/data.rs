@@ -14,7 +14,7 @@ pub struct Person {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Photo {
     pub url: String,
-    pub attribution: String
+    pub attribution: Option<String>,
 }
 
 #[skip_serializing_none]
@@ -34,7 +34,7 @@ pub struct Contacts {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Tenure {
     pub office: String,
-    pub start: String,
+    pub start: Option<String>,
     pub end: Option<String>
 }
 

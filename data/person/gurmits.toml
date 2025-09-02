@@ -1,0 +1,11 @@
+name = "Gurmit Singh"
+description = "Governor of Uttarakhand"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/3/33/GurmitSingh.jpg"
+
+[contacts]
+wikipedia = "Gurmit_Singh_(general)"
+
+[[tenures]]
+office = "gouk"

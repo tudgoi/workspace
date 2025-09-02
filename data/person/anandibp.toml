@@ -1,0 +1,10 @@
+name = "Anandiben Patel"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/9/96/Anandiben_Patel_Ji.jpg"
+
+[contacts]
+wikipedia = "Anandiben_Patel"
+
+[[tenures]]
+office = "goup"

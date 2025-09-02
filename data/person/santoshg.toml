@@ -1,0 +1,10 @@
+name = "Santosh Gangwar"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/7/73/Santosh_Kumar_Gangwar_%28cropped%29.jpg"
+
+[contacts]
+wikipedia = "Santosh_Gangwar"
+
+[[tenures]]
+office = "gojh"

@@ -66,7 +66,7 @@ pub struct Person {
 #[derive(Serialize, Debug)]
 pub struct Photo {
     pub url: String,
-    pub attribution: String
+    pub attribution: Option<String>
 }
 
 #[derive(Serialize, Debug)]

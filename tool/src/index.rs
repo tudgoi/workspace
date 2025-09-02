@@ -87,7 +87,7 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
         "CREATE TABLE tenure (
             person_id TEXT NOT NULL,
             office_id TEXT NOT NULL,
-            start TEXT NOT NULL,
+            start TEXT,
             end TEXT
         )",
         (),
@@ -101,7 +101,7 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
             person_id
         ) AS SELECT office_id, person_id
         FROM tenure
-        WHERE start IS NOT NULL AND end IS NULL",
+        WHERE end IS NULL",
         (),
     )
     .with_context(|| format!("could not create view `incumbent`"))?;

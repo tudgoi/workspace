@@ -1,0 +1,10 @@
+name = "C. V. Ananda Bose"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/c/cd/C._V._Ananda_Bose_%284x5%29.jpg"
+
+[contacts]
+wikipedia = "C._V._Ananda_Bose"
+
+[[tenures]]
+office = "gowb"

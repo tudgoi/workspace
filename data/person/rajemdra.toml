@@ -1,0 +1,10 @@
+name = "Rajendra Arlekar"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/3/3a/Rajendra_Arlekar.jpg"
+
+[contacts]
+wikipedia = "Rajendra_Arlekar"
+
+[[tenures]]
+office = "gokl"

@@ -1,0 +1,10 @@
+name = "Om Prakash Mathur"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/c/ca/Om_Prakash_Mathur%2C_18th_Governer_of_Sikkim.jpg"
+
+[contacts]
+wikipedia = "Om_Prakash_Mathur"
+
+[[tenures]]
+office = "gosk"

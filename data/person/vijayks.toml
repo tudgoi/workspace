@@ -1,0 +1,10 @@
+name = "V. K. Singh"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/8/8b/VK_Singh.jpg"
+
+[contacts]
+wikipedia = "V._K._Singh"
+
+[[tenures]]
+office = "gomz"

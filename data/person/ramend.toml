@@ -1,0 +1,10 @@
+name = "Ramen Deka"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/8/80/Ramen_Deka_with_President_Murmu_%28cropped%29.jpg"
+
+[contacts]
+wikipedia = "Ramen_Deka"
+
+[[tenures]]
+office = "gocg"
