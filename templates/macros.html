@@ -44,8 +44,10 @@
     {% endif %}
     <style>
     </style>
-    <figure class="photo-bg">
-        <img src="{{ url }}" alt="{{ alt }}" />
+    <figure >
+        <div class="photo-bg">
+            <img src="{{ url }}" alt="{{ alt }}" />
+        </div>
         {% if attribution %}
             <figcaption title="{{ attribution }}">
                 Image by {{ attribution }}
