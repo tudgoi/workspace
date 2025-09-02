@@ -1,0 +1,8 @@
+name = "Governor of Andhra Pradesh"
+
+[supervisors]
+during_the_pleasure_of = "poi"
+
+[contacts]
+website = "http://www.rajbhavan.ap.gov.in/"
+wikipedia = "List_of_governors_of_Andhra_Pradesh"

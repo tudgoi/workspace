@@ -1,0 +1,12 @@
+name = "Governor of Arunachal Pradesh"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/6/60/Flag_of_Arunachal_Pradesh.svg"
+attribution = "Shebejeyebeb, Public domain, via Wikimedia Commons"
+
+[supervisors]
+during_the_pleasure_of = "poi"
+
+[contacts]
+website = "http://arunachalgovernor.gov.in/"
+wikipedia = "List_of_governors_of_Arunachal_Pradesh"

@@ -1,0 +1,13 @@
+name = "Syed Abdul Nazeer"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/5/52/Justice_Syed_Abdul_Nazeer.jpg"
+attribution = "Prime Minister's Office (GODL-India), GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
+
+
+[extra.contacts]
+wikipedia = "Syed_Abdul_Nazeer"
+
+[[tenures]]
+office = "goap"
+start = "2023-02-24"
