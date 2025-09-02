@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tera;
 use tera::Tera;
 
-use crate::data;
+use crate::{data, OutputFormat};
 
 use super::from_toml_file;
 use crate::context::{self};
@@ -184,7 +184,7 @@ fn query_subordinates(
     Ok(dtos)
 }
 
-pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_json: bool) -> Result<()> {
+pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: OutputFormat) -> Result<()> {
     // read config
     let config: context::Config = from_toml_file(templates.join("config.toml"))
         .with_context(|| format!("could not parse config"))?;
@@ -348,23 +348,26 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_json: bool) 
             page,
             metadata,
         };
-        if output_json {
-            let output_path = person_path.join(format!("{}.json", person_context.person.id));
-            let context_json = serde_json::to_string(&person_context)?;
-            fs::write(output_path.as_path(), context_json)
-                .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+        match output_format {
+            OutputFormat::Json => {
+                let output_path = person_path.join(format!("{}.json", person_context.person.id));
+                let context_json = serde_json::to_string(&person_context)?;
+                fs::write(output_path.as_path(), context_json)
+                    .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+            }
+            OutputFormat::Html => {
+                let context = tera::Context::from_serialize(person_context)
+                    .with_context(|| format!("could not create convert person to context"))?;
+
+                // write output
+                let str = tera
+                    .render("page.html", &context)
+                    .with_context(|| format!("could not render template"))?;
+
+                fs::write(output_path.as_path(), str)
+                    .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+            }
         }
-        
-        let context = tera::Context::from_serialize(person_context)
-            .with_context(|| format!("could not create convert person to context"))?;
-
-        // write output
-        let str = tera
-            .render("page.html", &context)
-            .with_context(|| format!("could not render template"))?;
-
-        fs::write(output_path.as_path(), str)
-            .with_context(|| format!("could not write rendered file {:?}", output_path))?;
 
         Ok(())
     })?;

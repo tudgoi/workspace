@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use anyhow::{Context, Result};
 use serde::{de::DeserializeOwned};
 use std::{fs};
@@ -29,9 +29,15 @@ enum Commands {
         templates: PathBuf,
         output: PathBuf,
 
-        #[arg(long)]
-        output_json: bool,
+        #[arg(short='o', long, value_enum, default_value_t = OutputFormat::Html)]
+        output_format: OutputFormat,
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum OutputFormat {
+    Json,
+    Html
 }
 
 
@@ -45,8 +51,8 @@ fn main() -> Result<()> {
             db,
             templates,
             output,
-            output_json
-        } => render::run(db, templates, output, output_json)
+            output_format
+        } => render::run(db, templates, output, output_format)
             .with_context(|| format!("error running `render` command"))?
     }
 
