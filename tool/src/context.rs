@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use serde_derive::{Deserialize, Serialize};
 
-use crate::dto;
+use crate::{data, dto};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
@@ -47,8 +49,8 @@ pub struct PersonContext {
     pub office: Option<Office>,
     pub contacts: Option<Contacts>,
     pub official_contacts: Option<Contacts>,
-    pub supervisors: Option<Supervisors>,
-    pub subordinates: Option<Subordinates>,
+    pub supervisors: Option<HashMap<data::Supervisor, Officer>>,
+    pub subordinates: Option<HashMap<data::Supervisor, Vec<Officer>>>,
 
     pub config: Config,
     pub page: Page,
@@ -84,22 +86,6 @@ pub struct Contacts {
 pub struct Office {
     pub id: String,
     pub name: String   
-}
-
-#[derive(Serialize, Debug)]
-pub struct Supervisors {
-    pub adviser: Option<Officer>,
-    pub during_the_pleasure_of: Option<Officer>,
-    pub head: Option<Officer>,
-    pub responsible_to: Option<Officer>,
-}
-
-#[derive(Serialize, Debug)]
-pub struct Subordinates {
-    pub adviser: Vec<Officer>,
-    pub during_the_pleasure_of: Vec<Officer>,
-    pub head: Vec<Officer>,
-    pub responsible_to: Vec<Officer>,
 }
 
 #[derive(Serialize, Debug)]

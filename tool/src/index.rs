@@ -1,7 +1,7 @@
 use anyhow::bail;
 use anyhow::{Context, Result, ensure};
 use rusqlite::Connection;
-use struct_iterable::Iterable;
+use serde_variant::to_variant_name;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -171,11 +171,7 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
 
         if let Some(supervisors) = value.supervisors {
             for (name, value) in supervisors.iter() {
-                let option = value.downcast_ref::<Option<String>>()
-                    .context(format!("could not process supervisor relation {:?}", name))?;
-                if let Some(supervisor_office_id) = option {
-                    insert_supervisor(&conn, id, name, &supervisor_office_id)?;
-                }
+                insert_supervisor(&conn, id, to_variant_name(name)?, value)?;
             }
         }
     }

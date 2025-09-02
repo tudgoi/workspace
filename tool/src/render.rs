@@ -1,10 +1,13 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
+use serde_variant::to_variant_name;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tera;
 use tera::Tera;
 
+use crate::data::Supervisor;
 use crate::{data, OutputFormat};
 
 use super::from_toml_file;
@@ -253,39 +256,40 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: Outp
         // office, official_contacts, supervisors, subordinates
         let (office, office_photo, official_contacts, supervisors, subordinates) = if let Some(dto) = dto.office {
             let supervisors = if let Some(supervisors) = dto.data.supervisors {
-                let get_optional_supervisor = |id: Option<String>| -> Result<Option<context::Officer>> {
-                    if let Some(id) = id {
-                    let dto = query_incumbent(&conn, &id)
-                        .with_context(|| format!("could not query office {}", id))?;
+                let mut supervisors_context: HashMap<Supervisor, context::Officer> = HashMap::new();
+                for (key, value) in supervisors.iter() {
+                    let dto = query_incumbent(&conn, value)
+                        .with_context(|| format!("could not query office {}", value))?;
 
-                    Ok(Some(dto.into()))
-                    } else {
-                        Ok(None)
-                    }
-                };
-                let adviser = get_optional_supervisor(supervisors.adviser)?;
-                let during_the_pleasure_of= get_optional_supervisor(supervisors.during_the_pleasure_of)?;
-                let head = get_optional_supervisor(supervisors.head)?;
-                let responsible_to = get_optional_supervisor(supervisors.responsible_to)?;
-                Some(context::Supervisors { adviser, during_the_pleasure_of, head, responsible_to })
+                    supervisors_context.insert(key.clone(), dto.into());
+                }
+                
+                Some(supervisors_context)
             } else {
                 None
             };
 
             // subordinates
-            let get_option_subordinates = |id: &str, relation: &str| -> Result<Vec<context::Officer>> {
-                let mut subordinates = Vec::new();
-                for dto in query_subordinates(&conn, id, relation)? {
-                    subordinates.push(dto.into());
-                }
-                Ok(subordinates)
-            };
-            let adviser = get_option_subordinates(&dto.id, "adviser")?;
-            let during_the_pleasure_of = get_option_subordinates(&dto.id, "during_the_pleasure_of")?;
-            let head = get_option_subordinates(&dto.id, "head")?;
-            let responsible_to = get_option_subordinates(&dto.id, "responsible_to")?;
-            let subordinates = Some(context::Subordinates { adviser, during_the_pleasure_of, head, responsible_to });
+            const ALL_RELATIONS: [Supervisor; 4] = [
+                Supervisor::Adviser,
+                Supervisor::DuringThePleasureOf,
+                Supervisor::Head,
+                Supervisor::ResponsibleTo,
+            ];
 
+            let mut map = HashMap::new();
+            for relation in ALL_RELATIONS {
+                let mut officers = Vec::new();
+                for dto in query_subordinates(&conn, &dto.id, to_variant_name(&relation)?)? {
+                    officers.push(dto.into());
+                }
+                if !officers.is_empty() {
+                    map.insert(relation, officers);
+                }
+            }
+            let subordinates = if map.is_empty() { None } else { Some(map)};
+
+            // office
             let office = Some(context::Office {
                 id: dto.id,
                 name: dto.data.name,
@@ -301,6 +305,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: Outp
                 None
             };
 
+            // official_contacts
             let official_contacts = if let Some(contacts) = dto.data.contacts {
                 Some(context::Contacts {
                     phone: contacts.phone,

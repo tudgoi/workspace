@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use serde_derive::{Serialize, Deserialize};
 use serde_with::skip_serializing_none;
-use struct_iterable::Iterable;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Person {
@@ -41,14 +42,15 @@ pub struct Tenure {
 pub struct Office {
     pub name: String,
     pub photo: Option<Photo>,
-    pub supervisors: Option<Supervisors>,
+    pub supervisors: Option<HashMap<Supervisor, String>>,
     pub contacts: Option<Contacts>
 }
 
-#[derive(Iterable, Serialize, Deserialize, Debug)]
-pub struct Supervisors {
-    pub adviser: Option<String>,
-    pub during_the_pleasure_of: Option<String>,
-    pub head: Option<String>,
-    pub responsible_to: Option<String>,
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum Supervisor {
+    Adviser,
+    DuringThePleasureOf,
+    Head,
+    ResponsibleTo,
 }
