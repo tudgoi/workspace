@@ -43,6 +43,7 @@ pub struct SupervisorsLabels {
 pub struct PersonContext {
     pub person: Person,
     pub photo: Option<Photo>,
+    pub office_photo: Option<Photo>,
     pub office: Option<Office>,
     pub contacts: Option<Contacts>,
     pub official_contacts: Option<Contacts>,

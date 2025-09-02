@@ -251,7 +251,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_json: bool) 
         };
 
         // office, official_contacts, supervisors, subordinates
-        let (office, official_contacts, supervisors, subordinates) = if let Some(dto) = dto.office {
+        let (office, office_photo, official_contacts, supervisors, subordinates) = if let Some(dto) = dto.office {
             let supervisors = if let Some(supervisors) = dto.data.supervisors {
                 let get_optional_supervisor = |id: Option<String>| -> Result<Option<context::Officer>> {
                     if let Some(id) = id {
@@ -290,6 +290,16 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_json: bool) 
                 id: dto.id,
                 name: dto.data.name,
             });
+            
+            // office_photo
+            let office_photo = if let Some(photo) = dto.data.photo {
+                Some(context::Photo {
+                    url: photo.url,
+                    attribution: photo.attribution,
+                })
+            } else {
+                None
+            };
 
             let official_contacts = if let Some(contacts) = dto.data.contacts {
                 Some(context::Contacts {
@@ -307,9 +317,9 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_json: bool) 
                 None
             };
 
-            (office, official_contacts, supervisors, subordinates)
+            (office, office_photo, official_contacts, supervisors, subordinates)
         } else {
-            (None, None, None, None)
+            (None, None, None, None, None)
         };
 
         // page
@@ -328,6 +338,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_json: bool) 
         let person_context = context::PersonContext {
             person,
             photo,
+            office_photo,
             contacts,
             office,
             official_contacts,

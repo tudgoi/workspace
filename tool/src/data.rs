@@ -40,6 +40,7 @@ pub struct Tenure {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Office {
     pub name: String,
+    pub photo: Option<Photo>,
     pub supervisors: Option<Supervisors>,
     pub contacts: Option<Contacts>
 }
