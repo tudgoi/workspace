@@ -27,9 +27,11 @@
 {% endmacro render_url %}
 
 {% macro render_officer(officer) %}
-    <a href="{{ macros::link_id(type='person', id=officer.person.id) }}">
-        {{ officer.person.name }}
-    </a>, {{ officer.office.name }}
+    {% if officer.person %}
+        {% set link = macros::link_id(type='person', id=officer.person.id) %}
+        <a href="{{ link }}">{{ officer.person.name }}</a>,
+    {% endif %}
+    {{ officer.office.name }}
 {% endmacro render_officer %}
 
 {% macro render_photo(photo, office_photo, alt) %}

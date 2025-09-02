@@ -91,20 +91,25 @@ pub struct Office {
 #[derive(Serialize, Debug)]
 pub struct Officer {
     pub office: Office,
-    pub person: Person,
+    pub person: Option<Person>,
 }
 
 impl From<dto::Officer> for Officer {
     fn from(value: dto::Officer) -> Self {
+        let person = if let Some(dto) = value.person {
+            Some(Person {
+                id: dto.id,
+                name: dto.data.name,
+            })
+        } else {
+            None
+        };
         Officer {
             office: Office {
                 id: value.office.id,
                 name: value.office.data.name,
             },
-            person: Person {
-                id: value.person.id,
-                name: value.person.data.name,
-            },
+            person,
         }
     }
 }

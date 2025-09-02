@@ -17,7 +17,7 @@ use crate::dto::{self};
 // TODO remove PersonOffice and pass them as separate params to the process function
 fn query_for_all_persons<F>(conn: &Connection, process: F) -> Result<()>
 where
-    F: Fn(Result<dto::PersonOffice, rusqlite::Error>) -> Result<()>,
+    F: Fn(dto::PersonOffice) -> Result<()>,
 {
     let mut stmt = conn
         .prepare(
@@ -66,7 +66,11 @@ where
         .with_context(|| format!("querying person table failed"))?;
 
     for result in iter {
-        process(result)?;
+        let dto = result
+            .with_context(|| format!("could not read person from DB"))?;
+        let person_id = dto.person.id.clone();
+        process(dto)
+            .with_context(|| format!("could not process {:?}", person_id))?;
     }
 
     Ok(())
@@ -77,10 +81,10 @@ fn query_incumbent(conn: &Connection, office_id: &str) -> Result<dto::Officer> {
         .prepare(
             "
         SELECT o.id, o.data, p.id, p.data
-        FROM incumbent AS i
-        INNER JOIN office AS o ON o.id = i.office_id
+        FROM office AS o
+        LEFT JOIN incumbent AS i ON i.office_id = o.id
         LEFT JOIN person AS p ON p.id = i.person_id
-        WHERE i.office_id = ?1
+        WHERE o.id = ?1
         LIMIT 1
     ",
         )
@@ -90,8 +94,8 @@ fn query_incumbent(conn: &Connection, office_id: &str) -> Result<dto::Officer> {
             // TODO do not query office_id which we already have
             let office_id: String = row.get(0)?;
             let office_data: String = row.get(1)?;
-            let person_id: String = row.get(2)?;
-            let person_data: String = row.get(3)?;
+            let person_id: Option<String> = row.get(2)?;
+            let person_data: Option<String> = row.get(3)?;
 
             let office: data::Office = serde_json::from_str(&office_data).map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(
@@ -100,23 +104,28 @@ fn query_incumbent(conn: &Connection, office_id: &str) -> Result<dto::Officer> {
                     Box::new(e),                 // Box the original error
                 )
             })?;
-            let person: data::Person = serde_json::from_str(&person_data).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    3,                           // Column index
-                    rusqlite::types::Type::Text, // The SQL type
-                    Box::new(e),                 // Box the original error
-                )
-            })?;
+            let person = if let (Some(person_id), Some(person_data)) = (person_id, person_data) {
+                let person = serde_json::from_str(&person_data).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        3,                           // Column index
+                        rusqlite::types::Type::Text, // The SQL type
+                        Box::new(e),                 // Box the original error
+                    )
+                })?;
+                Some(dto::Person {
+                    id: person_id,
+                    data: person,
+                })
+            } else {
+                None
+            };
 
             Ok(dto::Officer {
                 office: dto::Office {
                     id: office_id,
                     data: office,
                 },
-                person: dto::Person {
-                    id: person_id,
-                    data: person,
-                },
+                person,
             })
         })
         .with_context(|| format!("could not query incumbent"))?;
@@ -139,18 +148,18 @@ fn query_subordinates(
             "
         SELECT o.data, p.id, p.data
         FROM supervisor AS s
-        INNER JOIN incumbent AS i ON i.office_id = s.office_id
-        INNER JOIN office AS o ON o.id = i.office_id
-        INNER JOIN person AS p ON p.id = i.person_id
-        WHERE supervisor_office_id = ?1 AND relation = ?2
+        LEFT JOIN incumbent AS i ON i.office_id = s.office_id
+        INNER JOIN office AS o ON o.id = s.office_id
+        LEFT JOIN person AS p ON p.id = i.person_id
+        WHERE s.supervisor_office_id = ?1 AND s.relation = ?2
     ",
         )
         .with_context(|| format!("could not query hierarchy for {:?}", office_id))?;
     let iter = stmt
         .query_map([office_id, relation], |row| {
             let office_data: String = row.get(0)?;
-            let person_id = row.get(1)?;
-            let person_data: String = row.get(2)?;
+            let person_id: Option<String> = row.get(1)?;
+            let person_data: Option<String> = row.get(2)?;
 
             let office: data::Office = serde_json::from_str(&office_data).map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(
@@ -159,23 +168,29 @@ fn query_subordinates(
                     Box::new(e),                 // Box the original error
                 )
             })?;
-            let person: data::Person = serde_json::from_str(&person_data).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    2,                           // Column index
-                    rusqlite::types::Type::Text, // The SQL type
-                    Box::new(e),                 // Box the original error
-                )
-            })?;
+            let person = if let (Some(person_id), Some(person_data)) = (person_id, person_data) {
+                let person = serde_json::from_str(&person_data).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        2,                           // Column index
+                        rusqlite::types::Type::Text, // The SQL type
+                        Box::new(e),                 // Box the original error
+                    )
+                })?;
+
+                Some(dto::Person {
+                    id: person_id,
+                    data: person,
+                })
+            } else {
+                None
+            };
 
             Ok(dto::Officer {
                 office: dto::Office {
                     id: office_id.to_string(),
                     data: office,
                 },
-                person: dto::Person {
-                    id: person_id,
-                    data: person,
-                },
+                person,
             })
         })
         .with_context(|| format!("could not query supervisor"))?;
@@ -213,10 +228,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: Outp
     fs::create_dir(person_path.as_path())
         .with_context(|| format!("could not create person dir {:?}", person_path))?;
 
-    query_for_all_persons(&conn, |result| {
-        let dto = result.with_context(|| format!("could not read person from DB"))?;
-
-
+    query_for_all_persons(&conn, |dto| {
         // setup
         let output_path = person_path.join(format!("{}.html", dto.person.id));
 

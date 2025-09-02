@@ -6,6 +6,7 @@ attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [supervisors]
 during_the_pleasure_of = "poi"
+adviser = "comtn"
 
 [contacts]
 website = "https://tnrajbhavan.gov.in/"

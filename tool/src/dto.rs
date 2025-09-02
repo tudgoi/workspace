@@ -22,5 +22,5 @@ pub struct PersonOffice {
 #[derive(Debug)]
 pub struct Officer {
     pub office: Office,
-    pub person: Person,
+    pub person: Option<Person>,
 }
