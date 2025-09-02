@@ -270,11 +270,12 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: Outp
             };
 
             // subordinates
-            const ALL_RELATIONS: [Supervisor; 4] = [
+            const ALL_RELATIONS: [Supervisor; 5] = [
                 Supervisor::Adviser,
                 Supervisor::DuringThePleasureOf,
                 Supervisor::Head,
                 Supervisor::ResponsibleTo,
+                Supervisor::MemberOf,
             ];
 
             let mut map = HashMap::new();

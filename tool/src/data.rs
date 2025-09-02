@@ -53,4 +53,5 @@ pub enum Supervisor {
     DuringThePleasureOf,
     Head,
     ResponsibleTo,
+    MemberOf,
 }
