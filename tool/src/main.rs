@@ -8,7 +8,7 @@ mod data;
 mod context;
 mod dto;
 mod render;
-mod index;
+mod import;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -19,7 +19,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Index {
+    Import {
         source: PathBuf,
         output: PathBuf,
     },
@@ -45,18 +45,16 @@ fn main() -> Result<()> {
     let args = Cli::parse();
     
     match args.command {
-        Commands::Index { source, output} => index::run(source, output)
-            .with_context(|| format!("error running `index` command"))?,
+        Commands::Import { source, output} => import::run(source, output)
+            .with_context(|| "error running import"),
         Commands::Render {
             db,
             templates,
             output,
             output_format
         } => render::run(db, templates, output, output_format)
-            .with_context(|| format!("error running `render` command"))?
+            .with_context(|| "error running render"),
     }
-
-    Ok(())
 }
 
 fn from_toml_file<T>(path: PathBuf) -> Result<T> where T: DeserializeOwned {

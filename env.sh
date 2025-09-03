@@ -1,3 +1,16 @@
+import () {
+    rm -rf output && mkdir output &&
+    cargo run --manifest-path tool/Cargo.toml import data output/directory.db
+}
+
+render() {
+    cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output/html
+}
+
+all () {
+    import && render
+}
+
 fp () {
     FILE=$(rg -l $1) &&
     ffp $FILE
