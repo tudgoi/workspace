@@ -39,17 +39,17 @@ release () {
         echo "Building site..."
         all
 
-        echo "Syncing with tudgoi.github.io...
+        echo "Syncing with tudgoi.github.io..."
         HASH=$(git rev-parse --short HEAD)
         rsync -rv --exclude '.git' output/html/ ../tudgoi.github.io/
 
         cd ../tudgoi.github.io
 
         if [ -n "$(git status --porcelain)" ]; then
-            echo "Releasing changes..
+            echo "Releasing changes..."
             git add .
-            git commit -m "Releasing from tudgoi@$HASH"
-            git push origin main:main
+            git commit -m "Releasing from tudgoi@${HASH}"
+            git push origin main
         else
             echo "No changes to release."
         fi
