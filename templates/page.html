@@ -166,11 +166,14 @@
   </div>
   <div class="links">
   </div>
+  {% if offices %}
   <div class="backlinks">
-    {% if subordinates %}
     <hr>
+    {% for office in offices %}
+    {% if office.subordinates %}
+    <h5>{{ office.name }}</h5>
     <dl class="backlink-list">
-      {% for key, value in subordinates %}
+      {% for key, value in office.subordinates %}
         {% if value %}
         {% set label = config.labels.subordinates[key] %}
           <dt>{{ label }} ({{ value | length }})</dt>
@@ -184,8 +187,11 @@
         {% endif %}
       {% endfor %}
     </dl>
+    {% endif %}
+    {% endfor %}
   </div>
   {% endif %}
+
   <div class="sources">
     {% if page.extra.sources %}
     <hr>
