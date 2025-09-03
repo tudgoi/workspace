@@ -171,7 +171,7 @@
       {% for key, value in subordinates %}
         {% if value %}
         {% set label = config.labels.subordinates[key] %}
-          <dt>{{ label }}</dt>
+          <dt>{{ label }} ({{ value | length }})</dt>
           <dd>
             <ul>
               {% for item in value %}
