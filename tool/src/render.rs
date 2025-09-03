@@ -3,18 +3,24 @@ use rusqlite::Connection;
 use serde_variant::to_variant_name;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tera;
 use tera::Tera;
 
 use crate::data::Supervisor;
-use crate::{data, OutputFormat};
+use crate::{OutputFormat, data};
 
 use super::from_toml_file;
-use crate::context::{self};
+use crate::context::{self, Maintenance, Page};
 use crate::dto::{self};
 
-// TODO remove PersonOffice and pass them as separate params to the process function
+fn query_counts(conn: &Connection) -> Result<dto::Counts> {
+    Ok(dto::Counts {
+        persons: conn.query_row("SELECT COUNT(*) FROM person", [], |row| row.get(0))?,
+        offices: conn.query_row("SELECT COUNT(*) FROM office", [], |row| row.get(0))?,
+    })
+}
+
 fn query_for_all_persons<F>(conn: &Connection, process: F) -> Result<()>
 where
     F: Fn(dto::PersonOffice) -> Result<()>,
@@ -66,11 +72,9 @@ where
         .with_context(|| format!("querying person table failed"))?;
 
     for result in iter {
-        let dto = result
-            .with_context(|| format!("could not read person from DB"))?;
+        let dto = result.with_context(|| format!("could not read person from DB"))?;
         let person_id = dto.person.id.clone();
-        process(dto)
-            .with_context(|| format!("could not process {:?}", person_id))?;
+        process(dto).with_context(|| format!("could not process {:?}", person_id))?;
     }
 
     Ok(())
@@ -202,7 +206,12 @@ fn query_subordinates(
     Ok(dtos)
 }
 
-pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: OutputFormat) -> Result<()> {
+pub fn run(
+    db: PathBuf,
+    templates: PathBuf,
+    output: PathBuf,
+    output_format: OutputFormat,
+) -> Result<()> {
     // read config
     let config: context::Config = from_toml_file(templates.join("config.toml"))
         .with_context(|| format!("could not parse config"))?;
@@ -223,7 +232,39 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: Outp
     let conn =
         Connection::open(db.as_path()).with_context(|| format!("could not open DB at {:?}", db))?;
 
-    // person
+    // persons
+    render_persons(&conn, output.as_path(), output_format, &tera, &config)?;
+
+    // index
+    let counts = query_counts(&conn)?;
+    let context = context::IndexContext {
+        persons: counts.persons,
+        offices: counts.offices,
+        page: Page {
+            path: "".to_string(),
+        },
+        config: config.clone(),
+    };
+    render_page(
+        "index",
+        &context,
+        output.as_path(),
+        output_format,
+        &tera,
+        "index.html",
+    )
+    .with_context(|| format!("could not render index.html"))?;
+
+    Ok(())
+}
+
+fn render_persons(
+    conn: &Connection,
+    output: &Path,
+    output_format: OutputFormat,
+    tera: &Tera,
+    config: &context::Config,
+) -> Result<()> {
     let person_path = output.join("person");
     fs::create_dir(person_path.as_path())
         .with_context(|| format!("could not create person dir {:?}", person_path))?;
@@ -266,92 +307,99 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: Outp
         };
 
         // office, official_contacts, supervisors, subordinates
-        let (office, office_photo, official_contacts, supervisors, subordinates) = if let Some(dto) = dto.office {
-            let supervisors = if let Some(supervisors) = dto.data.supervisors {
-                let mut supervisors_context: HashMap<Supervisor, context::Officer> = HashMap::new();
-                for (key, value) in supervisors.iter() {
-                    let dto = query_incumbent(&conn, value)
-                        .with_context(|| format!("could not query office {}", value))?;
+        let (office, office_photo, official_contacts, supervisors, subordinates) =
+            if let Some(dto) = dto.office {
+                let supervisors = if let Some(supervisors) = dto.data.supervisors {
+                    let mut supervisors_context: HashMap<Supervisor, context::Officer> =
+                        HashMap::new();
+                    for (key, value) in supervisors.iter() {
+                        let dto = query_incumbent(&conn, value)
+                            .with_context(|| format!("could not query office {}", value))?;
 
-                    supervisors_context.insert(key.clone(), dto.into());
+                        supervisors_context.insert(key.clone(), dto.into());
+                    }
+
+                    Some(supervisors_context)
+                } else {
+                    None
+                };
+
+                // subordinates
+                const ALL_RELATIONS: [Supervisor; 5] = [
+                    Supervisor::Adviser,
+                    Supervisor::DuringThePleasureOf,
+                    Supervisor::Head,
+                    Supervisor::ResponsibleTo,
+                    Supervisor::MemberOf,
+                ];
+
+                let mut map = HashMap::new();
+                for relation in ALL_RELATIONS {
+                    let mut officers = Vec::new();
+                    for dto in query_subordinates(&conn, &dto.id, to_variant_name(&relation)?)? {
+                        officers.push(dto.into());
+                    }
+                    if !officers.is_empty() {
+                        map.insert(relation, officers);
+                    }
                 }
-                
-                Some(supervisors_context)
+                let subordinates = if map.is_empty() { None } else { Some(map) };
+
+                // office
+                let office = Some(context::Office {
+                    id: dto.id,
+                    name: dto.data.name,
+                });
+
+                // office_photo
+                let office_photo = if let Some(photo) = dto.data.photo {
+                    Some(context::Photo {
+                        url: photo.url,
+                        attribution: photo.attribution,
+                    })
+                } else {
+                    None
+                };
+
+                // official_contacts
+                let official_contacts = if let Some(contacts) = dto.data.contacts {
+                    Some(context::Contacts {
+                        phone: contacts.phone,
+                        email: contacts.email,
+                        website: contacts.website,
+                        wikipedia: contacts.wikipedia,
+                        x: contacts.x,
+                        facebook: contacts.facebook,
+                        instagram: contacts.instagram,
+                        youtube: contacts.youtube,
+                        address: contacts.address,
+                    })
+                } else {
+                    None
+                };
+
+                (
+                    office,
+                    office_photo,
+                    official_contacts,
+                    supervisors,
+                    subordinates,
+                )
             } else {
-                None
+                (None, None, None, None, None)
             };
-
-            // subordinates
-            const ALL_RELATIONS: [Supervisor; 5] = [
-                Supervisor::Adviser,
-                Supervisor::DuringThePleasureOf,
-                Supervisor::Head,
-                Supervisor::ResponsibleTo,
-                Supervisor::MemberOf,
-            ];
-
-            let mut map = HashMap::new();
-            for relation in ALL_RELATIONS {
-                let mut officers = Vec::new();
-                for dto in query_subordinates(&conn, &dto.id, to_variant_name(&relation)?)? {
-                    officers.push(dto.into());
-                }
-                if !officers.is_empty() {
-                    map.insert(relation, officers);
-                }
-            }
-            let subordinates = if map.is_empty() { None } else { Some(map)};
-
-            // office
-            let office = Some(context::Office {
-                id: dto.id,
-                name: dto.data.name,
-            });
-            
-            // office_photo
-            let office_photo = if let Some(photo) = dto.data.photo {
-                Some(context::Photo {
-                    url: photo.url,
-                    attribution: photo.attribution,
-                })
-            } else {
-                None
-            };
-
-            // official_contacts
-            let official_contacts = if let Some(contacts) = dto.data.contacts {
-                Some(context::Contacts {
-                    phone: contacts.phone,
-                    email: contacts.email,
-                    website: contacts.website,
-                    wikipedia: contacts.wikipedia,
-                    x: contacts.x,
-                    facebook: contacts.facebook,
-                    instagram: contacts.instagram,
-                    youtube: contacts.youtube,
-                    address: contacts.address,
-                })
-            } else {
-                None
-            };
-
-            (office, office_photo, official_contacts, supervisors, subordinates)
-        } else {
-            (None, None, None, None, None)
-        };
 
         // page
         let page = context::Page {
             path: "".to_string(),
-            updated: dto.updated,
         };
 
         // metadata
         let metadata = context::Metadata {
-            incomplete: true,
-            updated: "2025-08-29".to_string(),
+            maintenance: Maintenance { incomplete: true },
+            updated: dto.updated,
         };
-        
+
         // construct context
         let person_context = context::PersonContext {
             person,
@@ -378,9 +426,7 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: Outp
                     .with_context(|| format!("could not create convert person to context"))?;
 
                 // write output
-                let str = tera
-                    .render("page.html", &context)
-                    .with_context(|| format!("could not render template"))?;
+                let str = tera.render("page.html", &context)?;
 
                 fs::write(output_path.as_path(), str)
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
@@ -388,7 +434,35 @@ pub fn run(db: PathBuf, templates: PathBuf, output: PathBuf, output_format: Outp
         }
 
         Ok(())
-    })?;
+    })
+}
 
+fn render_page<T: serde::Serialize>(
+    name: &str,
+    context: &T,
+    output_path: &Path,
+    output_format: OutputFormat,
+    tera: &Tera,
+    template_name: &str,
+) -> Result<()> {
+    match output_format {
+        OutputFormat::Json => {
+            let output_path = output_path.join(format!("{}.json", name));
+            let context_json = serde_json::to_string(context)?;
+            fs::write(output_path.as_path(), context_json)
+                .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+        }
+        OutputFormat::Html => {
+            let output_path = output_path.join(format!("{}.html", name));
+            let context = tera::Context::from_serialize(context)
+                .with_context(|| format!("could not create context"))?;
+
+            // write output
+            let str = tera.render(template_name, &context)?;
+
+            fs::write(output_path.as_path(), str)
+                .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+        }
+    }
     Ok(())
 }

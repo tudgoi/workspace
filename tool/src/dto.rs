@@ -24,3 +24,9 @@ pub struct Officer {
     pub office: Office,
     pub person: Option<Person>,
 }
+
+#[derive(Debug)]
+pub struct Counts {
+    pub persons: u32,
+    pub offices: u32,
+}

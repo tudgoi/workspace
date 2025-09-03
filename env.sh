@@ -4,6 +4,7 @@ import () {
 }
 
 render() {
+    rm -rf output/html
     cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output/html
 }
 

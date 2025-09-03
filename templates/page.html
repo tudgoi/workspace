@@ -87,13 +87,14 @@
 </style>
 <main>
   <div class="maintenance">
-    {% if page.taxonomies.maintenance and page.taxonomies.maintenance | length > 0 %}
+    {% if metadata.maintenance %}
+    {% set maintenance = metadata.maintenance %}
     <blockquote>
       <dl class="dl-single-line">
         <dt>🚧</dt>
         <dd>
           <p>
-            {% if incomplete %}
+            {% if maintenance.incomplete %}
                 This page is incomplete.
             {% endif %}
           </p>
@@ -201,7 +202,7 @@
 {% endblock content %}
 
 {% block updated %}
-  {% if page %}
-  Last updated on {{ page.updated | date(format="%d %B, %Y")}}
+  {% if metadata %}
+  Last updated on {{ metadata.updated | date(format="%d %B, %Y")}}
   {% endif %}
 {% endblock updated %}

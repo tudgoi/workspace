@@ -42,6 +42,14 @@ pub struct SupervisorsLabels {
 }
 
 #[derive(Serialize, Debug)]
+pub struct IndexContext {
+    pub persons: u32,
+    pub offices: u32,
+    pub config: Config,
+    pub page: Page,   
+}
+
+#[derive(Serialize, Debug)]
 pub struct PersonContext {
     pub person: Person,
     pub photo: Option<Photo>,
@@ -117,11 +125,15 @@ impl From<dto::Officer> for Officer {
 #[derive(Serialize, Debug)]
 pub struct Page {
     pub path: String,
-    pub updated: String
 }
 
 #[derive(Serialize, Debug)]
 pub struct Metadata {
+    pub updated: String,
+    pub maintenance: Maintenance,
+}
+
+#[derive(Serialize, Debug)]
+pub struct Maintenance {
     pub incomplete: bool,
-    pub updated: String
 }
