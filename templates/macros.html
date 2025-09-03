@@ -31,7 +31,7 @@
         {% set link = macros::link_id(type='person', id=officer.person.id) %}
         <a href="{{ link }}">{{ officer.person.name }}</a>,
     {% endif %}
-    {{ officer.office.name }}
+    {{ officer.office_name }}
 {% endmacro render_officer %}
 
 {% macro render_photo(photo, office_photo, alt) %}

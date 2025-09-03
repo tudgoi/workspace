@@ -307,87 +307,81 @@ fn render_persons(
         };
 
         // office, official_contacts, supervisors, subordinates
-        let (office, office_photo, official_contacts, supervisors, subordinates) =
-            if let Some(dto) = dto.office {
-                let supervisors = if let Some(supervisors) = dto.data.supervisors {
-                    let mut supervisors_context: HashMap<Supervisor, context::Officer> =
-                        HashMap::new();
-                    for (key, value) in supervisors.iter() {
-                        let dto = query_incumbent(&conn, value)
-                            .with_context(|| format!("could not query office {}", value))?;
+        let offices = if let Some(dto) = dto.office {
+            let supervisors = if let Some(supervisors) = dto.data.supervisors {
+                let mut supervisors_context: HashMap<Supervisor, context::Officer> =
+                    HashMap::new();
+                for (key, value) in supervisors.iter() {
+                    let dto = query_incumbent(&conn, value)
+                        .with_context(|| format!("could not query office {}", value))?;
 
-                        supervisors_context.insert(key.clone(), dto.into());
-                    }
-
-                    Some(supervisors_context)
-                } else {
-                    None
-                };
-
-                // subordinates
-                const ALL_RELATIONS: [Supervisor; 5] = [
-                    Supervisor::Adviser,
-                    Supervisor::DuringThePleasureOf,
-                    Supervisor::Head,
-                    Supervisor::ResponsibleTo,
-                    Supervisor::MemberOf,
-                ];
-
-                let mut map = HashMap::new();
-                for relation in ALL_RELATIONS {
-                    let mut officers = Vec::new();
-                    for dto in query_subordinates(&conn, &dto.id, to_variant_name(&relation)?)? {
-                        officers.push(dto.into());
-                    }
-                    if !officers.is_empty() {
-                        map.insert(relation, officers);
-                    }
+                    supervisors_context.insert(key.clone(), dto.into());
                 }
-                let subordinates = if map.is_empty() { None } else { Some(map) };
 
-                // office
-                let office = Some(context::Office {
-                    id: dto.id,
-                    name: dto.data.name,
-                });
-
-                // office_photo
-                let office_photo = if let Some(photo) = dto.data.photo {
-                    Some(context::Photo {
-                        url: photo.url,
-                        attribution: photo.attribution,
-                    })
-                } else {
-                    None
-                };
-
-                // official_contacts
-                let official_contacts = if let Some(contacts) = dto.data.contacts {
-                    Some(context::Contacts {
-                        phone: contacts.phone,
-                        email: contacts.email,
-                        website: contacts.website,
-                        wikipedia: contacts.wikipedia,
-                        x: contacts.x,
-                        facebook: contacts.facebook,
-                        instagram: contacts.instagram,
-                        youtube: contacts.youtube,
-                        address: contacts.address,
-                    })
-                } else {
-                    None
-                };
-
-                (
-                    office,
-                    office_photo,
-                    official_contacts,
-                    supervisors,
-                    subordinates,
-                )
+                Some(supervisors_context)
             } else {
-                (None, None, None, None, None)
+                None
             };
+
+            // subordinates
+            const ALL_RELATIONS: [Supervisor; 5] = [
+                Supervisor::Adviser,
+                Supervisor::DuringThePleasureOf,
+                Supervisor::Head,
+                Supervisor::ResponsibleTo,
+                Supervisor::MemberOf,
+            ];
+
+            let mut map = HashMap::new();
+            for relation in ALL_RELATIONS {
+                let mut officers = Vec::new();
+                for dto in query_subordinates(&conn, &dto.id, to_variant_name(&relation)?)? {
+                    officers.push(dto.into());
+                }
+                if !officers.is_empty() {
+                    map.insert(relation, officers);
+                }
+            }
+            let subordinates = if map.is_empty() { None } else { Some(map) };
+
+            // office_photo
+            let office_photo = if let Some(photo) = dto.data.photo {
+                Some(context::Photo {
+                    url: photo.url,
+                    attribution: photo.attribution,
+                })
+            } else {
+                None
+            };
+
+            // official_contacts
+            let official_contacts = if let Some(contacts) = dto.data.contacts {
+                Some(context::Contacts {
+                    phone: contacts.phone,
+                    email: contacts.email,
+                    website: contacts.website,
+                    wikipedia: contacts.wikipedia,
+                    x: contacts.x,
+                    facebook: contacts.facebook,
+                    instagram: contacts.instagram,
+                    youtube: contacts.youtube,
+                    address: contacts.address,
+                })
+            } else {
+                None
+            };
+
+            Some(vec![context::Office {
+                id: dto.id,
+                name: dto.data.name,
+                photo: office_photo,
+                contacts: official_contacts,
+                supervisors,
+                subordinates
+            }])
+        } else {
+            None
+        };
 
         // page
         let page = context::Page {
@@ -404,12 +398,8 @@ fn render_persons(
         let person_context = context::PersonContext {
             person,
             photo,
-            office_photo,
             contacts,
-            office,
-            official_contacts,
-            supervisors,
-            subordinates,
+            offices,
             config: config.clone(),
             page,
             metadata,

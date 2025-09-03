@@ -35,7 +35,8 @@ pub struct Contacts {
 pub struct Tenure {
     pub office: String,
     pub start: Option<String>,
-    pub end: Option<String>
+    pub end: Option<String>,
+    pub additional_charge: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -53,12 +53,8 @@ pub struct IndexContext {
 pub struct PersonContext {
     pub person: Person,
     pub photo: Option<Photo>,
-    pub office_photo: Option<Photo>,
-    pub office: Option<Office>,
     pub contacts: Option<Contacts>,
-    pub official_contacts: Option<Contacts>,
-    pub supervisors: Option<HashMap<data::Supervisor, Officer>>,
-    pub subordinates: Option<HashMap<data::Supervisor, Vec<Officer>>>,
+    pub offices: Option<Vec<Office>>,
 
     pub config: Config,
     pub page: Page,
@@ -93,12 +89,17 @@ pub struct Contacts {
 #[derive(Serialize, Debug)]
 pub struct Office {
     pub id: String,
-    pub name: String   
+    pub name: String,
+    pub photo: Option<Photo>,
+    pub contacts: Option<Contacts>,
+    pub supervisors: Option<HashMap<data::Supervisor, Officer>>,
+    pub subordinates: Option<HashMap<data::Supervisor, Vec<Officer>>>,
 }
 
 #[derive(Serialize, Debug)]
 pub struct Officer {
-    pub office: Office,
+    pub office_id: String,
+    pub office_name: String,
     pub person: Option<Person>,
 }
 
@@ -113,10 +114,8 @@ impl From<dto::Officer> for Officer {
             None
         };
         Officer {
-            office: Office {
-                id: value.office.id,
-                name: value.office.data.name,
-            },
+            office_id: value.office.id,
+            office_name: value.office.data.name,
             person,
         }
     }

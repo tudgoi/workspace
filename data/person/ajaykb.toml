@@ -8,3 +8,9 @@ wikipedia = "Ajay_Kumar_Bhalla"
 
 [[tenures]]
 office = "gomn"
+start = "2025-01-03"
+
+[[tenures]]
+office = "gonl"
+start = "2025-08-25"
+additional_charge = true
