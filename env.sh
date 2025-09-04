@@ -8,7 +8,9 @@ render() {
         set -e
         rm -rf output/html output/search
         cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output
-        cp output/wasm_output/tinysearch_engine.* output/html
+        if [ -d "output/wasm_output" ]; then
+            cp output/wasm_output/tinysearch_engine.* output/html
+        fi
     )
 }
 
@@ -36,7 +38,7 @@ render-json() {
 }
 
 all () {
-    import && render
+    import && render && search-index
 }
 
 release () {
