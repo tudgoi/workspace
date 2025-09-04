@@ -22,6 +22,51 @@
     {% endif %}
 {% endmacro render_contact %}
 
+{% macro render_contacts(contacts) %}
+    <dl class="contact-list">
+      {% for key, value in contacts %}
+        {% if value %}
+        <div class="dl-single-line">
+          <dt><i class="{{ config.icons[key] }}"></i></dt>
+          <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </dl>
+{% endmacro render_contacts %}
+
+{% macro render_supervisors(officers) %}
+    <dl>
+      {% for key, value in officers %}
+        {% if value %}
+          {% set label = config.labels.supervisors[key] %}
+          <div class="dl-single-line">
+              <dt>{{ label }} </dt>
+              <dd>{{ macros::render_officer(officer=value) }}</dd>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </dl>
+{% endmacro render_supervisors %}
+
+{% macro render_subordinates(officers) %}
+  <dl class="backlink-list">
+    {% for key, value in officers %}
+      {% if value %}
+      {% set label = config.labels.subordinates[key] %}
+        <dt>{{ label }} ({{ value | length }})</dt>
+        <dd>
+          <ul>
+            {% for item in value %}
+              <li>{{ macros::render_officer(officer=item) }}</li>
+            {% endfor %}
+          </ul>
+        </dd>
+      {% endif %}
+    {% endfor %}
+  </dl>
+{% endmacro render_subordinates %}
+
 {% macro render_url(url) %}
     <a href="{{ url}}">{{ url }}</a>
 {% endmacro render_url %}
@@ -35,12 +80,8 @@
 {% endmacro render_officer %}
 
 {% macro render_photo(photo, alt) %}
-    {% if photo %}
-        {% set url = photo.url %}
-        {% set attribution = photo.attribution %}
-    {% else %}
-        {% set url = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg" %}
-    {% endif %}
+    {% set url = photo.url %}
+    {% set attribution = photo.attribution %}
     <style>
     </style>
     <figure >

@@ -28,6 +28,7 @@ fn query_offices(conn: &Connection, person_id: &str) -> Result<Vec<dto::Office>>
         FROM incumbent AS i
         INNER JOIN office AS o ON o.id=i.office_id
         WHERE i.person_id=?1
+        ORDER BY o.id
     ",
     )?;
     let iter = stmt.query_map([person_id], |row| {
@@ -54,6 +55,7 @@ where
             "
         SELECT p.id, p.data, p.updated
         FROM person AS p
+        ORDER BY p.id
     ",
         )
         .with_context(|| format!("could not create statement for reading person table"))?;
@@ -107,7 +109,6 @@ fn query_incumbent(conn: &Connection, office_id: &str) -> Result<dto::Officer> {
         LEFT JOIN incumbent AS i ON i.office_id = o.id
         LEFT JOIN person AS p ON p.id = i.person_id
         WHERE o.id = ?1
-        LIMIT 1
     ",
         )
         .with_context(|| format!("could not query incumbent for {:?}", office_id))?;
@@ -175,6 +176,7 @@ fn query_subordinates(
         INNER JOIN office AS o ON o.id = s.office_id
         LEFT JOIN person AS p ON p.id = i.person_id
         WHERE s.supervisor_office_id = ?1 AND s.relation = ?2
+        ORDER BY p.id
     ",
     )?;
     let iter = stmt

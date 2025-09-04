@@ -11,7 +11,7 @@ pub struct Person {
     pub tenures: Option<Vec<Tenure>>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Photo {
     pub url: String,
     pub attribution: Option<String>,

@@ -15,16 +15,16 @@
     grid-area: title;
   }
 
+  div.offices {
+    grid-area: offices;
+  }
+
   div.contacts {
     grid-area: contacts;
   }
 
-  div.links {
-    grid-area: links;
-  }
-
-  div.backlinks {
-    grid-area: backlinks;
+  div.subordinates {
+    grid-area: subordinates;
   }
 
   div.sources {
@@ -39,9 +39,9 @@
       "maintenance"
       "title"
       "photo"
+      "offices"
       "contacts"
-      "links"
-      "backlinks"
+      "subordinates"
       "sources";
     margin-bottom: 1em;
   }
@@ -52,9 +52,9 @@
       grid-template-areas:
         "maintenance maintenance"
         "photo title"
+        "photo offices"
         "photo contacts"
-        "photo links"
-        "backlinks backlinks"
+        "subordinates subordinates"
         "sources sources";
     }
   }
@@ -115,15 +115,19 @@
   <div class="photo">
     {% if photo %}
       {{ macros::render_photo(photo=photo, alt=person.name) }}
-    {% elif offices and offices | length > 0 %}
+    {% elif offices and (offices | length > 0) and offices[0].photo %}
       {{ macros::render_photo(photo=offices[0].photo, alt=person.name) }}
     {% else %}
-      {{ macros::render_photo(photo=photo, alt=person.name) }}
+      {{ macros::render_photo(photo=config.defaults.photo, alt=person.name) }}
     {% endif %}
   </div>
   <div class="title">
     <h2>{{ person.name }}</h2>
+    <hr/>
+  </div>
+  <div class="contacts">
     {% if contacts %}
+    <hr/>
     <dl class="contact-list">
       {% for key, value in contacts %}
         {% if value %}
@@ -135,67 +139,38 @@
       {% endfor %}
     </dl>
     {% endif %}
-    <hr/>
   </div>
-  <div class="contacts">
-  {% if offices %}
-  {% for office in offices %}
-    <h5>{{ office.name }}</h5>
-    {% if office.contacts %}
-    <dl class="contact-list">
-      {% for key, value in office.contacts %}
-        {% if value %}
-        <div class="dl-single-line">
-          <dt><i class="{{ config.icons[key] }}"></i></dt>
-          <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
-        </div>
-        {% endif %}
-      {% endfor %}
-    </dl>
-    {% endif %}
-    {% if office.supervisors %}
-    <dl>
-      {% for key, value in office.supervisors %}
-        {% if value %}
-          {% set label = config.labels.supervisors[key] %}
-          <div class="dl-single-line">
-              <dt>{{ label }} </dt>
-              <dd>{{ macros::render_officer(officer=value) }}</dd>
-          </div>
-        {% endif %}
-      {% endfor %}
-    </dl>
-    {% endif %}
-  {% endfor %}
-  {% endif %}
-  </div>
-  <div class="links">
-  </div>
-  {% if offices %}
-  <div class="backlinks">
-    <hr>
-    {% for office in offices %}
-    {% if office.subordinates %}
-    <h5>{{ office.name }}</h5>
-    <dl class="backlink-list">
-      {% for key, value in office.subordinates %}
-        {% if value %}
-        {% set label = config.labels.subordinates[key] %}
-          <dt>{{ label }} ({{ value | length }})</dt>
+  <div class="offices">
+    {% if offices %}
+      <dl class="office-list">
+        {% for office in offices %}
+          <dt>{{ office.name }}</dt>
           <dd>
-            <ul>
-              {% for item in value %}
-                <li>{{ macros::render_officer(officer=item) }}</li>
-              {% endfor %}
-            </ul>
-          </dd>
-        {% endif %}
-      {% endfor %}
-    </dl>
+          {% if office.contacts %}
+            {{ macros::render_contacts(contacts=office.contacts) }}
+          {% endif %}
+          {% if office.supervisors %}
+            {{ macros::render_supervisors(officers=office.supervisors) }}
+          {% endif %}
+        {% endfor %}
+      </dl>
     {% endif %}
-    {% endfor %}
   </div>
-  {% endif %}
+  <div class="subordinates">
+    {% if offices %}
+      <hr/>
+      <dl>
+        {% for office in offices %}
+          {% if office.subordinates %}
+            <dt>{{ office.name }}</dt>
+            <dd>
+              {{ macros::render_subordinates(officers=office.subordinates) }}
+            </dd>
+          {% endif %}
+        {% endfor %}
+      </dl>
+    {% endif %}
+  </div>
 
   <div class="sources">
     {% if page.extra.sources %}

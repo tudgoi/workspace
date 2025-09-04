@@ -5,11 +5,18 @@ use serde_derive::{Deserialize, Serialize};
 use crate::{data, dto};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     pub title: String,
     pub base_url: String,
     pub icons: Icons,
     pub labels: Labels,
+    pub defaults: Defaults,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Defaults {
+    pub photo: data::Photo,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

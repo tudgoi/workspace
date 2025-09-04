@@ -1,9 +1,5 @@
 name = "Governor of Odisha"
 
-[photo]
-url = "https://en.wikipedia.org/wiki/Emblem_of_Odisha"
-attribution = "Wikipedia contributors (article), via Wikipedia"
-
 [supervisors]
 during_the_pleasure_of = "poi"
 

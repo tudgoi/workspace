@@ -15,6 +15,9 @@ instagram = "fa-brands fa-instagram"
 youtube = "fa-brands fa-youtube"
 address = "fa-solid fa-map-location-dot"
 
+[defaults.photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
+
 [labels.supervisors]
 adviser = "Adviser"
 during_the_pleasure_of = "During the pleasure of"
