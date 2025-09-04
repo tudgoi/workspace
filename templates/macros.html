@@ -34,13 +34,10 @@
     {{ officer.office_name }}
 {% endmacro render_officer %}
 
-{% macro render_photo(photo, office_photo, alt) %}
+{% macro render_photo(photo, alt) %}
     {% if photo %}
         {% set url = photo.url %}
         {% set attribution = photo.attribution %}
-    {% elif office_photo %}
-        {% set url = office_photo.url %}
-        {% set attribution = office_photo.attribution %}
     {% else %}
         {% set url = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg" %}
     {% endif %}

@@ -16,9 +16,33 @@ use crate::dto::{self};
 
 fn query_counts(conn: &Connection) -> Result<dto::Counts> {
     Ok(dto::Counts {
-        persons: conn.query_row("SELECT COUNT(*) FROM person", [], |row| row.get(0))?,
-        offices: conn.query_row("SELECT COUNT(*) FROM office", [], |row| row.get(0))?,
+        persons: conn.query_one("SELECT COUNT(*) FROM person", [], |row| row.get(0))?,
+        offices: conn.query_one("SELECT COUNT(*) FROM office", [], |row| row.get(0))?,
     })
+}
+
+fn query_offices(conn: &Connection, person_id: &str) -> Result<Vec<dto::Office>> {
+    let mut stmt = conn.prepare(
+        "
+        SELECT o.id, o.data
+        FROM incumbent AS i
+        INNER JOIN office AS o ON o.id=i.office_id
+        WHERE i.person_id=?1
+    ",
+    )?;
+    let iter = stmt.query_map([person_id], |row| {
+        let id: String = row.get(0)?;
+        let data: String = row.get(1)?;
+        Ok((id, data))
+    })?;
+    let mut offices = Vec::new();
+    for result in iter {
+        let (id, data_str) = result?;
+        let office: data::Office = serde_json::from_str(&data_str)?;
+        offices.push(dto::Office { id, data: office });
+    }
+
+    Ok(offices)
 }
 
 fn query_for_all_persons<F>(conn: &Connection, process: F) -> Result<()>
@@ -28,10 +52,8 @@ where
     let mut stmt = conn
         .prepare(
             "
-        SELECT p.id, p.data, p.updated, o.id, o.data
+        SELECT p.id, p.data, p.updated
         FROM person AS p
-        LEFT JOIN incumbent AS i ON i.person_id=p.id
-        INNER JOIN office AS o ON o.id=i.office_id
     ",
         )
         .with_context(|| format!("could not create statement for reading person table"))?;
@@ -40,8 +62,6 @@ where
             let person_id: String = row.get(0)?;
             let person_data: String = row.get(1)?;
             let updated: String = row.get(2)?;
-            let office_id: String = row.get(3)?;
-            let office_data: String = row.get(4)?;
 
             let person: data::Person = serde_json::from_str(&person_data).map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(
@@ -50,31 +70,29 @@ where
                     Box::new(e),                 // Box the original error
                 )
             })?;
-            let office: data::Office = serde_json::from_str(&office_data).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    3,                           // Column index
-                    rusqlite::types::Type::Text, // The SQL type
-                    Box::new(e),                 // Box the original error
-                )
-            })?;
-            Ok(dto::PersonOffice {
-                person: dto::Person {
-                    id: person_id,
-                    data: person,
-                },
-                office: Some(dto::Office {
-                    id: office_id,
-                    data: office,
-                }),
+            Ok(dto::Person {
+                id: person_id,
+                data: person,
                 updated,
             })
         })
         .with_context(|| format!("querying person table failed"))?;
 
     for result in iter {
-        let dto = result.with_context(|| format!("could not read person from DB"))?;
-        let person_id = dto.person.id.clone();
-        process(dto).with_context(|| format!("could not process {:?}", person_id))?;
+        let person = result?;
+        let person_id = person.id.clone();
+        let offices = query_offices(conn, &person.id)?;
+
+        let person_office = dto::PersonOffice {
+            person,
+            offices: if offices.is_empty() {
+                None
+            } else {
+                Some(offices)
+            },
+        };
+        process(person_office)
+            .with_context(|| format!("could not render person `{}`", person_id))?;
     }
 
     Ok(())
@@ -84,7 +102,7 @@ fn query_incumbent(conn: &Connection, office_id: &str) -> Result<dto::Officer> {
     let mut stmt = conn
         .prepare(
             "
-        SELECT o.id, o.data, p.id, p.data
+        SELECT o.id, o.data, p.id, p.data, p.updated
         FROM office AS o
         LEFT JOIN incumbent AS i ON i.office_id = o.id
         LEFT JOIN person AS p ON p.id = i.person_id
@@ -93,46 +111,48 @@ fn query_incumbent(conn: &Connection, office_id: &str) -> Result<dto::Officer> {
     ",
         )
         .with_context(|| format!("could not query incumbent for {:?}", office_id))?;
-    let mut iter = stmt
-        .query_map([office_id], |row| {
-            // TODO do not query office_id which we already have
-            let office_id: String = row.get(0)?;
-            let office_data: String = row.get(1)?;
-            let person_id: Option<String> = row.get(2)?;
-            let person_data: Option<String> = row.get(3)?;
+    let mut iter = stmt.query_map([office_id], |row| {
+        // TODO do not query office_id which we already have
+        let office_id: String = row.get(0)?;
+        let office_data: String = row.get(1)?;
+        let person_id: Option<String> = row.get(2)?;
+        let person_data: Option<String> = row.get(3)?;
+        let person_updated: Option<String> = row.get(4)?;
 
-            let office: data::Office = serde_json::from_str(&office_data).map_err(|e| {
+        let office: data::Office = serde_json::from_str(&office_data).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(
+                1,                           // Column index
+                rusqlite::types::Type::Text, // The SQL type
+                Box::new(e),                 // Box the original error
+            )
+        })?;
+        let person = if let (Some(person_id), Some(person_data), Some(person_updated)) =
+            (person_id, person_data, person_updated)
+        {
+            let person = serde_json::from_str(&person_data).map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(
-                    1,                           // Column index
+                    3,                           // Column index
                     rusqlite::types::Type::Text, // The SQL type
                     Box::new(e),                 // Box the original error
                 )
             })?;
-            let person = if let (Some(person_id), Some(person_data)) = (person_id, person_data) {
-                let person = serde_json::from_str(&person_data).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        3,                           // Column index
-                        rusqlite::types::Type::Text, // The SQL type
-                        Box::new(e),                 // Box the original error
-                    )
-                })?;
-                Some(dto::Person {
-                    id: person_id,
-                    data: person,
-                })
-            } else {
-                None
-            };
-
-            Ok(dto::Officer {
-                office: dto::Office {
-                    id: office_id,
-                    data: office,
-                },
-                person,
+            Some(dto::Person {
+                id: person_id,
+                data: person,
+                updated: person_updated,
             })
+        } else {
+            None
+        };
+
+        Ok(dto::Officer {
+            office: dto::Office {
+                id: office_id,
+                data: office,
+            },
+            person,
         })
-        .with_context(|| format!("could not query incumbent"))?;
+    })?;
 
     let dto = iter
         .next()
@@ -147,23 +167,22 @@ fn query_subordinates(
     office_id: &str,
     relation: &str,
 ) -> Result<Vec<dto::Officer>> {
-    let mut stmt = conn
-        .prepare(
-            "
-        SELECT o.data, p.id, p.data
+    let mut stmt = conn.prepare(
+        "
+        SELECT o.data, p.id, p.data, p.updated
         FROM supervisor AS s
         LEFT JOIN incumbent AS i ON i.office_id = s.office_id
         INNER JOIN office AS o ON o.id = s.office_id
         LEFT JOIN person AS p ON p.id = i.person_id
         WHERE s.supervisor_office_id = ?1 AND s.relation = ?2
     ",
-        )
-        .with_context(|| format!("could not query hierarchy for {:?}", office_id))?;
+    )?;
     let iter = stmt
         .query_map([office_id, relation], |row| {
             let office_data: String = row.get(0)?;
             let person_id: Option<String> = row.get(1)?;
             let person_data: Option<String> = row.get(2)?;
+            let person_updated: Option<String> = row.get(3)?;
 
             let office: data::Office = serde_json::from_str(&office_data).map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(
@@ -172,7 +191,9 @@ fn query_subordinates(
                     Box::new(e),                 // Box the original error
                 )
             })?;
-            let person = if let (Some(person_id), Some(person_data)) = (person_id, person_data) {
+            let person = if let (Some(person_id), Some(person_data), Some(person_updated)) =
+                (person_id, person_data, person_updated)
+            {
                 let person = serde_json::from_str(&person_data).map_err(|e| {
                     rusqlite::Error::FromSqlConversionFailure(
                         2,                           // Column index
@@ -184,6 +205,7 @@ fn query_subordinates(
                 Some(dto::Person {
                     id: person_id,
                     data: person,
+                    updated: person_updated,
                 })
             } else {
                 None
@@ -233,7 +255,8 @@ pub fn run(
         Connection::open(db.as_path()).with_context(|| format!("could not open DB at {:?}", db))?;
 
     // persons
-    render_persons(&conn, output.as_path(), output_format, &tera, &config)?;
+    render_persons(&conn, output.as_path(), output_format, &tera, &config)
+        .with_context(|| format!("could not render persons"))?;
 
     // index
     let counts = query_counts(&conn)?;
@@ -253,7 +276,7 @@ pub fn run(
         &tera,
         "index.html",
     )
-    .with_context(|| format!("could not render index.html"))?;
+    .with_context(|| format!("could not render index"))?;
 
     Ok(())
 }
@@ -307,81 +330,91 @@ fn render_persons(
         };
 
         // office, official_contacts, supervisors, subordinates
-        let offices = if let Some(dto) = dto.office {
-            let supervisors = if let Some(supervisors) = dto.data.supervisors {
-                let mut supervisors_context: HashMap<Supervisor, context::Officer> =
-                    HashMap::new();
-                for (key, value) in supervisors.iter() {
-                    let dto = query_incumbent(&conn, value)
-                        .with_context(|| format!("could not query office {}", value))?;
+        let mut offices = Vec::new();
+        if let Some(dtos) = dto.offices {
+            for dto in dtos {
+                // supervisors
+                let supervisors = if let Some(supervisors) = dto.data.supervisors {
+                    let mut supervisors_context: HashMap<Supervisor, context::Officer> =
+                        HashMap::new();
+                    for (key, value) in supervisors.iter() {
+                        let dto = query_incumbent(&conn, value).with_context(|| {
+                            format!("could not query incumbent for office `{}`", value)
+                        })?;
 
-                    supervisors_context.insert(key.clone(), dto.into());
+                        supervisors_context.insert(key.clone(), dto.into());
+                    }
+
+                    Some(supervisors_context)
+                } else {
+                    None
+                };
+
+                // subordinates
+                const ALL_RELATIONS: [Supervisor; 5] = [
+                    Supervisor::Adviser,
+                    Supervisor::DuringThePleasureOf,
+                    Supervisor::Head,
+                    Supervisor::ResponsibleTo,
+                    Supervisor::MemberOf,
+                ];
+
+                let mut map = HashMap::new();
+                for relation in ALL_RELATIONS {
+                    let mut officers = Vec::new();
+                    let relation_str = to_variant_name(&relation)?;
+                    let subordinates = query_subordinates(&conn, &dto.id, relation_str)
+                        .with_context(|| {
+                            format!(
+                                "could not query subordinates for office `{}` as `{}`",
+                                dto.id, relation_str
+                            )
+                        })?;
+                    for dto in subordinates {
+                        officers.push(dto.into());
+                    }
+                    if !officers.is_empty() {
+                        map.insert(relation, officers);
+                    }
                 }
+                let subordinates = if map.is_empty() { None } else { Some(map) };
 
-                Some(supervisors_context)
-            } else {
-                None
-            };
+                // office_photo
+                let office_photo = if let Some(photo) = dto.data.photo {
+                    Some(context::Photo {
+                        url: photo.url,
+                        attribution: photo.attribution,
+                    })
+                } else {
+                    None
+                };
 
-            // subordinates
-            const ALL_RELATIONS: [Supervisor; 5] = [
-                Supervisor::Adviser,
-                Supervisor::DuringThePleasureOf,
-                Supervisor::Head,
-                Supervisor::ResponsibleTo,
-                Supervisor::MemberOf,
-            ];
-
-            let mut map = HashMap::new();
-            for relation in ALL_RELATIONS {
-                let mut officers = Vec::new();
-                for dto in query_subordinates(&conn, &dto.id, to_variant_name(&relation)?)? {
-                    officers.push(dto.into());
-                }
-                if !officers.is_empty() {
-                    map.insert(relation, officers);
-                }
+                // official_contacts
+                let official_contacts = if let Some(contacts) = dto.data.contacts {
+                    Some(context::Contacts {
+                        phone: contacts.phone,
+                        email: contacts.email,
+                        website: contacts.website,
+                        wikipedia: contacts.wikipedia,
+                        x: contacts.x,
+                        facebook: contacts.facebook,
+                        instagram: contacts.instagram,
+                        youtube: contacts.youtube,
+                        address: contacts.address,
+                    })
+                } else {
+                    None
+                };
+                offices.push(context::Office {
+                    id: dto.id,
+                    name: dto.data.name,
+                    photo: office_photo,
+                    contacts: official_contacts,
+                    supervisors,
+                    subordinates,
+                });
             }
-            let subordinates = if map.is_empty() { None } else { Some(map) };
-
-            // office_photo
-            let office_photo = if let Some(photo) = dto.data.photo {
-                Some(context::Photo {
-                    url: photo.url,
-                    attribution: photo.attribution,
-                })
-            } else {
-                None
-            };
-
-            // official_contacts
-            let official_contacts = if let Some(contacts) = dto.data.contacts {
-                Some(context::Contacts {
-                    phone: contacts.phone,
-                    email: contacts.email,
-                    website: contacts.website,
-                    wikipedia: contacts.wikipedia,
-                    x: contacts.x,
-                    facebook: contacts.facebook,
-                    instagram: contacts.instagram,
-                    youtube: contacts.youtube,
-                    address: contacts.address,
-                })
-            } else {
-                None
-            };
-
-            Some(vec![context::Office {
-                id: dto.id,
-                name: dto.data.name,
-                photo: office_photo,
-                contacts: official_contacts,
-                supervisors,
-                subordinates
-            }])
-        } else {
-            None
-        };
+        }
 
         // page
         let page = context::Page {
@@ -391,7 +424,7 @@ fn render_persons(
         // metadata
         let metadata = context::Metadata {
             maintenance: Maintenance { incomplete: true },
-            updated: dto.updated,
+            updated: dto.person.updated,
         };
 
         // construct context
@@ -399,7 +432,11 @@ fn render_persons(
             person,
             photo,
             contacts,
-            offices,
+            offices: if offices.is_empty() {
+                None
+            } else {
+                Some(offices)
+            },
             config: config.clone(),
             page,
             metadata,

@@ -4,6 +4,7 @@ use super::data;
 pub struct Person {
     pub id: String,
     pub data: data::Person,
+    pub updated: String,
 }
 
 #[derive(Debug)]
@@ -15,8 +16,7 @@ pub struct Office {
 #[derive(Debug)]
 pub struct PersonOffice {
     pub person: Person,
-    pub office: Option<Office>,
-    pub updated: String,
+    pub offices: Option<Vec<Office>>,
 }
 
 #[derive(Debug)]

@@ -1,0 +1,12 @@
+name = "Acharya Devvrat"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/4/46/Acharya_Dev_Vrat%2C_Governor_of_Gujarat_in_2022_%28cropped%29.jpg"
+attribution = "President's Secretariat, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
+
+[contacts]
+wikipedia = "Acharya_Devvrat"
+
+[[tenures]]
+office = "gogj"
+start = "2019-07-22"

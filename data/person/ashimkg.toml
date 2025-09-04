@@ -1,0 +1,12 @@
+name = "Ashim Kumar Ghosh"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/e/ee/Ashim_Kumar_Ghosh.jpg"
+attribution = "President's Secretariat, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
+
+[contacts]
+wikipedia = "Ashim_Kumar_Ghosh"
+
+[[tenures]]
+office = "gohr"
+start = "2025-07-21"

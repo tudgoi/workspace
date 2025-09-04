@@ -46,14 +46,14 @@ fn main() -> Result<()> {
     
     match args.command {
         Commands::Import { source, output} => import::run(source, output)
-            .with_context(|| "error running import"),
+            .with_context(|| "could not run `import`"),
         Commands::Render {
             db,
             templates,
             output,
             output_format
         } => render::run(db, templates, output, output_format)
-            .with_context(|| "error running render"),
+            .with_context(|| "could not run `render`"),
     }
 }
 

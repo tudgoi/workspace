@@ -113,10 +113,13 @@
     {% endif %}
   </div>
   <div class="photo">
-    {% if offices | length > 0 %}
-      {% set office_photo = offices[0].photo %}
+    {% if photo %}
+      {{ macros::render_photo(photo=photo, alt=person.name) }}
+    {% elif offices and offices | length > 0 %}
+      {{ macros::render_photo(photo=offices[0].photo, alt=person.name) }}
+    {% else %}
+      {{ macros::render_photo(photo=photo, alt=person.name) }}
     {% endif %}
-    {{ macros::render_photo(photo=photo, office_photo=office_photo, alt=person.name) }}
   </div>
   <div class="title">
     <h2>{{ person.name }}</h2>
@@ -135,6 +138,7 @@
     <hr/>
   </div>
   <div class="contacts">
+  {% if offices %}
   {% for office in offices %}
     <h5>{{ office.name }}</h5>
     {% if office.contacts %}
@@ -163,6 +167,7 @@
     </dl>
     {% endif %}
   {% endfor %}
+  {% endif %}
   </div>
   <div class="links">
   </div>
