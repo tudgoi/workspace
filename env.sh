@@ -4,8 +4,35 @@ import () {
 }
 
 render() {
-    rm -rf output/html
-    cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output/html
+    (
+        set -e
+        rm -rf output/html output/search
+        cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output
+        cp output/wasm_output/tinysearch_engine.* output/html
+    )
+}
+
+search-index() {
+    (
+        set -e
+
+        cd output
+        tinysearch -m wasm -p wasm_output search/index.json
+        cp wasm_output/tinysearch_engine.* html
+    )
+}
+
+serve () {
+    (
+        set -e
+        cd output/html
+        python -m http.server 8000
+    )
+}
+
+render-json() {
+    rm -rf output/json &&
+    cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output --o=json
 }
 
 all () {

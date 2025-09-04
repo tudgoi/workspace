@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use rusqlite::Connection;
+use serde_derive::Serialize;
 use serde_variant::to_variant_name;
 use std::collections::HashMap;
 use std::fs;
@@ -46,9 +47,9 @@ fn query_offices(conn: &Connection, person_id: &str) -> Result<Vec<dto::Office>>
     Ok(offices)
 }
 
-fn query_for_all_persons<F>(conn: &Connection, process: F) -> Result<()>
+fn query_for_all_persons<F>(conn: &Connection, mut process: F) -> Result<()>
 where
-    F: Fn(dto::PersonOffice) -> Result<()>,
+    F: FnMut(dto::PersonOffice) -> Result<()>,
 {
     let mut stmt = conn
         .prepare(
@@ -236,6 +237,22 @@ pub fn run(
     output: PathBuf,
     output_format: OutputFormat,
 ) -> Result<()> {
+    let render_dir = match output_format {
+        OutputFormat::Json => {
+            let dir = output.join("json");
+            fs::create_dir(dir.as_path())
+                .with_context(|| format!("could not create dir {:?}", dir))?;
+            dir
+        }
+        OutputFormat::Html => {
+            let dir = output.join("html");
+            fs::create_dir(dir.as_path())
+                .with_context(|| format!("could not create dir {:?}", dir))?;
+            dir
+        }
+    };
+    let mut search_index = Vec::new();
+
     // read config
     let config: context::Config = from_toml_file(templates.join("config.toml"))
         .with_context(|| format!("could not parse config"))?;
@@ -248,19 +265,16 @@ pub fn run(
     let tera =
         Tera::new(templates_glob_str).with_context(|| format!("could not create Tera instance"))?;
 
-    // setup output
-    fs::create_dir(output.as_path())
-        .with_context(|| format! {"could not create output dir {:?}", output})?;
-
     // open DB
     let conn =
-        Connection::open(db.as_path()).with_context(|| format!("could not open DB at {:?}", db))?;
+        Connection::open(db.as_path())
+            .with_context(|| format!("could not open DB at {:?}", db))?;
 
     // persons
-    render_persons(&conn, output.as_path(), output_format, &tera, &config)
+    render_persons(&conn, render_dir.as_path(), output_format, &tera, &config, &mut search_index)
         .with_context(|| format!("could not render persons"))?;
 
-    // index
+    // render index
     let counts = query_counts(&conn)?;
     let context = context::IndexContext {
         persons: counts.persons,
@@ -273,14 +287,28 @@ pub fn run(
     render_page(
         "index",
         &context,
-        output.as_path(),
+        &render_dir.as_path(),
         output_format,
         &tera,
         "index.html",
     )
     .with_context(|| format!("could not render index"))?;
 
+    if output_format == OutputFormat::Html {
+        let search_index_str = serde_json::to_string(&search_index)?;
+        let search_dir = output.join("search");
+        fs::create_dir(search_dir.as_path())?;
+        let file_path = search_dir.join("index.json");
+        fs::write(file_path, search_index_str)?;
+    }
+    
     Ok(())
+}
+
+#[derive(Serialize, Debug)]
+struct SearchIndexEntry {
+    title: String,
+    url: String,
 }
 
 fn render_persons(
@@ -289,15 +317,14 @@ fn render_persons(
     output_format: OutputFormat,
     tera: &Tera,
     config: &context::Config,
+    search_index: &mut Vec<SearchIndexEntry>,
 ) -> Result<()> {
+    // persons
     let person_path = output.join("person");
     fs::create_dir(person_path.as_path())
         .with_context(|| format!("could not create person dir {:?}", person_path))?;
 
     query_for_all_persons(&conn, |dto| {
-        // setup
-        let output_path = person_path.join(format!("{}.html", dto.person.id));
-
         // person
         let person = context::Person {
             id: dto.person.id,
@@ -443,6 +470,7 @@ fn render_persons(
             page,
             metadata,
         };
+
         match output_format {
             OutputFormat::Json => {
                 let output_path = person_path.join(format!("{}.json", person_context.person.id));
@@ -451,11 +479,18 @@ fn render_persons(
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
             }
             OutputFormat::Html => {
+                search_index.push(SearchIndexEntry {
+                    title: person_context.person.name.clone(),
+                    url: format!("./person/{}", person_context.person.id),
+                });
+
+                let output_path = person_path.join(format!("{}.html", person_context.person.id));
                 let context = tera::Context::from_serialize(person_context)
                     .with_context(|| format!("could not create convert person to context"))?;
 
                 // write output
-                let str = tera.render("page.html", &context)?;
+                let str = tera.render("page.html", &context)
+                    .with_context(|| format!("could not render template page.html"))?;
 
                 fs::write(output_path.as_path(), str)
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
@@ -463,7 +498,10 @@ fn render_persons(
         }
 
         Ok(())
-    })
+    }).with_context(|| format!("could not process persons"))?;
+
+
+    Ok(())
 }
 
 fn render_page<T: serde::Serialize>(
@@ -487,7 +525,8 @@ fn render_page<T: serde::Serialize>(
                 .with_context(|| format!("could not create context"))?;
 
             // write output
-            let str = tera.render(template_name, &context)?;
+            let str = tera.render(template_name, &context)
+                .with_context(|| format!("could not render template `{}`", template_name))?;
 
             fs::write(output_path.as_path(), str)
                 .with_context(|| format!("could not write rendered file {:?}", output_path))?;
