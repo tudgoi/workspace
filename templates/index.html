@@ -27,14 +27,10 @@ the <a href="https://github.com/arunkd13/directory-gov-in">project source code</
 
   <div class="metric">
 	  Tracking <b>{{ persons }}</b> persons across <b>{{ offices }}</b> offices.
-    <p>
-    Start with <a href="person/droupadm.html">Droupadi Murmu</a>, President of India
-    </p>
   </div>
-
   <div class="search">
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Enter your search query..." />
+        <input type="text" id="searchInput" placeholder="e.g. 'president'" />
     </div>
     <div id="status" class="status">Loading search engine...</div>
     <div id="results" class="results"></div>
@@ -136,7 +132,7 @@ the <a href="https://github.com/arunkd13/directory-gov-in">project source code</
               }
               
               // Call search function
-              const resultPtr = searchFunction(queryPtr, 10);
+              const resultPtr = searchFunction(queryPtr, 100);
               
               // Free query memory if we allocated it
               if (wasmModule.exports.__wbindgen_free && queryPtr > 1024) {
@@ -172,7 +168,7 @@ the <a href="https://github.com/arunkd13/directory-gov-in">project source code</
               } else {
                   const resultHTML = results.map(result => `
                       <div class="result-item">
-                          <a href="${result.url}" class="result-title" target="_blank">${result.title}</a>
+                          <a href="${result.url}" class="result-title">${result.title}</a>
                       </div>
                   `).join('');
                   
@@ -186,7 +182,14 @@ the <a href="https://github.com/arunkd13/directory-gov-in">project source code</
               statusDiv.innerHTML = `<div class="error">Search failed: ${error.message}</div>`;
           }
       }
-        
+        // Enter key support
+        document.getElementById('searchInput').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                const query = document.getElementById('searchInput').value.trim();
+                performSearch(query);
+            }
+        })
+
         // Instant search support
         document.getElementById('searchInput').addEventListener('input', function(event) {
             const query = event.target.value.trim();

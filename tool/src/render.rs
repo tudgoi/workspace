@@ -479,14 +479,19 @@ fn render_persons(
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
             }
             OutputFormat::Html => {
-                let title = if let Some(ref offices) = person_context.offices {
+                let office_name = if let Some(ref offices) = person_context.offices {
                     if let Some(ref office) = offices.first() {
-                        format!("{}, {}", person_context.person.name, office.name)
+                        Some(&office.name)
                     } else {
-                        person_context.person.name.clone()
+                        None
                     }
                 } else {
-                        person_context.person.name.clone()
+                    None
+                };
+                let title = if let Some(office_name) = office_name {
+                    format!("{} ({}), {}", person_context.person.name, person_context.person.id, office_name)
+                } else {
+                    format!("{} ({})", person_context.person.name, person_context.person.id)
                 };
                 search_index.push(SearchIndexEntry {
                     title,
