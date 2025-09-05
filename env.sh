@@ -21,6 +21,12 @@ search-index() {
         cd output
         tinysearch -m wasm -p wasm_output search/index.json
         cp wasm_output/tinysearch_engine.* html
+
+        # Add cache-busting query string to wasm file requests
+        WASM_HASH=$(sha256sum html/tinysearch_engine.wasm | cut -d' ' -f1 | head -c 8)
+        echo "Generated WASM hash for cache busting: $WASM_HASH"
+        sed -i "s/tinysearch_engine\.wasm/tinysearch_engine.wasm?v=${WASM_HASH}/g" html/index.html
+        sed -i "s/tinysearch_engine\.wasm/tinysearch_engine.wasm?v=${WASM_HASH}/g" wasm_output/demo.html
     )
 }
 
@@ -28,7 +34,7 @@ serve () {
     (
         set -e
         cd output/html
-        python -m http.server 8000
+        uv run ../../tool/server.py
     )
 }
 

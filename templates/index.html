@@ -35,7 +35,6 @@ the <a href="https://github.com/arunkd13/directory-gov-in">project source code</
   <div class="search">
     <div class="search-box">
         <input type="text" id="searchInput" placeholder="Enter your search query..." />
-        <button onclick="performSearch()">Search</button>
     </div>
     <div id="status" class="status">Loading search engine...</div>
     <div id="results" class="results"></div>
@@ -106,8 +105,7 @@ the <a href="https://github.com/arunkd13/directory-gov-in">project source code</
           return new TextDecoder().decode(bytes);
       }
       
-      function performSearch() {
-          const query = document.getElementById('searchInput').value.trim();
+      function performSearch(query) {
           const resultsDiv = document.getElementById('results');
           const statusDiv = document.getElementById('status');
           
@@ -189,13 +187,12 @@ the <a href="https://github.com/arunkd13/directory-gov-in">project source code</
           }
       }
         
-        // Enter key support
-        document.getElementById('searchInput').addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
-                performSearch();
-            }
+        // Instant search support
+        document.getElementById('searchInput').addEventListener('input', function(event) {
+            const query = event.target.value.trim();
+            performSearch(query);
         });
-        
+      
         // Initialize search engine
         document.getElementById('searchInput').disabled = true;
         initializeSearch();

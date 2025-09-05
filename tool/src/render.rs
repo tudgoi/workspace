@@ -479,9 +479,18 @@ fn render_persons(
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
             }
             OutputFormat::Html => {
+                let title = if let Some(ref offices) = person_context.offices {
+                    if let Some(ref office) = offices.first() {
+                        format!("{}, {}", person_context.person.name, office.name)
+                    } else {
+                        person_context.person.name.clone()
+                    }
+                } else {
+                        person_context.person.name.clone()
+                };
                 search_index.push(SearchIndexEntry {
-                    title: person_context.person.name.clone(),
-                    url: format!("./person/{}", person_context.person.id),
+                    title,
+                    url: format!("./person/{}.html", person_context.person.id),
                 });
 
                 let output_path = person_path.join(format!("{}.html", person_context.person.id));
