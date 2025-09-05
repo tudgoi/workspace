@@ -112,18 +112,16 @@ pub struct Officer {
 
 impl From<dto::Officer> for Officer {
     fn from(value: dto::Officer) -> Self {
-        let person = if let Some(dto) = value.person {
-            Some(Person {
-                id: dto.id,
-                name: dto.data.name,
-            })
+        let person = if let (Some(id), Some(name)) = (value.person_id, value.person_name) {
+            Some(Person { id, name })
         } else {
             None
         };
+
         Officer {
-            office_id: value.office.id,
-            office_name: value.office.data.name,
-            person,
+            office_id: value.office_id,
+            office_name: value.office_name,
+            person
         }
     }
 }

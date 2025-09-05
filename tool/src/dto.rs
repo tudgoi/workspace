@@ -1,4 +1,4 @@
-use super::data;
+use crate::data;
 
 #[derive(Debug)]
 pub struct Person {
@@ -21,8 +21,10 @@ pub struct PersonOffice {
 
 #[derive(Debug)]
 pub struct Officer {
-    pub office: Office,
-    pub person: Option<Person>,
+    pub office_id: String,
+    pub office_name: String,
+    pub person_id: Option<String> ,
+    pub person_name: Option<String>,
 }
 
 #[derive(Debug)]
