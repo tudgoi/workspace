@@ -1,26 +1,11 @@
 use anyhow::bail;
 use anyhow::{Context, Result, ensure};
 use rusqlite::Connection;
-use serde_variant::to_variant_name;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::data;
 use super::from_toml_file;
-
-fn insert_supervisor(
-    conn: &Connection,
-    office_id: &str,
-    relation: &str,
-    supervisor_office_id: &str,
-) -> Result<()> {
-    conn.execute(
-        "INSERT INTO supervisor (office_id, relation, supervisor_office_id) VALUES (?1, ?2, ?3)",
-        (office_id, relation, supervisor_office_id),
-    ).with_context(|| format!("could not insert supervisor into DB"))?;
-    
-    Ok(())
-}
+use super::{data, repository};
 
 fn get_updated(file_path: &Path) -> Result<String> {
     let path_str = file_path.to_str()
@@ -35,7 +20,7 @@ fn get_updated(file_path: &Path) -> Result<String> {
     let output = result
         .with_context(|| format!("could not get last updated date for {:?}", file_path))?;
     if !output.status.success() {
-        let error_message = str::from_utf8(&output.stderr)
+        let error_message = std::str::from_utf8(&output.stderr)
             .unwrap_or("Unknown error")
             .to_string();
 
@@ -43,7 +28,7 @@ fn get_updated(file_path: &Path) -> Result<String> {
     }
     let date_str = str::from_utf8(&output.stdout)
         .with_context(|| format!("could not read output of git command"))?;
-
+    
     Ok(date_str.trim().to_string())
 }
 
@@ -54,57 +39,7 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
     let conn = Connection::open(output.as_path())
         .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
 
-    conn.execute(
-        "CREATE TABLE person (
-            id    TEXT PRIMARY KEY,
-            data  TEXT NOT NULL,
-            updated TEXT NOT NULL
-        )",
-        (),
-    )
-    .with_context(|| format!("could not create `person` table"))?;
-
-    conn.execute(
-        "CREATE TABLE office (
-            id    TEXT PRIMARY KEY,
-            data  TEXT NOT NULL
-        )",
-        (),
-    )
-    .with_context(|| format!("could not create `office` table"))?;
-
-    conn.execute(
-        "CREATE TABLE supervisor (
-            office_id TEXT NOT NULL,
-            relation TEXT NOT NULL,
-            supervisor_office_id TEXT NOT NULL
-        )",
-        (),
-    )
-    .with_context(|| format!("could not create `supervisor` table"))?;
-
-    conn.execute(
-        "CREATE TABLE tenure (
-            person_id TEXT NOT NULL,
-            office_id TEXT NOT NULL,
-            start TEXT,
-            end TEXT
-        )",
-        (),
-    )
-    .with_context(|| format!("could not create `tenure` table"))?;
-
-    conn.execute(
-        "
-        CREATE VIEW incumbent (
-            office_id,
-            person_id
-        ) AS SELECT office_id, person_id
-        FROM tenure
-        WHERE end IS NULL",
-        (),
-    )
-    .with_context(|| format!("could not create view `incumbent`"))?;
+    repository::setup_database(&conn)?;
 
     // process person
     let data_dir = source.join("person");
@@ -127,22 +62,9 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
         let updated = get_updated(file_entry.path().as_path())
             .with_context(|| format!("could not get last updated date for {:?}", file_entry.path()))?;
 
-        let value: data::Person =
+        let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
-        let json = serde_json::to_string(&value)
-            .with_context(|| format!("could not convert person to JSON"))?;
-        conn.execute("INSERT INTO person (id, data, updated) VALUES (?1, ?2, ?3)", (id, json, updated))
-            .with_context(|| format!("could not insert person into DB"))?;
-
-        if let Some(tenures) = value.tenures {
-            for tenure in tenures {
-                conn.execute(
-                    "INSERT INTO tenure (person_id, office_id, start, end) VALUES (?1, ?2, ?3, ?4)",
-                    (id, tenure.office, tenure.start, tenure.end),
-                )
-                .with_context(|| format!("could not insert tenure into DB for {}", id))?;
-            }
-        }
+        repository::save_person(&conn, id, &person, &updated)?;
     }
 
     // process office
@@ -163,17 +85,9 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
             file_stem
         ))?;
 
-        let value: data::Office = from_toml_file(file_entry.path())
+        let office: data::Office = from_toml_file(file_entry.path())
             .with_context(|| format!("failed to parse template"))?;
-        let json = serde_json::to_string(&value)
-            .with_context(|| format!("could not convert office to JSON"))?;
-        conn.execute("INSERT INTO office (id, data) VALUES (?1, ?2)", (id, json))?;
-
-        if let Some(supervisors) = value.supervisors {
-            for (name, value) in supervisors.iter() {
-                insert_supervisor(&conn, id, to_variant_name(name)?, value)?;
-            }
-        }
+        repository::save_office(&conn, id, &office)?;
     }
 
     Ok(())

@@ -6,6 +6,7 @@ use std::{fs};
 
 mod data;
 mod context;
+mod repository;
 mod dto;
 mod render;
 mod import;
