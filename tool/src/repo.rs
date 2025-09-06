@@ -439,6 +439,71 @@ impl Repository {
         Ok(offices)
     }
 
+    pub fn query_tenures_for_person(&self, person_id: &str) -> Result<Vec<data::Tenure>> {
+        let mut stmt = self.conn.prepare(
+            "
+            SELECT office_id, start, end
+            FROM tenure
+            WHERE person_id = ?1
+            ORDER BY start DESC
+        ",
+        )?;
+        let iter = stmt.query_map([person_id], |row| {
+            Ok(data::Tenure {
+                office: row.get(0)?,
+                start: row.get(1)?,
+                end: row.get(2)?,
+                additional_charge: None, // This info is not stored in the DB
+            })
+        })?;
+
+        let mut tenures = Vec::new();
+        for result in iter {
+            tenures.push(result?);
+        }
+        Ok(tenures)
+    }
+
+    pub fn query_all_offices(&self) -> Result<HashMap<String, data::Office>> {
+        let mut stmt = self.conn.prepare(
+            "
+            SELECT id, name, photo_url, photo_attribution
+            FROM office
+            ORDER BY id
+        ",
+        )?;
+
+        let iter = stmt.query_map([], |row| {
+            let photo = if let Some(url) = row.get(2)? {
+                Some(data::Photo {
+                    url,
+                    attribution: row.get(3)?,
+                })
+            } else {
+                None
+            };
+            Ok((row.get(0)?, row.get(1)?, photo))
+        })?;
+
+        let mut offices = HashMap::new();
+        for result in iter {
+            let (id, name, photo): (String, String, Option<data::Photo>) = result?;
+            let contacts = self.query_contacts_for_office(&id)?;
+            let supervisors = self.query_supervisors_for_office_flat(&id)?;
+
+            let office_data = data::Office {
+                name,
+                photo,
+                contacts: Some(contacts).filter(|c| !c.is_empty()),
+                supervisors: Some(supervisors).filter(|s| !s.is_empty()),
+            };
+
+            offices.insert(id, office_data);
+        }
+
+        Ok(offices)
+    }
+
     pub fn query_subordinates_for_office(
         &self,
         office_id: &str,
@@ -536,6 +601,33 @@ impl Repository {
                 .with_context(|| format!("unknown relation {}", relation))?
                 .clone();
             supervisors.insert(relation, officer);
+        }
+
+        Ok(supervisors)
+    }
+
+    fn query_supervisors_for_office_flat(
+        &self,
+        office_id: &str,
+    ) -> Result<HashMap<data::SupervisingRelation, String>> {
+        let mut stmt = self.conn.prepare(
+            "
+            SELECT relation, supervisor_office_id
+            FROM supervisor
+            WHERE office_id = ?1
+        ",
+        )?;
+        let iter = stmt.query_map([office_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
+
+        let mut supervisors = HashMap::new();
+        for result in iter {
+            let (relation_str, supervisor_office_id): (String, String) = result?;
+            let relation = self
+                .all_supervising_relation_variants
+                .get(&relation_str)
+                .with_context(|| format!("unknown relation {}", relation_str))?
+                .clone();
+            supervisors.insert(relation, supervisor_office_id);
         }
 
         Ok(supervisors)

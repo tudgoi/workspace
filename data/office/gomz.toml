@@ -4,9 +4,10 @@ name = "Governor of Mizoram"
 url = "https://en.wikipedia.org/wiki/Emblem_of_Mizoram"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
-[supervisors]
-during_the_pleasure_of = "poi"
-
 [contacts]
 website = "https://rajbhavan.mizoram.gov.in/"
 wikipedia = "List_of_governors_of_Mizoram"
+
+[supervisors]
+during_the_pleasure_of = "poi"
+adviser = "commz"

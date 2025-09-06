@@ -8,6 +8,7 @@ mod data;
 mod context;
 mod repo;
 mod dto;
+mod export;
 mod render;
 mod import;
 
@@ -25,6 +26,11 @@ enum Commands {
         output: PathBuf,
     },
     
+    Export {
+        db: PathBuf,
+        output: PathBuf,
+    },
+
     Render {
         db: PathBuf,
         templates: PathBuf,
@@ -48,6 +54,8 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Import { source, output} => import::run(source.as_path(), output.as_path())
             .with_context(|| "could not run `import`"),
+        Commands::Export { db, output } => export::run(db.as_path(), output.as_path())
+            .with_context(|| "could not run `export`"),
         Commands::Render {
             db,
             templates,

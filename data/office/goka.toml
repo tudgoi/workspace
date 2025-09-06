@@ -4,9 +4,10 @@ name = "Governor of Karnataka"
 url = "https://en.wikipedia.org/wiki/Emblem_of_Karnataka"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
-[supervisors]
-during_the_pleasure_of = "poi"
-
 [contacts]
 website = "http://rajbhavan.karnataka.gov.in/"
 wikipedia = "List_of_governors_of_Karnataka"
+
+[supervisors]
+adviser = "comka"
+during_the_pleasure_of = "poi"

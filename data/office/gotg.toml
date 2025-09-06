@@ -4,9 +4,10 @@ name = "Governor of Telangana"
 url = "https://en.wikipedia.org/wiki/Emblem_of_Telangana"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
-[supervisors]
-during_the_pleasure_of = "poi"
-
 [contacts]
-website = "https://governor.telangana.gov.in/"
 wikipedia = "List_of_governors_of_Telangana"
+website = "https://governor.telangana.gov.in/"
+
+[supervisors]
+adviser = "comtg"
+during_the_pleasure_of = "poi"

@@ -4,9 +4,10 @@ name = "Governor of Himachal Pradesh"
 url = "https://en.wikipedia.org/wiki/Emblem_of_Himachal_Pradesh"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
+[contacts]
+wikipedia = "List_of_governors_of_Himachal_Pradesh"
+website = "https://himachalrajbhavan.nic.in/"
+
 [supervisors]
 during_the_pleasure_of = "poi"
-
-[contacts]
-website = "https://himachalrajbhavan.nic.in/"
-wikipedia = "List_of_governors_of_Himachal_Pradesh"
+adviser = "comhp"

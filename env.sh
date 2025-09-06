@@ -3,6 +3,17 @@ import () {
     cargo run --manifest-path tool/Cargo.toml import data output/directory.db
 }
 
+export-data () {
+    if [ -n "$(git status --porcelain data)" ]; then
+        echo "Error: There are uncommitted changes in the 'data' directory."
+        echo "Please commit your changes before running the export."
+        return 1
+    fi
+    
+    cargo run --manifest-path tool/Cargo.toml export output/directory.db data
+}
+
+
 render() {
     (
         set -e

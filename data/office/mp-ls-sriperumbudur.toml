@@ -1,7 +1,7 @@
 name = "Member of Parliament, Lok Sabha, Sriperumbudur"
 
-[supervisors]
-member_of = "ls"
-
 [contacts]
 wikipedia = "Sriperumbudur_Lok_Sabha_constituency"
+
+[supervisors]
+member_of = "ls"

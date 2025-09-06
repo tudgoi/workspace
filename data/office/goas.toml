@@ -4,9 +4,10 @@ name = "Governor of Assam"
 url = "https://upload.wikimedia.org/wikipedia/commons/0/0e/Seal_of_Assam.svg"
 attribution = "Government of India, Public domain, via Wikimedia Commons"
 
-[supervisors]
-during_the_pleasure_of = "poi"
-
 [contacts]
-website = "https://rajbhavan.assam.gov.in/"
 wikipedia = "List_of_governors_of_Assam"
+website = "https://rajbhavan.assam.gov.in/"
+
+[supervisors]
+adviser = "comas"
+during_the_pleasure_of = "poi"
