@@ -8,19 +8,19 @@ use crate::{context, data::{self}, dto};
 
 pub struct Repository {
     conn: Connection,
-    all_supervisor_variants: HashMap<String, data::Supervisor>,
+    all_supervisor_variants: HashMap<String, data::SupervisingRelation>,
 }
 
 impl Repository {
     pub fn new(db_path: &Path) -> Result<Repository> {
-        const ALL_VARIANTS: [data::Supervisor; 5] = [
-            data::Supervisor::Adviser,
-            data::Supervisor::DuringThePleasureOf,
-            data::Supervisor::Head,
-            data::Supervisor::ResponsibleTo,
-            data::Supervisor::MemberOf,
+        const ALL_VARIANTS: [data::SupervisingRelation; 5] = [
+            data::SupervisingRelation::Adviser,
+            data::SupervisingRelation::DuringThePleasureOf,
+            data::SupervisingRelation::Head,
+            data::SupervisingRelation::ResponsibleTo,
+            data::SupervisingRelation::MemberOf,
         ];
-        let mut map: HashMap<String, data::Supervisor> = HashMap::new();
+        let mut map: HashMap<String, data::SupervisingRelation> = HashMap::new();
         for variant in ALL_VARIANTS {
             map.insert(to_variant_name(&variant)?.to_string(), variant);
         }
@@ -422,7 +422,7 @@ impl Repository {
     pub fn query_subordinates_for_office(
         &self,
         office_id: &str,
-    ) -> Result<HashMap<data::Supervisor, Vec<context::Officer>>> {
+    ) -> Result<HashMap<data::SupervisingRelation, Vec<context::Officer>>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT s.relation, s.office_id, o.name, i.person_id, p.name
@@ -469,7 +469,7 @@ impl Repository {
     pub fn query_supervisors_for_office(
         &self,
         office_id: &str,
-    ) -> Result<HashMap<data::Supervisor, context::Officer>> {
+    ) -> Result<HashMap<data::SupervisingRelation, context::Officer>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT

@@ -45,12 +45,12 @@ pub struct Office {
     pub name: String,
     pub photo: Option<Photo>,
     pub contacts: Option<Contacts>,
-    pub supervisors: Option<HashMap<Supervisor, String>>,
+    pub supervisors: Option<HashMap<SupervisingRelation, String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 #[serde(rename_all = "snake_case")]
-pub enum Supervisor {
+pub enum SupervisingRelation {
     Adviser,
     DuringThePleasureOf,
     Head,

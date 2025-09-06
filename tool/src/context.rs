@@ -80,8 +80,8 @@ pub struct Office {
     pub name: String,
     pub photo: Option<data::Photo>,
     pub contacts: Option<data::Contacts>,
-    pub supervisors: Option<HashMap<data::Supervisor, Officer>>,
-    pub subordinates: Option<HashMap<data::Supervisor, Vec<Officer>>>,
+    pub supervisors: Option<HashMap<data::SupervisingRelation, Officer>>,
+    pub subordinates: Option<HashMap<data::SupervisingRelation, Vec<Officer>>>,
 }
 
 #[derive(Serialize, Debug)]
