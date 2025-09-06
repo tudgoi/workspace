@@ -1,30 +1,20 @@
-use crate::data;
-
-#[derive(Debug)]
-pub struct Person {
-    pub id: String,
-    pub data: data::Person,
-    pub updated: String,
-}
+use crate::{context, data};
 
 #[derive(Debug)]
 pub struct Office {
     pub id: String,
-    pub data: data::Office
+    pub name: String,
+    pub photo: Option<data::Photo>,
+    pub contacts: Option<data::Contacts>,
 }
 
 #[derive(Debug)]
 pub struct PersonOffice {
-    pub person: Person,
+    pub person: context::Person,
+    pub photo: Option<data::Photo>,
+    pub contacts: Option<data::Contacts>,
     pub offices: Option<Vec<Office>>,
-}
-
-#[derive(Debug)]
-pub struct Officer {
-    pub office_id: String,
-    pub office_name: String,
-    pub person_id: Option<String> ,
-    pub person_name: Option<String>,
+    pub updated: String,
 }
 
 #[derive(Debug)]

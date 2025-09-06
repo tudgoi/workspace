@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{data, dto};
+use crate::data;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
@@ -59,8 +59,8 @@ pub struct IndexContext {
 #[derive(Serialize, Debug)]
 pub struct PersonContext {
     pub person: Person,
-    pub photo: Option<Photo>,
-    pub contacts: Option<Contacts>,
+    pub photo: Option<data::Photo>,
+    pub contacts: Option<data::Contacts>,
     pub offices: Option<Vec<Office>>,
 
     pub config: Config,
@@ -75,30 +75,11 @@ pub struct Person {
 }
 
 #[derive(Serialize, Debug)]
-pub struct Photo {
-    pub url: String,
-    pub attribution: Option<String>
-}
-
-#[derive(Serialize, Debug)]
-pub struct Contacts {
-    pub phone: Option<String>,
-    pub email: Option<String>,
-    pub website: Option<String>,
-    pub wikipedia: Option<String>,
-    pub x: Option<String>,
-    pub facebook: Option<String>,
-    pub instagram: Option<String>,
-    pub youtube: Option<String>,
-    pub address: Option<String>
-}
-
-#[derive(Serialize, Debug)]
 pub struct Office {
     pub id: String,
     pub name: String,
-    pub photo: Option<Photo>,
-    pub contacts: Option<Contacts>,
+    pub photo: Option<data::Photo>,
+    pub contacts: Option<data::Contacts>,
     pub supervisors: Option<HashMap<data::Supervisor, Officer>>,
     pub subordinates: Option<HashMap<data::Supervisor, Vec<Officer>>>,
 }
@@ -108,22 +89,6 @@ pub struct Officer {
     pub office_id: String,
     pub office_name: String,
     pub person: Option<Person>,
-}
-
-impl From<dto::Officer> for Officer {
-    fn from(value: dto::Officer) -> Self {
-        let person = if let (Some(id), Some(name)) = (value.person_id, value.person_name) {
-            Some(Person { id, name })
-        } else {
-            None
-        };
-
-        Officer {
-            office_id: value.office_id,
-            office_name: value.office_name,
-            person
-        }
-    }
 }
 
 #[derive(Serialize, Debug)]

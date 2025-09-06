@@ -6,7 +6,7 @@ use std::{fs};
 
 mod data;
 mod context;
-mod repository;
+mod repo;
 mod dto;
 mod render;
 mod import;
@@ -46,14 +46,14 @@ fn main() -> Result<()> {
     let args = Cli::parse();
     
     match args.command {
-        Commands::Import { source, output} => import::run(source, output)
+        Commands::Import { source, output} => import::run(source.as_path(), output.as_path())
             .with_context(|| "could not run `import`"),
         Commands::Render {
             db,
             templates,
             output,
             output_format
-        } => render::run(db, templates, output, output_format)
+        } => render::run(db.as_path(), templates.as_path(), output.as_path(), output_format)
             .with_context(|| "could not run `render`"),
     }
 }

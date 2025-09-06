@@ -1,11 +1,10 @@
 use anyhow::bail;
 use anyhow::{Context, Result, ensure};
-use rusqlite::Connection;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 use super::from_toml_file;
-use super::{data, repository};
+use super::{data, repo};
 
 fn get_updated(file_path: &Path) -> Result<String> {
     let path_str = file_path.to_str()
@@ -32,14 +31,15 @@ fn get_updated(file_path: &Path) -> Result<String> {
     Ok(date_str.trim().to_string())
 }
 
-pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
+pub fn run(source: &Path, output: &Path) -> Result<()> {
     ensure!(!output.exists(), "output DB already exists at {:?}", output);
 
     // setup sqlite DB
-    let conn = Connection::open(output.as_path())
+    let repo = repo::Repository::new(output)
         .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
 
-    repository::setup_database(&conn)?;
+    repo.setup_database()
+        .with_context(|| format!("could not setup database tables"))?;
 
     // process person
     let data_dir = source.join("person");
@@ -64,7 +64,7 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
 
         let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
-        repository::save_person(&conn, id, &person, &updated)?;
+        repo.save_person(id, &person, &updated)?;
     }
 
     // process office
@@ -87,7 +87,7 @@ pub fn run(source: PathBuf, output: PathBuf) -> Result<()> {
 
         let office: data::Office = from_toml_file(file_entry.path())
             .with_context(|| format!("failed to parse template"))?;
-        repository::save_office(&conn, id, &office)?;
+        repo.save_office(id, &office)?;
     }
 
     Ok(())

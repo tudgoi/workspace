@@ -34,13 +34,13 @@ serve () {
     (
         set -e
         cd output/html
-        uv run ../../tool/server.py
+        uv run python -m http.server 8000
     )
 }
 
 render-json() {
     rm -rf output/json &&
-    cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output --o=json
+    cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output -o=json
 }
 
 all () {

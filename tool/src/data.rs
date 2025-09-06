@@ -17,6 +17,7 @@ pub struct Photo {
     pub attribution: Option<String>,
 }
 
+// TODO use HashMap similar to Supervisor
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Contacts {
@@ -43,8 +44,8 @@ pub struct Tenure {
 pub struct Office {
     pub name: String,
     pub photo: Option<Photo>,
+    pub contacts: Option<Contacts>,
     pub supervisors: Option<HashMap<Supervisor, String>>,
-    pub contacts: Option<Contacts>
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
