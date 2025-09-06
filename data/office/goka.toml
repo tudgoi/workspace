@@ -9,5 +9,5 @@ website = "http://rajbhavan.karnataka.gov.in/"
 wikipedia = "List_of_governors_of_Karnataka"
 
 [supervisors]
-adviser = "comka"
 during_the_pleasure_of = "poi"
+adviser = "comka"

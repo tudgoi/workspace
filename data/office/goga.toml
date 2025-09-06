@@ -9,5 +9,5 @@ website = "https://rajbhavan.goa.gov.in/"
 wikipedia = "List_of_governors_of_Goa"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comga"
+during_the_pleasure_of = "poi"

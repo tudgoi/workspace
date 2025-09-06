@@ -5,8 +5,8 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Bihar"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-website = "https://governor.bih.nic.in/"
 wikipedia = "List_of_governors_of_Bihar"
+website = "https://governor.bih.nic.in/"
 
 [supervisors]
 during_the_pleasure_of = "poi"

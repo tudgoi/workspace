@@ -5,9 +5,9 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Manipur"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-website = "https://rajbhavanmanipur.nic.in/"
 wikipedia = "List_of_governors_of_Manipur"
+website = "https://rajbhavanmanipur.nic.in/"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "commn"
+during_the_pleasure_of = "poi"

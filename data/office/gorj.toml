@@ -9,5 +9,5 @@ wikipedia = "List_of_governors_of_Rajasthan"
 website = "https://rajbhawan.rajasthan.gov.in/content/rajbhawan/en.html"
 
 [supervisors]
-adviser = "comrj"
 during_the_pleasure_of = "poi"
+adviser = "comrj"
