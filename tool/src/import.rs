@@ -35,7 +35,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
     ensure!(!output.exists(), "output DB already exists at {:?}", output);
 
     // setup sqlite DB
-    let repo = repo::Repository::new(output)
+    let mut repo = repo::Repository::new(output)
         .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
 
     repo.setup_database()
