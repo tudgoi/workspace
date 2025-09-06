@@ -5,8 +5,8 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Madhya_Pradesh"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-website = "http://governor.mp.gov.in/"
 wikipedia = "List_of_governors_of_Madhya_Pradesh"
+website = "http://governor.mp.gov.in/"
 
 [supervisors]
 adviser = "commp"

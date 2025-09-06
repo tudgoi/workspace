@@ -9,5 +9,5 @@ website = "http://rajbhavancg.gov.in/?q=en/news"
 wikipedia = "List_of_governors_of_Chhattisgarh"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comcg"
+during_the_pleasure_of = "poi"

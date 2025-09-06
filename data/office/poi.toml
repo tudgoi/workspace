@@ -1,12 +1,12 @@
 name = "President of India"
 
 [contacts]
-facebook = "presidentofindia"
-website = "https://presidentofindia.gov.in/"
-x = "rashtrapatibhvn"
-instagram = "presidentofindia"
 wikipedia = "President_of_India"
+x = "rashtrapatibhvn"
+website = "https://presidentofindia.gov.in/"
+facebook = "presidentofindia"
 youtube = "presidentofindia"
+instagram = "presidentofindia"
 
 [supervisors]
 adviser = "ucom"

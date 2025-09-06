@@ -9,5 +9,5 @@ website = "http://arunachalgovernor.gov.in/"
 wikipedia = "List_of_governors_of_Arunachal_Pradesh"
 
 [supervisors]
-adviser = "comar"
 during_the_pleasure_of = "poi"
+adviser = "comar"

@@ -9,5 +9,5 @@ wikipedia = "List_of_governors_of_Haryana"
 website = "http://haryanarajbhavan.gov.in/"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comhr"
+during_the_pleasure_of = "poi"

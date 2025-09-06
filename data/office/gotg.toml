@@ -5,9 +5,9 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Telangana"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-website = "https://governor.telangana.gov.in/"
 wikipedia = "List_of_governors_of_Telangana"
+website = "https://governor.telangana.gov.in/"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comtg"
+during_the_pleasure_of = "poi"

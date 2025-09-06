@@ -5,8 +5,8 @@ url = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India
 attribution = "Government of India, Public domain, via Wikimedia Commons"
 
 [contacts]
-website = "https://www.india.gov.in/my-government/whos-who/council-ministers"
 wikipedia = "Union_Council_of_Ministers"
+website = "https://www.india.gov.in/my-government/whos-who/council-ministers"
 
 [supervisors]
 responsible_to = "ls"

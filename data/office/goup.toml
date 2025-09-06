@@ -5,8 +5,8 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Uttar_Pradesh"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-wikipedia = "List_of_governors_of_Uttar_Pradesh"
 website = "http://upgovernor.gov.in/"
+wikipedia = "List_of_governors_of_Uttar_Pradesh"
 
 [supervisors]
 adviser = "comup"

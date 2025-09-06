@@ -5,9 +5,9 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Himachal_Pradesh"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-website = "https://himachalrajbhavan.nic.in/"
 wikipedia = "List_of_governors_of_Himachal_Pradesh"
+website = "https://himachalrajbhavan.nic.in/"
 
 [supervisors]
-adviser = "comhp"
 during_the_pleasure_of = "poi"
+adviser = "comhp"
