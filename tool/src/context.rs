@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -60,7 +60,7 @@ pub struct IndexContext {
 pub struct PersonContext {
     pub person: Person,
     pub photo: Option<data::Photo>,
-    pub contacts: Option<HashMap<data::ContactType, String>>,
+    pub contacts: Option<BTreeMap<data::ContactType, String>>,
     pub offices: Option<Vec<Office>>,
 
     pub config: Config,
@@ -79,7 +79,7 @@ pub struct Office {
     pub id: String,
     pub name: String,
     pub photo: Option<data::Photo>,
-    pub contacts: Option<HashMap<data::ContactType, String>>,
+    pub contacts: Option<BTreeMap<data::ContactType, String>>,
     pub supervisors: Option<HashMap<data::SupervisingRelation, Officer>>,
     pub subordinates: Option<HashMap<data::SupervisingRelation, Vec<Officer>>>,
 }

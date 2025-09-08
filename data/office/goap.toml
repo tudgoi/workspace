@@ -1,9 +1,9 @@
 name = "Governor of Andhra Pradesh"
 
 [contacts]
-wikipedia = "List_of_governors_of_Andhra_Pradesh"
 website = "http://www.rajbhavan.ap.gov.in/"
+wikipedia = "List_of_governors_of_Andhra_Pradesh"
 
 [supervisors]
-adviser = "comap"
 during_the_pleasure_of = "poi"
+adviser = "comap"

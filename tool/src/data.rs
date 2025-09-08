@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde_derive::{Serialize, Deserialize};
 
@@ -6,7 +6,7 @@ use serde_derive::{Serialize, Deserialize};
 pub struct Person {
     pub name: String,
     pub photo: Option<Photo>,
-    pub contacts: Option<HashMap<ContactType, String>>,
+    pub contacts: Option<BTreeMap<ContactType, String>>,
     pub tenures: Option<Vec<Tenure>>
 }
 
@@ -16,7 +16,7 @@ pub struct Photo {
     pub attribution: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum ContactType {
     Address,
@@ -42,7 +42,7 @@ pub struct Tenure {
 pub struct Office {
     pub name: String,
     pub photo: Option<Photo>,
-    pub contacts: Option<HashMap<ContactType, String>>,
+    pub contacts: Option<BTreeMap<ContactType, String>>,
     pub supervisors: Option<HashMap<SupervisingRelation, String>>,
 }
 

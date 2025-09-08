@@ -5,8 +5,8 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Tamil_Nadu"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-wikipedia = "List_of_governors_of_Tamil_Nadu"
 website = "https://tnrajbhavan.gov.in/"
+wikipedia = "List_of_governors_of_Tamil_Nadu"
 
 [supervisors]
 during_the_pleasure_of = "poi"

@@ -9,5 +9,5 @@ website = "https://rajbhavan.nagaland.gov.in/"
 wikipedia = "List_of_governors_of_Nagaland"
 
 [supervisors]
-adviser = "comnl"
 during_the_pleasure_of = "poi"
+adviser = "comnl"

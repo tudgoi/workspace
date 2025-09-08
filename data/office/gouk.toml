@@ -5,9 +5,9 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Uttarakhand"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-wikipedia = "List_of_governors_of_Uttarakhand"
 website = "https://governoruk.gov.in/"
+wikipedia = "List_of_governors_of_Uttarakhand"
 
 [supervisors]
-adviser = "comuk"
 during_the_pleasure_of = "poi"
+adviser = "comuk"

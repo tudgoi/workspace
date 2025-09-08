@@ -9,5 +9,5 @@ website = "https://rajbhavan.tripura.gov.in/"
 wikipedia = "List_of_governors_of_Tripura"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comtr"
+during_the_pleasure_of = "poi"

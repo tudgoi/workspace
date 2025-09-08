@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::{BTreeMap, HashMap}, path::Path};
 
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
@@ -195,7 +195,7 @@ impl Repository {
     pub fn save_person_contacts(
         &mut self,
         id: &str,
-        contacts: &HashMap<data::ContactType, String>,
+        contacts: &BTreeMap<data::ContactType, String>,
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
         {
@@ -315,7 +315,7 @@ impl Repository {
     pub fn save_office_contacts(
         &mut self,
         id: &str,
-        contacts: &HashMap<data::ContactType, String>,
+        contacts: &BTreeMap<data::ContactType, String>,
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
         {
@@ -345,7 +345,7 @@ impl Repository {
     pub fn query_contacts_for_person(
         &self,
         id: &str,
-    ) -> Result<HashMap<data::ContactType, String>> {
+    ) -> Result<BTreeMap<data::ContactType, String>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT type, value
@@ -354,7 +354,7 @@ impl Repository {
         ",
         )?;
         let iter = stmt.query_map([id], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        let mut contacts = HashMap::new();
+        let mut contacts = BTreeMap::new();
         for result in iter {
             let (contact_type, value): (String, String) = result?;
             let contact_type = self
@@ -371,7 +371,7 @@ impl Repository {
     pub fn query_contacts_for_office(
         &self,
         id: &str,
-    ) -> Result<HashMap<data::ContactType, String>> {
+    ) -> Result<BTreeMap<data::ContactType, String>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT type, value
@@ -380,7 +380,7 @@ impl Repository {
         ",
         )?;
         let iter = stmt.query_map([id], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        let mut contacts = HashMap::new();
+        let mut contacts = BTreeMap::new();
         for result in iter {
             let (contact_type, value): (String, String) = result?;
             let contact_type = self

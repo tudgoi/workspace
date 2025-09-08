@@ -5,9 +5,9 @@ url = "https://en.wikipedia.org/wiki/Emblem_of_Meghalaya"
 attribution = "Wikipedia contributors (article), via Wikipedia"
 
 [contacts]
-wikipedia = "List_of_governors_of_Meghalaya"
 website = "http://meggovernor.gov.in/"
+wikipedia = "List_of_governors_of_Meghalaya"
 
 [supervisors]
-adviser = "comml"
 during_the_pleasure_of = "poi"
+adviser = "comml"

@@ -9,5 +9,5 @@ website = "https://rajbhavan.gujarat.gov.in/"
 wikipedia = "List_of_governors_of_Gujarat"
 
 [supervisors]
-adviser = "comgj"
 during_the_pleasure_of = "poi"
+adviser = "comgj"
