@@ -27,7 +27,8 @@ pub enum ContactType {
     X,
     Youtube,
     Facebook,
-    Instagram
+    Instagram,
+    Wikidata,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -47,7 +47,7 @@ impl Repository {
     }
 
     fn build_contact_type_variants() -> Result<HashMap<String, data::ContactType>> {
-        const ALL_VARIANTS: [data::ContactType; 9] = [
+        const ALL_VARIANTS: [data::ContactType; 10] = [
             data::ContactType::Address,
             data::ContactType::Phone,
             data::ContactType::Email,
@@ -57,6 +57,7 @@ impl Repository {
             data::ContactType::Youtube,
             data::ContactType::Facebook,
             data::ContactType::Instagram,
+            data::ContactType::Wikidata,
         ];
         let mut map: HashMap<String, data::ContactType> = HashMap::new();
         for variant in ALL_VARIANTS {
