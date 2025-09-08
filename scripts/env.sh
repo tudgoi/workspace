@@ -13,7 +13,6 @@ export-data () {
     cargo run --manifest-path xform/Cargo.toml export output/directory.db data
 }
 
-
 render() {
     (
         set -e
@@ -52,6 +51,10 @@ serve () {
 render-json() {
     rm -rf output/json &&
     cargo run --manifest-path xform/Cargo.toml render output/directory.db templates output -o=json
+}
+
+ingest() {
+    cargo run --manifest-path xform/Cargo.toml ingest $@
 }
 
 all () {

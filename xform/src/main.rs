@@ -11,6 +11,7 @@ mod dto;
 mod export;
 mod render;
 mod import;
+mod ingest;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -38,15 +39,24 @@ enum Commands {
 
         #[arg(short='o', long, value_enum, default_value_t = OutputFormat::Html)]
         output_format: OutputFormat,
+    },
+    
+    Ingest {
+        #[arg(short='s', long, value_enum)]
+        source: IngestionSource,
     }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum OutputFormat {
     Json,
-    Html
+    Html,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord, ValueEnum)]
+enum IngestionSource {
+    Wikidata,
+}
 
 fn main() -> Result<()> {
     let args = Cli::parse();
@@ -63,6 +73,7 @@ fn main() -> Result<()> {
             output_format
         } => render::run(db.as_path(), templates.as_path(), output.as_path(), output_format)
             .with_context(|| "could not run `render`"),
+        Commands::Ingest { source: source_name } => ingest::run(source_name)
     }
 }
 
