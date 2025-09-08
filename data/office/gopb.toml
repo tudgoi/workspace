@@ -5,5 +5,5 @@ website = "https://punjabrajbhavan.gov.in/home/governor"
 wikipedia = "List_of_governors_of_Punjab,_India"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "compb"
+during_the_pleasure_of = "poi"

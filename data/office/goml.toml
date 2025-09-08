@@ -9,5 +9,5 @@ website = "http://meggovernor.gov.in/"
 wikipedia = "List_of_governors_of_Meghalaya"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comml"
+during_the_pleasure_of = "poi"

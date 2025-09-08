@@ -5,5 +5,5 @@ website = "http://www.rajbhavan.ap.gov.in/"
 wikipedia = "List_of_governors_of_Andhra_Pradesh"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comap"
+during_the_pleasure_of = "poi"

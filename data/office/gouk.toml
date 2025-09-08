@@ -9,5 +9,5 @@ website = "https://governoruk.gov.in/"
 wikipedia = "List_of_governors_of_Uttarakhand"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comuk"
+during_the_pleasure_of = "poi"

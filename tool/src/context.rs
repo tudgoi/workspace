@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -80,8 +80,8 @@ pub struct Office {
     pub name: String,
     pub photo: Option<data::Photo>,
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
-    pub supervisors: Option<HashMap<data::SupervisingRelation, Officer>>,
-    pub subordinates: Option<HashMap<data::SupervisingRelation, Vec<Officer>>>,
+    pub supervisors: Option<BTreeMap<data::SupervisingRelation, Officer>>,
+    pub subordinates: Option<BTreeMap<data::SupervisingRelation, Vec<Officer>>>,
 }
 
 #[derive(Serialize, Debug)]

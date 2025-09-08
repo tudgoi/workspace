@@ -9,5 +9,5 @@ website = "http://www.rajbhavansikkim.gov.in/"
 wikipedia = "List_of_governors_of_Sikkim"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comsk"
+during_the_pleasure_of = "poi"

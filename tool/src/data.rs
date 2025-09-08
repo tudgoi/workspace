@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use serde_derive::{Serialize, Deserialize};
 
@@ -43,15 +43,15 @@ pub struct Office {
     pub name: String,
     pub photo: Option<Photo>,
     pub contacts: Option<BTreeMap<ContactType, String>>,
-    pub supervisors: Option<HashMap<SupervisingRelation, String>>,
+    pub supervisors: Option<BTreeMap<SupervisingRelation, String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum SupervisingRelation {
+    Head,
     Adviser,
     DuringThePleasureOf,
-    Head,
     ResponsibleTo,
     MemberOf,
 }

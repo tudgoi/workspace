@@ -302,7 +302,7 @@ impl Repository {
         }
 
         if let Some(supervisors) = &office.supervisors {
-            for (name, value) in supervisors.iter() {
+            for (name, value) in supervisors {
                 self.conn.execute(
                     "INSERT INTO supervisor (office_id, relation, supervisor_office_id) VALUES (?1, ?2, ?3)",
                     params![id, to_variant_name(name)?, value],
@@ -507,7 +507,7 @@ impl Repository {
     pub fn query_subordinates_for_office(
         &self,
         office_id: &str,
-    ) -> Result<HashMap<data::SupervisingRelation, Vec<context::Officer>>> {
+    ) -> Result<BTreeMap<data::SupervisingRelation, Vec<context::Officer>>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT s.relation, s.office_id, o.name, i.person_id, p.name
@@ -540,7 +540,7 @@ impl Repository {
             ))
         })?;
 
-        let mut dtos = HashMap::new();
+        let mut dtos = BTreeMap::new();
         for result in iter {
             let (relation, officer) = result?;
             let relation = self
@@ -559,7 +559,7 @@ impl Repository {
     pub fn query_supervisors_for_office(
         &self,
         office_id: &str,
-    ) -> Result<HashMap<data::SupervisingRelation, context::Officer>> {
+    ) -> Result<BTreeMap<data::SupervisingRelation, context::Officer>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT
@@ -592,7 +592,7 @@ impl Repository {
             ))
         })?;
 
-        let mut supervisors = std::collections::HashMap::new();
+        let mut supervisors = BTreeMap::new();
         for result in iter {
             let (relation, officer) = result?;
             let relation = self
@@ -609,7 +609,7 @@ impl Repository {
     fn query_supervisors_for_office_flat(
         &self,
         office_id: &str,
-    ) -> Result<HashMap<data::SupervisingRelation, String>> {
+    ) -> Result<BTreeMap<data::SupervisingRelation, String>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT relation, supervisor_office_id
@@ -619,7 +619,7 @@ impl Repository {
         )?;
         let iter = stmt.query_map([office_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
 
-        let mut supervisors = HashMap::new();
+        let mut supervisors = BTreeMap::new();
         for result in iter {
             let (relation_str, supervisor_office_id): (String, String) = result?;
             let relation = self

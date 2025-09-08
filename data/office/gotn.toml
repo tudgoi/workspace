@@ -9,5 +9,5 @@ website = "https://tnrajbhavan.gov.in/"
 wikipedia = "List_of_governors_of_Tamil_Nadu"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "comtn"
+during_the_pleasure_of = "poi"
