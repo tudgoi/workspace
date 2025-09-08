@@ -42,6 +42,7 @@ enum Commands {
     },
     
     Ingest {
+        db: PathBuf,
         #[arg(short='s', long, value_enum)]
         source: IngestionSource,
     }
@@ -53,7 +54,7 @@ enum OutputFormat {
     Html,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord, ValueEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum IngestionSource {
     Wikidata,
 }
@@ -73,7 +74,7 @@ fn main() -> Result<()> {
             output_format
         } => render::run(db.as_path(), templates.as_path(), output.as_path(), output_format)
             .with_context(|| "could not run `render`"),
-        Commands::Ingest { source: source_name } => ingest::run(source_name)
+        Commands::Ingest { db, source: source_name } => ingest::run(db.as_path(), source_name),
     }
 }
 

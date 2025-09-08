@@ -211,6 +211,20 @@ impl Repository {
         tx.commit()
             .context(format!("failed to insert contacts for person"))
     }
+
+    pub fn save_person_contact(
+        &mut self,
+        id: &str,
+        contact_type: &data::ContactType,
+        value: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO person_contact (id, type, value) VALUES (?1, ?2, ?3)",
+            params![id, to_variant_name(contact_type)?, value],
+        )
+        .with_context(|| format!("could not insert contact for person {}", id))?;
+        Ok(())
+    }
     
     pub fn save_office(&mut self, id: &str, office: &data::Office) -> Result<()> {
         let (photo_url, photo_attribution) = if let Some(photo) = &office.photo {
