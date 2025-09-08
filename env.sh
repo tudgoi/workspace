@@ -1,6 +1,6 @@
 import () {
     rm -rf output && mkdir output &&
-    cargo run --manifest-path tool/Cargo.toml import data output/directory.db
+    cargo run --manifest-path xform/Cargo.toml import data output/directory.db
 }
 
 export-data () {
@@ -10,7 +10,7 @@ export-data () {
         return 1
     fi
     
-    cargo run --manifest-path tool/Cargo.toml export output/directory.db data
+    cargo run --manifest-path xform/Cargo.toml export output/directory.db data
 }
 
 
@@ -18,7 +18,7 @@ render() {
     (
         set -e
         rm -rf output/html output/search
-        cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output
+        cargo run --manifest-path xform/Cargo.toml render output/directory.db templates output
         if [ -d "output/wasm_output" ]; then
             cp output/wasm_output/tinysearch_engine.* output/html
         fi
@@ -51,7 +51,7 @@ serve () {
 
 render-json() {
     rm -rf output/json &&
-    cargo run --manifest-path tool/Cargo.toml render output/directory.db templates output -o=json
+    cargo run --manifest-path xform/Cargo.toml render output/directory.db templates output -o=json
 }
 
 all () {
