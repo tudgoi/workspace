@@ -21,15 +21,16 @@ pub struct Defaults {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Icons {
+    pub address: String,
     pub phone: String,
     pub email: String,
     pub website: String,
     pub wikipedia: String,
     pub x: String,
+    pub youtube: String,
     pub facebook: String,
     pub instagram: String,
-    pub youtube: String,
-    pub address: String,
+    pub wikidata: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -19,6 +19,8 @@
         <a href="https://www.instagram.com/{{ value }}">{{ value }}
     {% elif key == "youtube" %}
         <a href="https://www.youtube.com/{{ value }}">{{ value }}</a>
+    {% elif key == "wikidata" %}
+        <a href="https://www.wikidata.org/wiki/{{ value }}">{{ value }}</a>
     {% endif %}
 {% endmacro render_contact %}
 
@@ -27,7 +29,7 @@
       {% for key, value in contacts %}
         {% if value %}
         <div class="dl-single-line">
-          <dt><i class="{{ config.icons[key] }}"></i></dt>
+          <dt>{{ config.icons[key] | safe }}</dt>
           <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
         </div>
         {% endif %}
