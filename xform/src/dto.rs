@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{context, data};
+use crate::data;
 
 #[derive(Debug)]
 pub struct Office {
@@ -8,15 +8,6 @@ pub struct Office {
     pub name: String,
     pub photo: Option<data::Photo>,
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
-}
-
-#[derive(Debug)]
-pub struct PersonOffice {
-    pub person: context::Person,
-    pub photo: Option<data::Photo>,
-    pub contacts: Option<BTreeMap<data::ContactType, String>>,
-    pub offices: Option<Vec<Office>>,
-    pub updated: String,
 }
 
 #[derive(Debug)]

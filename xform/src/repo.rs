@@ -210,73 +210,7 @@ impl Repository {
         tx.commit()
             .context(format!("failed to insert contacts for person"))
     }
-
-    pub fn query_for_all_persons<F>(&self, mut process: F) -> Result<()>
-    where
-        F: FnMut(dto::PersonOffice) -> Result<()>,
-    {
-        let mut stmt = self
-            .conn
-            .prepare(
-                "
-            SELECT
-                id, name,
-                photo_url, photo_attribution,
-                updated
-            FROM person
-            ORDER BY id
-        ",
-            )
-            .with_context(|| "could not create statement for reading person table")?;
-        let iter = stmt
-            .query_map([], |row| {
-                let photo = if let Some(url) = row.get(2)? {
-                    Some(data::Photo {
-                        url,
-                        attribution: row.get(3)?,
-                    })
-                } else {
-                    None
-                };
-                Ok((
-                    context::Person {
-                        id: row.get(0)?,
-                        name: row.get(1)?,
-                    },
-                    photo,
-                    row.get(4)?,
-                ))
-            })
-            .with_context(|| "querying person table failed")?;
-
-        for result in iter {
-            let (person, photo, updated) = result?;
-            let person_id = person.id.clone();
-
-            let contacts = self.query_contacts_for_person(&person.id)
-                .with_context(|| format!("could not query contacts for {}", person.id))?;
-            let offices = self
-                .query_offices_for_person(&person.id)
-                .with_context(|| format!("could not query offices for {}", person.id))?;
-
-            let person_office = dto::PersonOffice {
-                person,
-                offices: if offices.is_empty() {
-                    None
-                } else {
-                    Some(offices)
-                },
-                updated,
-                photo,
-                contacts: if contacts.is_empty() { None } else { Some(contacts) },
-            };
-            process(person_office)
-                .with_context(|| format!("could not process person `{}`", person_id))?;
-        }
-
-        Ok(())
-    }
-
+    
     pub fn save_office(&mut self, id: &str, office: &data::Office) -> Result<()> {
         let (photo_url, photo_attribution) = if let Some(photo) = &office.photo {
             (Some(photo.url.as_str()), photo.attribution.as_deref())
@@ -342,6 +276,13 @@ impl Repository {
         })
     }
 
+    pub fn query_person_updated_date(&self, id: &str) -> Result<String> {
+        self.conn.query_row(
+            "SELECT updated FROM person WHERE id = ?1",
+            [id],
+            |row| row.get(0),
+        ).with_context(|| format!("could not query updated date for person {}", id))
+    }
     pub fn query_contacts_for_person(
         &self,
         id: &str,
@@ -462,6 +403,46 @@ impl Repository {
             tenures.push(result?);
         }
         Ok(tenures)
+    }
+
+    pub fn query_all_persons(&self) -> Result<HashMap<String, data::Person>> {
+        let mut stmt = self.conn.prepare(
+            "
+            SELECT id, name, photo_url, photo_attribution
+            FROM person
+            ORDER BY id
+        ",
+        )?;
+
+        let iter = stmt.query_map([], |row| {
+            let photo = if let Some(url) = row.get(2)? {
+                Some(data::Photo {
+                    url,
+                    attribution: row.get(3)?,
+                })
+            } else {
+                None
+            };
+            Ok((row.get(0)?, row.get(1)?, photo))
+        })?;
+
+        let mut persons = HashMap::new();
+        for result in iter {
+            let (id, name, photo): (String, String, Option<data::Photo>) = result?;
+            let contacts = self.query_contacts_for_person(&id)?;
+            let tenures = self.query_tenures_for_person(&id)?;
+
+            let person_data = data::Person {
+                name,
+                photo,
+                contacts: Some(contacts).filter(|c| !c.is_empty()),
+                tenures: Some(tenures).filter(|t| !t.is_empty()),
+            };
+
+            persons.insert(id, person_data);
+        }
+
+        Ok(persons)
     }
 
     pub fn query_all_offices(&self) -> Result<HashMap<String, data::Office>> {

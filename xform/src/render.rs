@@ -110,42 +110,54 @@ fn render_persons(
     fs::create_dir(person_path.as_path())
         .with_context(|| format!("could not create person dir {:?}", person_path))?;
 
-    repo.query_for_all_persons(|dto| {
+    let persons = repo
+        .query_all_persons()
+        .with_context(|| "could not query all persons")?;
+
+    for (id, person_data) in persons {
+        let updated = repo
+            .query_person_updated_date(&id)
+            .with_context(|| format!("could not query updated date for person {}", id))?;
+
+        let offices_for_person = repo
+            .query_offices_for_person(&id)
+            .with_context(|| format!("could not query offices for person {}", id))?;
+
         // person
         let person = context::Person {
-            id: dto.person.id,
-            name: dto.person.name,
+            id: id.clone(),
+            name: person_data.name,
         };
 
         // office, official_contacts, supervisors, subordinates
         let mut offices = Vec::new();
-        if let Some(dtos) = dto.offices {
-            for dto in dtos {
-                // supervisors
-                let supervisors = repo.query_supervisors_for_office(&dto.id)
-                    .with_context(|| format!("could not query subordinates for office {}", dto.id))?;
+        for office_dto in offices_for_person {
+            // supervisors
+            let supervisors = repo
+                .query_supervisors_for_office(&office_dto.id)
+                .with_context(|| format!("could not query supervisors for office {}", office_dto.id))?;
 
-                // subordinates
-                let subordinates = repo.query_subordinates_for_office(&dto.id)
-                    .with_context(|| format!("could not query subordinates for office {}", dto.id))?;
+            // subordinates
+            let subordinates = repo
+                .query_subordinates_for_office(&office_dto.id)
+                .with_context(|| format!("could not query subordinates for office {}", office_dto.id))?;
 
-                offices.push(context::Office {
-                    id: dto.id,
-                    name: dto.name,
-                    photo: dto.photo,
-                    contacts: dto.contacts,
-                    supervisors: if supervisors.is_empty() {
-                        None
-                    } else {
-                        Some(supervisors)
-                    },
-                    subordinates: if subordinates.is_empty() {
-                        None
-                    } else {
-                        Some(subordinates)
-                    },
-                });
-            }
+            offices.push(context::Office {
+                id: office_dto.id,
+                name: office_dto.name,
+                photo: office_dto.photo,
+                contacts: office_dto.contacts,
+                supervisors: if supervisors.is_empty() {
+                    None
+                } else {
+                    Some(supervisors)
+                },
+                subordinates: if subordinates.is_empty() {
+                    None
+                } else {
+                    Some(subordinates)
+                },
+            });
         }
 
         // page
@@ -156,14 +168,14 @@ fn render_persons(
         // metadata
         let metadata = context::Metadata {
             maintenance: Maintenance { incomplete: true },
-            updated: dto.updated,
+            updated,
         };
 
         // construct context
         let person_context = context::PersonContext {
             person,
-            photo: dto.photo,
-            contacts: dto.contacts,
+            photo: person_data.photo,
+            contacts: person_data.contacts,
             offices: if offices.is_empty() {
                 None
             } else {
@@ -220,10 +232,7 @@ fn render_persons(
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
             }
         }
-
-        Ok(())
-    })
-    .with_context(|| format!("could not process persons"))?;
+    }
 
     Ok(())
 }

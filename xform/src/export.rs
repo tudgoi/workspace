@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-use crate::{data, repo};
+use crate::repo;
 
 pub fn run(db: &Path, output: &Path) -> Result<()> {
     // Create output directories
@@ -22,30 +22,19 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
         .with_context(|| format!("could not open repository at {:?}", db))?;
 
     // Export persons
-    repo.query_for_all_persons(|dto| {
-        let tenures = repo
-            .query_tenures_for_person(&dto.person.id)
-            .with_context(|| format!("could not query tenures for {}", dto.person.id))?;
-
-        let person_data = data::Person {
-            name: dto.person.name,
-            photo: dto.photo,
-            contacts: dto.contacts,
-            tenures: Some(tenures).filter(|t| !t.is_empty()),
-        };
-
+    let persons = repo
+        .query_all_persons()
+        .with_context(|| "could not query all persons")?;
+    for (id, person_data) in persons {
         let toml_string =
             toml::to_string_pretty(&person_data).context("could not serialize person to TOML")?;
 
-        let file_path = person_dir.join(format!("{}.toml", dto.person.id));
+        let file_path = person_dir.join(format!("{}.toml", id));
         let mut file =
             File::create(&file_path).with_context(|| format!("could not create {:?}", file_path))?;
         file.write_all(toml_string.as_bytes())
             .with_context(|| format!("could not write to {:?}", file_path))?;
-
-        Ok(())
-    })
-    .with_context(|| "failed to process and export persons")?;
+    }
 
     // Export offices
     let offices = repo
