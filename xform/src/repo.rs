@@ -628,4 +628,40 @@ impl Repository {
 
         Ok(supervisors)
     }
+    
+    pub fn query_persons_without(&self, fields: Vec<dto::Field>) -> Result<Vec<context::Person>> {
+        if fields.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut persons = Vec::new();
+
+        for field in fields {
+            match field {
+                dto::Field::Wikidata => {
+                    let wikidata_type_str = to_variant_name(&data::ContactType::Wikidata)?;
+                    let mut stmt = self.conn.prepare(
+                        "
+                        SELECT p.id, p.name
+                        FROM person p
+                        WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM person_contact pc
+                            WHERE pc.id = p.id AND pc.type = ?1
+                        )
+                        ",
+                    )?;
+
+                    let iter = stmt.query_map([wikidata_type_str], |row| {
+                        Ok(context::Person { id: row.get(0)?, name: row.get(1)? })
+                    })?;
+
+                    for person in iter {
+                        persons.push(person?);
+                    }
+                }
+            }
+        }
+        Ok(persons)
+    }
 }

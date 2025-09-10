@@ -53,8 +53,8 @@ render-json() {
     cargo run --manifest-path xform/Cargo.toml render output/directory.db templates output -o=json
 }
 
-ingest() {
-    cargo run --manifest-path xform/Cargo.toml ingest $@
+augment() {
+    cargo run --manifest-path xform/Cargo.toml augment $@
 }
 
 all () {
