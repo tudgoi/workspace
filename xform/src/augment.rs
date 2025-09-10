@@ -3,38 +3,25 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use reqwest::Client;
 use serde_derive::Deserialize;
-
-use crate::{
-    context, data, dto, repo, Field, Source
-};
+use crate::{Field, Source, data, repo};
 
 #[tokio::main]
 pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<()> {
     let mut repo = repo::Repository::new(db_path)
         .with_context(|| "could not open repository for ingestion")?;
-    
-    let dto_fields: Vec<dto::Field> = fields
-        .iter()
-        .map(|f| match f {
-            Field::Wikidata => dto::Field::Wikidata,
-        })
-        .collect();
-    let persons = repo.query_persons_without(dto_fields)?;
-    
+
     let source = match source {
-        Source::Wikidata => Wikidata::new()
+        Source::Wikidata => Wikidata::new(),
     };
-    
+
     for field in &fields {
-        for person in &persons {
-            match field {
-                Field::Wikidata => {
-                    augment_wikidata_id(person, &mut repo, &source).await?;
-                }
+        match field {
+            Field::Wikidata => {
+                augment_wikidata_id(&mut repo, &source).await?;
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -96,7 +83,7 @@ impl AugmentationSource for Wikidata {
 
         if let Some(binding) = sparql_response.results.bindings.first() {
             if let Some(id) = binding.item.value.split('/').last() {
-                return Ok(Some(id.to_string()));
+                            return Ok(Some(id.to_string()));
             }
         }
 
@@ -111,19 +98,21 @@ impl Wikidata {
     }
 }
 
-async fn augment_wikidata_id(
-    person: &context::Person,
-    repo: &mut repo::Repository,
-    source: &Wikidata,
-) -> Result<()> {
-    println!("augmenting Wikidata ID for {} ({})...", person.name, person.id);
-    let wikidata_id = source.query_wikidata_id(&person.name).await?;
-    if let Some(wikidata_id) = wikidata_id {
-        println!("- found {}", wikidata_id);
-        repo.save_person_contact(&person.id, &data::ContactType::Wikidata, &wikidata_id)?;
-    } else {
-        println!("- no Wikidata ID found");
-    }
+async fn augment_wikidata_id(repo: &mut repo::Repository, source: &Wikidata) -> Result<()> {
+    let persons_to_augment = repo.query_persons_without_contact(data::ContactType::Wikidata)?;
 
+    for person in persons_to_augment {
+        println!(
+            "augmenting Wikidata ID for {} ({})...",
+            person.name, person.id
+        );
+        let wikidata_id = source.query_wikidata_id(&person.name).await?;
+        if let Some(wikidata_id) = wikidata_id {
+            println!("- found {}", wikidata_id);
+            repo.save_person_contact(&person.id, &data::ContactType::Wikidata, &wikidata_id)?;
+        } else {
+            println!("- no Wikidata ID found");
+        }
+    }
     Ok(())
 }

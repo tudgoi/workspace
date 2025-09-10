@@ -2,10 +2,6 @@ use std::collections::BTreeMap;
 
 use crate::data;
 
-pub enum Field {
-    Wikidata,
-}
-
 #[derive(Debug)]
 pub struct Office {
     pub id: String,

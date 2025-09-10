@@ -1,7 +1,7 @@
 use std::{collections::{BTreeMap, HashMap}, path::Path};
 
 use anyhow::{Context, Result};
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use serde_variant::to_variant_name;
 
 use crate::{
@@ -225,7 +225,7 @@ impl Repository {
         .with_context(|| format!("could not insert contact for person {}", id))?;
         Ok(())
     }
-    
+
     pub fn save_office(&mut self, id: &str, office: &data::Office) -> Result<()> {
         let (photo_url, photo_attribution) = if let Some(photo) = &office.photo {
             (Some(photo.url.as_str()), photo.attribution.as_deref())
@@ -629,39 +629,31 @@ impl Repository {
         Ok(supervisors)
     }
     
-    pub fn query_persons_without(&self, fields: Vec<dto::Field>) -> Result<Vec<context::Person>> {
-        if fields.is_empty() {
-            return Ok(Vec::new());
-        }
+    pub fn query_persons_without_contact(&self, contact_type: data::ContactType) -> Result<Vec<context::Person>> {
+        let contact_type_str = to_variant_name(&contact_type)?;
+        let mut stmt = self.conn.prepare(
+            "
+            SELECT p.id, p.name
+            FROM person p
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM person_contact pc
+                WHERE pc.id = p.id AND pc.type = ?1
+            )
+            ",
+        )?;
+ 
+        let iter = stmt.query_map([contact_type_str], |row| {
+            Ok(context::Person { id: row.get(0)?, name: row.get(1)? })
+        })?;
 
         let mut persons = Vec::new();
-
-        for field in fields {
-            match field {
-                dto::Field::Wikidata => {
-                    let wikidata_type_str = to_variant_name(&data::ContactType::Wikidata)?;
-                    let mut stmt = self.conn.prepare(
-                        "
-                        SELECT p.id, p.name
-                        FROM person p
-                        WHERE NOT EXISTS (
-                            SELECT 1
-                            FROM person_contact pc
-                            WHERE pc.id = p.id AND pc.type = ?1
-                        )
-                        ",
-                    )?;
-
-                    let iter = stmt.query_map([wikidata_type_str], |row| {
-                        Ok(context::Person { id: row.get(0)?, name: row.get(1)? })
-                    })?;
-
-                    for person in iter {
-                        persons.push(person?);
-                    }
-                }
-            }
+        for result in iter {
+            let person = result?;
+            persons.push(person);
         }
+        
         Ok(persons)
+        
     }
 }
