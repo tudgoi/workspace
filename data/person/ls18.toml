@@ -2,6 +2,7 @@ name = "18th Lok Sabha"
 
 [contacts]
 wikipedia = "18th_Lok_Sabha"
+wikidata = "Q123052644"
 
 [[tenures]]
 office = "ls"
