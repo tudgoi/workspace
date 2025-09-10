@@ -1,9 +1,9 @@
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use reqwest::Client;
-use serde_derive::Deserialize;
 use crate::{Field, Source, data, repo};
+use wikibase::mediawiki::api::Api;
 
 #[tokio::main]
 pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<()> {
@@ -11,7 +11,7 @@ pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<(
         .with_context(|| "could not open repository for ingestion")?;
 
     let source = match source {
-        Source::Wikidata => Wikidata::new(),
+        Source::Wikidata => Wikidata::new().await,
     };
 
     for field in &fields {
@@ -25,76 +25,40 @@ pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<(
     Ok(())
 }
 
-#[derive(Deserialize, Debug)]
-struct SparqlResponse {
-    results: SparqlResults,
-}
-
-#[derive(Deserialize, Debug)]
-struct SparqlResults {
-    bindings: Vec<SparqlBinding>,
-}
-
-#[derive(Deserialize, Debug)]
-struct SparqlBinding {
-    item: SparqlItem,
-}
-
-#[derive(Deserialize, Debug)]
-struct SparqlItem {
-    value: String,
-}
-
 trait AugmentationSource {
     async fn query_wikidata_id(&self, name: &str) -> Result<Option<String>>;
 }
 
 struct Wikidata {
-    client: Client,
+    api: Api,
 }
 
 impl AugmentationSource for Wikidata {
     async fn query_wikidata_id(&self, name: &str) -> Result<Option<String>> {
-        let query = format!(
-            "SELECT ?item WHERE {{
-          ?item wdt:P31 wd:Q5;
-                rdfs:label \"{}\"@en.
-        }}",
-            name
-        );
-
-        let response = self
-            .client
-            .get("https://query.wikidata.org/sparql")
-            .query(&[("format", "json"), ("query", &query)])
-            .header("User-Agent", "tudgoi-xform/0.1")
-            .send()
-            .await
-            .with_context(|| "failed to send request to wikidata")?;
-
-        if !response.status().is_success() {
-            anyhow::bail!("Wikidata query failed with status: {}", response.status());
-        }
-
-        let sparql_response: SparqlResponse = response
-            .json()
-            .await
-            .with_context(|| "failed to parse wikidata response")?;
-
-        if let Some(binding) = sparql_response.results.bindings.first() {
-            if let Some(id) = binding.item.value.split('/').last() {
-                            return Ok(Some(id.to_string()));
+        let params: HashMap<String, String> = [
+            ("action".to_string(), "wbsearchentities".to_string()),
+            ("search".to_string(), name.to_string()),
+            ("language".to_string(), "en".to_string()),
+            ("limit".to_string(), "1".to_string()),
+            ("type".to_string(), "item".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let res = self.api.get_query_api_json(&params).await?;
+        if let Some(r) = res["search"].as_array().and_then(|s| s.first()) {
+            if let Some(id) = r["id"].as_str() {
+                return Ok(Some(id.to_string()));
             }
         }
-
         Ok(None)
     }
 }
 
 impl Wikidata {
-    fn new() -> Self {
-        let client = Client::new();
-        Wikidata { client }
+    async fn new() -> Self {
+        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        Wikidata { api }
     }
 }
 
