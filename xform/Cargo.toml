@@ -17,3 +17,4 @@ tera = "1.20.0"
 toml = { version = "0.9.5", features = ["serde"] }
 tokio = { version = "1.39.3", features = ["macros", "rt-multi-thread"] }
 wikibase = "0.7.5"
+md5 = "0.7.0"

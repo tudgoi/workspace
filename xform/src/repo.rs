@@ -291,6 +291,23 @@ impl Repository {
         })
     }
 
+    pub fn save_person_photo(&mut self, id: &str, photo: &data::Photo) -> Result<()> {
+        self.conn.execute(
+            "UPDATE person SET photo_url = ?1, photo_attribution = ?2 WHERE id = ?3",
+            params![&photo.url, &photo.attribution, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn query_contact_for_person(&self, id: &str, contact_type: data::ContactType) -> Result<String> {
+        let contact_type_str = to_variant_name(&contact_type)?;
+        self.conn.query_row(
+            "SELECT value FROM person_contact WHERE id = ?1 AND type = ?2",
+            params![id, contact_type_str],
+            |row| row.get(0),
+        ).with_context(|| format!("could not query contact for person {}", id))
+    }
+
     pub fn query_person_updated_date(&self, id: &str) -> Result<String> {
         self.conn.query_row(
             "SELECT updated FROM person WHERE id = ?1",
@@ -655,5 +672,24 @@ impl Repository {
         
         Ok(persons)
         
+    }
+    
+    
+    pub fn query_persons_without_photo(&self) -> Result<Vec<context::Person>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name FROM person WHERE photo_url IS NULL",
+        )?;
+        let iter = stmt.query_map([], |row| {
+            Ok(context::Person {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })?;
+
+        let mut persons = Vec::new();
+        for result in iter {
+            persons.push(result?);
+        }
+        Ok(persons)
     }
 }

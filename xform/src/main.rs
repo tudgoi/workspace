@@ -55,6 +55,7 @@ enum Commands {
 #[derive(Clone, ValueEnum)]
 enum Field {
     Wikidata,
+    Photo,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
