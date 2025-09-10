@@ -1,5 +1,9 @@
 name = "Kambhampati Hari Babu"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/0/00/Shri_Kambhampati_Hari_Babu.jpg"
+attribution = "Raj Bhavan, Mizoram, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
+
 [contacts]
 website = "https://www.rajbhavanodisha.gov.in/"
 wikipedia = "Kambhampati_Hari_Babu"
