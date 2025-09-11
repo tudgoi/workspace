@@ -1,0 +1,34 @@
+{
+  "items": {
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "tenures": {
+        "items": {
+          "properties": {
+            "end": {
+              "type": "string"
+            },
+            "office": {
+              "type": "string"
+            },
+            "start": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "office"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  },
+  "type": "array"
+}
