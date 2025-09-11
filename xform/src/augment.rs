@@ -133,10 +133,24 @@ impl WikidataAugmentor {
                     let license_url = if let Some(url) = extmetadata.get("LicenseUrl") {
                         url["value"].as_str()
                     } else { None };
-                    
-                    if let (Some(artist), Some(license_short_name), Some(license_url)) = (artist, license_short_name, license_url) {
-                        return Ok(format!("{}, {} <{}>, via Wikimedia Commons", artist, license_short_name, license_url))
+
+                    let mut attribution_parts: Vec<String> = Vec::new();
+                    if let Some(artist_str) = artist {
+                        attribution_parts.push(artist_str.to_string());
                     }
+
+                    let license_str = match (license_short_name, license_url) {
+                        (Some(name), Some(url)) => Some(format!("{} <{}>", name, url)),
+                        (Some(name), None) => Some(name.to_string()),
+                        (None, Some(url)) => Some(format!("<{}>", url)),
+                        (None, None) => None,
+                    };
+                    if let Some(license_str) = license_str {
+                        attribution_parts.push(license_str);
+                    }
+
+                    attribution_parts.push("via Wikimedia Commons".to_string());
+                    return Ok(attribution_parts.join(", "));
                 }
             }
         }
