@@ -1,43 +1,16 @@
-use crate::{Source, data, repo};
-use anyhow::{Context, Result, bail};
+use std::{collections::HashMap, env};
 use gemini_rust::Gemini;
-use std::{collections::HashMap, env, path::Path};
-use tokio::io::AsyncReadExt;
+use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
-#[tokio::main]
-pub async fn run(db_path: &Path, source: Source) -> Result<()> {
-    let ingestor = match source {
-        Source::Wikidata => bail!("wikidata source not yet implemented"),
-        Source::Gemini => GeminiIngestor::new(),
-    }?;
+use crate::{data, ingest::Ingestor};
 
-    let mut repo = repo::Repository::new(db_path)
-        .with_context(|| "could not open repository for ingestion")?;
-
-    let mut query = String::new();
-    tokio::io::stdin().read_to_string(&mut query).await
-        .with_context(|| "could not read from stdin")?;
-    let persons = ingestor.query(&query).await
-        .with_context(|| format!("could not query persons from {:?}", source))?;
-    for (id, person) in &persons {
-        repo.save_person(&id, &person, None)
-            .with_context(|| format!("could not save person {} ({})", id, person.name))?;
-    }
-
-    Ok(())
-}
-
-trait Ingestor {
-    async fn query(&self, query: &str) -> Result<HashMap<String, data::Person>>;
-}
-
-struct GeminiIngestor {
+pub struct GeminiIngestor {
     client: Gemini,
 }
 
 impl GeminiIngestor {
-    fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let api_key = env::var("GEMINI_API_KEY")
             .with_context(|| format!("GEMINI_API_KEY environment variable not set"))?;
         let client = Gemini::new(api_key);
