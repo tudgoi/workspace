@@ -13,6 +13,7 @@ mod import;
 mod render;
 mod repo;
 mod ingest;
+mod serve;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -58,6 +59,13 @@ enum Commands {
         #[arg(short = 's', long, value_enum)]
         source: Source,
     },
+    
+    Serve {
+        db: PathBuf,
+        
+        #[arg(short = 'p', long)]
+        port: Option<String>,
+    }
 }
 
 #[derive(Clone, ValueEnum)]
@@ -85,9 +93,11 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Import { source, output } => import::run(source.as_path(), output.as_path())
             .with_context(|| "could not run `import`"),
+
         Commands::Export { db, output } => {
             export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
         }
+
         Commands::Render {
             db,
             templates,
@@ -100,13 +110,18 @@ fn main() -> Result<()> {
             output_format,
         )
         .with_context(|| "could not run `render`"),
+
         Commands::Augment {
             db,
             source: source_name,
             fields,
         } => augment::run(db.as_path(), source_name, fields),
+
         Commands::Ingest { db, source } => ingest::run(db.as_path(), source)
             .with_context(|| "could not run `ingest`"),
+        
+        Commands::Serve { db, port } => serve::run(&db, port.as_deref())
+            .with_context(|| "failed to run `serve`"),
     }
 }
 

@@ -1,3 +1,7 @@
+xform() {
+    cargo run --manifest-path xform/Cargo.toml -- $@
+}
+
 import () {
     rm -rf output && mkdir output &&
     cargo run --manifest-path xform/Cargo.toml import data output/directory.db
