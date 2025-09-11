@@ -76,6 +76,7 @@ enum OutputFormat {
 enum Source {
     Wikidata,
     Gemini,
+    Stdin,
 }
 
 fn main() -> Result<()> {

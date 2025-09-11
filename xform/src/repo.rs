@@ -1,7 +1,10 @@
-use std::{collections::{BTreeMap, HashMap}, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+};
 
 use anyhow::{Context, Result};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_variant::to_variant_name;
 
 use crate::{
@@ -76,7 +79,7 @@ impl Repository {
                 photo_url TEXT,
                 photo_attribution TEXT,
 
-                updated TEXT NOT NULL
+                updated TEXT
             )",
                 (),
             )
@@ -158,13 +161,33 @@ impl Repository {
         Ok(())
     }
 
-    pub fn save_person(&mut self, id: &str, person: &data::Person, updated: Option<&str>) -> Result<()> {
-        let (photo_url, photo_attribution) = if let Some(photo) = &person.photo {
-            (Some(photo.url.as_str()), photo.attribution.as_deref())
-        } else {
-            (None, None)
-        };
+    pub fn save_tenure_for_person(&mut self, id: &str, tenure: &data::Tenure) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO tenure (person_id, office_id, start, end) VALUES (?1, ?2, ?3, ?4)",
+                (id, &tenure.office, &tenure.start, &tenure.end),
+            )
+            .with_context(|| format!("could not insert tenure into DB for {}", id))?;
+        
+        Ok(())
+    }
 
+    pub fn save_tenures_for_person(&mut self, id: &str, tenures: &Vec<data::Tenure>) -> Result<()> {
+        for tenure in tenures {
+            self.save_tenure_for_person(id, &tenure)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn save_person(
+        &mut self,
+        id: &str,
+        name: &str,
+        photo_url: Option<&str>,
+        photo_attribution: Option<&str>,
+        updated: Option<&str>,
+    ) -> Result<()> {
         self.conn
             .execute(
                 "
@@ -173,23 +196,35 @@ impl Repository {
                 photo_url, photo_attribution,
                 updated
             ) VALUES (?1, ?2, ?3, ?4, ?5)",
-                (id, &person.name, photo_url, photo_attribution, updated),
+                (id, name, photo_url, photo_attribution, updated),
             )
             .with_context(|| format!("could not insert person {} into DB", id))?;
+
+        Ok(())
+    }
+
+    pub fn save_person_data(
+        &mut self,
+        id: &str,
+        person: &data::Person,
+        updated: Option<&str>,
+    ) -> Result<()> {
+        let (photo_url, photo_attribution) = if let Some(photo) = &person.photo {
+            (Some(photo.url.as_str()), photo.attribution.as_deref())
+        } else {
+            (None, None)
+        };
+
+        self.save_person(id, &person.name, photo_url, photo_attribution, updated)?;
 
         if let Some(contacts) = &person.contacts {
             self.save_person_contacts(id, contacts)?;
         }
 
         if let Some(tenures) = &person.tenures {
-            for tenure in tenures {
-                self.conn.execute(
-                    "INSERT INTO tenure (person_id, office_id, start, end) VALUES (?1, ?2, ?3, ?4)",
-                    (id, &tenure.office, &tenure.start, &tenure.end),
-                )
-                .with_context(|| format!("could not insert tenure into DB for {}", id))?;
-            }
-        }
+            self.save_tenures_for_person(id, tenures)?
+        };
+
         Ok(())
     }
 
@@ -218,15 +253,26 @@ impl Repository {
         contact_type: &data::ContactType,
         value: &str,
     ) -> Result<()> {
-        self.conn.execute(
-            "INSERT OR REPLACE INTO person_contact (id, type, value) VALUES (?1, ?2, ?3)",
-            params![id, to_variant_name(contact_type)?, value],
-        )
-        .with_context(|| format!("could not insert contact for person {}", id))?;
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO person_contact (id, type, value) VALUES (?1, ?2, ?3)",
+                params![id, to_variant_name(contact_type)?, value],
+            )
+            .with_context(|| format!("could not insert contact for person {}", id))?;
         Ok(())
     }
 
-    pub fn save_office(&mut self, id: &str, office: &data::Office) -> Result<()> {
+    pub fn save_office(&mut self, office: &context::Office) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO office (id, name) VALUES (?1, ?2)",
+                params![&office.id, &office.name],
+            )
+            .with_context(|| format!("could not insert office {} into DB", &office.id))?;
+        Ok(())
+    }
+
+    pub fn save_office_data(&mut self, id: &str, office: &data::Office) -> Result<()> {
         let (photo_url, photo_attribution) = if let Some(photo) = &office.photo {
             (Some(photo.url.as_str()), photo.attribution.as_deref())
         } else {
@@ -299,21 +345,27 @@ impl Repository {
         Ok(())
     }
 
-    pub fn query_contact_for_person(&self, id: &str, contact_type: data::ContactType) -> Result<String> {
+    pub fn query_contact_for_person(
+        &self,
+        id: &str,
+        contact_type: data::ContactType,
+    ) -> Result<String> {
         let contact_type_str = to_variant_name(&contact_type)?;
-        self.conn.query_row(
-            "SELECT value FROM person_contact WHERE id = ?1 AND type = ?2",
-            params![id, contact_type_str],
-            |row| row.get(0),
-        ).with_context(|| format!("could not query contact for person {}", id))
+        self.conn
+            .query_row(
+                "SELECT value FROM person_contact WHERE id = ?1 AND type = ?2",
+                params![id, contact_type_str],
+                |row| row.get(0),
+            )
+            .with_context(|| format!("could not query contact for person {}", id))
     }
 
-    pub fn query_person_updated_date(&self, id: &str) -> Result<String> {
-        self.conn.query_row(
-            "SELECT updated FROM person WHERE id = ?1",
-            [id],
-            |row| row.get(0),
-        ).with_context(|| format!("could not query updated date for person {}", id))
+    pub fn query_person_updated_date(&self, id: &str) -> Result<Option<String>> {
+        self.conn
+            .query_row("SELECT updated FROM person WHERE id = ?1", [id], |row| {
+                row.get(0)
+            })
+            .with_context(|| format!("could not query updated date for person {}", id))
     }
     pub fn query_contacts_for_person(
         &self,
@@ -392,11 +444,7 @@ impl Repository {
             };
             let office_id: String = row.get(0)?;
 
-            Ok((
-                office_id,
-                row.get(1)?,
-                photo,
-            ))
+            Ok((office_id, row.get(1)?, photo))
         })?;
         let mut offices = Vec::new();
         for result in iter {
@@ -404,8 +452,14 @@ impl Repository {
             let contacts = self.query_contacts_for_office(&id)?;
 
             offices.push(dto::Office {
-                id, name, photo,
-                contacts: if contacts.is_empty() { None } else { Some(contacts) }
+                id,
+                name,
+                photo,
+                contacts: if contacts.is_empty() {
+                    None
+                } else {
+                    Some(contacts)
+                },
             });
         }
 
@@ -517,6 +571,34 @@ impl Repository {
         Ok(offices)
     }
 
+    pub fn query_office_with_name(&self, name: &str) -> Result<Vec<context::Office>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name FROM office WHERE name LIKE ?1")?;
+        let mut rows = stmt.query([format!("%{}%", name)])?;
+        let mut offices = Vec::new();
+        while let Some(row) = rows.next()? {
+            offices.push(context::Office {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            });
+        }
+        Ok(offices)
+    }
+
+    pub fn query_office_with_id(&self, id: &str) -> Result<Option<context::Office>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name FROM office WHERE id = ?1")?;
+        let office = stmt.query_row([id], |row| {
+            Ok(context::Office {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })           
+        }).optional()?;
+
+        Ok(office)
+    }
     pub fn query_subordinates_for_office(
         &self,
         office_id: &str,
@@ -645,8 +727,11 @@ impl Repository {
 
         Ok(supervisors)
     }
-    
-    pub fn query_persons_without_contact(&self, contact_type: data::ContactType) -> Result<Vec<context::Person>> {
+
+    pub fn query_persons_without_contact(
+        &self,
+        contact_type: data::ContactType,
+    ) -> Result<Vec<context::Person>> {
         let contact_type_str = to_variant_name(&contact_type)?;
         let mut stmt = self.conn.prepare(
             "
@@ -659,9 +744,12 @@ impl Repository {
             )
             ",
         )?;
- 
+
         let iter = stmt.query_map([contact_type_str], |row| {
-            Ok(context::Person { id: row.get(0)?, name: row.get(1)? })
+            Ok(context::Person {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
         })?;
 
         let mut persons = Vec::new();
@@ -669,16 +757,14 @@ impl Repository {
             let person = result?;
             persons.push(person);
         }
-        
+
         Ok(persons)
-        
     }
-    
-    
+
     pub fn query_persons_without_photo(&self) -> Result<Vec<context::Person>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, name FROM person WHERE photo_url IS NULL",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name FROM person WHERE photo_url IS NULL")?;
         let iter = stmt.query_map([], |row| {
             Ok(context::Person {
                 id: row.get(0)?,

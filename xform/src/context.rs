@@ -62,7 +62,7 @@ pub struct PersonContext {
     pub person: Person,
     pub photo: Option<data::Photo>,
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
-    pub offices: Option<Vec<Office>>,
+    pub offices: Option<Vec<OfficeDetails>>,
 
     pub config: Config,
     pub page: Page,
@@ -79,6 +79,11 @@ pub struct Person {
 pub struct Office {
     pub id: String,
     pub name: String,
+}
+
+#[derive(Serialize, Debug)]
+pub struct OfficeDetails {
+    pub office: Office,
     pub photo: Option<data::Photo>,
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
     pub supervisors: Option<BTreeMap<data::SupervisingRelation, Officer>>,
@@ -99,7 +104,7 @@ pub struct Page {
 
 #[derive(Serialize, Debug)]
 pub struct Metadata {
-    pub updated: String,
+    pub updated: Option<String>,
     pub maintenance: Maintenance,
 }
 

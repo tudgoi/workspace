@@ -185,7 +185,9 @@
 {% endblock content %}
 
 {% block updated %}
-  {% if metadata %}
+  {% if metadata.updated %}
   Last updated on {{ metadata.updated | date(format="%d %B, %Y")}}
+  {% else %}
+  Local version
   {% endif %}
 {% endblock updated %}

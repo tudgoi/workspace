@@ -64,7 +64,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
-        repo.save_person(id, &person, updated.as_deref())?;
+        repo.save_person_data(id, &person, updated.as_deref())?;
     }
 
     // process office
@@ -87,7 +87,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let office: data::Office = from_toml_file(file_entry.path())
             .with_context(|| format!("failed to parse template"))?;
-        repo.save_office(id, &office)?;
+        repo.save_office_data(id, &office)?;
     }
 
     Ok(())

@@ -142,9 +142,8 @@ fn render_persons(
                 .query_subordinates_for_office(&office_dto.id)
                 .with_context(|| format!("could not query subordinates for office {}", office_dto.id))?;
 
-            offices.push(context::Office {
-                id: office_dto.id,
-                name: office_dto.name,
+            offices.push(context::OfficeDetails {
+                office: context::Office { id: office_dto.id, name: office_dto.name },
                 photo: office_dto.photo,
                 contacts: office_dto.contacts,
                 supervisors: if supervisors.is_empty() {
@@ -196,7 +195,7 @@ fn render_persons(
             OutputFormat::Html => {
                 let office_name = if let Some(ref offices) = person_context.offices {
                     if let Some(ref office) = offices.first() {
-                        Some(&office.name)
+                        Some(&office.office.name)
                     } else {
                         None
                     }

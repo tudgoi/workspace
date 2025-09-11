@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env};
+use std::env;
 use gemini_rust::Gemini;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
@@ -20,7 +20,7 @@ impl GeminiIngestor {
 }
 
 impl Ingestor for GeminiIngestor {
-    async fn query(&self, query: &str) -> Result<HashMap<String, data::Person>> {
+    async fn query(&self, input: &str) -> Result<Vec<data::Person>> {
         let schema = persons_json_schema();
 
         let response = self.client
@@ -28,7 +28,7 @@ impl Ingestor for GeminiIngestor {
             .with_system_prompt(
                 "You provide information about Indian Government officers and politicians in office in JSON format.",
             )
-            .with_user_message(query)
+            .with_user_message(input)
             .with_response_mime_type("application/json")
             .with_response_schema(schema.into())
             .execute()
@@ -42,7 +42,7 @@ impl Ingestor for GeminiIngestor {
 
         //let persons: Vec<data::Person> = serde_json::from_str(&json_text)?;
         
-        Ok(HashMap::new())        
+        Ok(Vec::new())        
     }
 }
 
