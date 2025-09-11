@@ -134,7 +134,7 @@
     {% if offices %}
       <dl class="office-list">
         {% for office in offices %}
-          <dt>{{ office.name }}</dt>
+          <dt>{{ office.office.name }}</dt>
           <dd>
           {% if office.contacts %}
             {{ macros::render_contacts(contacts=office.contacts) }}
@@ -158,7 +158,7 @@
       <dl>
         {% for office in offices %}
           {% if office.subordinates %}
-            <dt>{{ office.name }}</dt>
+            <dt>{{ office.office.name }}</dt>
             <dd>
               {{ macros::render_subordinates(officers=office.subordinates) }}
             </dd>

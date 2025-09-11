@@ -225,7 +225,7 @@ fn render_persons(
                 // write output
                 let str = tera
                     .render("page.html", &context)
-                    .with_context(|| format!("could not render template page.html"))?;
+                    .with_context(|| format!("could not render template page.html with context {:?}", context))?;
 
                 fs::write(output_path.as_path(), str)
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
