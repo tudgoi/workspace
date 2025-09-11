@@ -158,7 +158,7 @@ impl Repository {
         Ok(())
     }
 
-    pub fn save_person(&mut self, id: &str, person: &data::Person, updated: &str) -> Result<()> {
+    pub fn save_person(&mut self, id: &str, person: &data::Person, updated: Option<&str>) -> Result<()> {
         let (photo_url, photo_attribution) = if let Some(photo) = &person.photo {
             (Some(photo.url.as_str()), photo.attribution.as_deref())
         } else {

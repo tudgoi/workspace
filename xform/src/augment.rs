@@ -11,7 +11,8 @@ pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<(
         .with_context(|| "could not open repository for ingestion")?;
 
     let source = match source {
-        Source::Wikidata => Wikidata::new().await,
+        Source::Wikidata => WikidataAugmentor::new().await,
+        Source::Gemini => bail!("gemini source not yet implemented"),
     };
 
     for field in &fields {
@@ -28,16 +29,82 @@ pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<(
     Ok(())
 }
 
-trait AugmentationSource {
+trait Augmentor {
     async fn query_wikidata_id(&self, name: &str) -> Result<Option<String>>;
     async fn query_photo(&self, id: &str) -> Result<Option<data::Photo>>;
 }
 
-struct Wikidata {
+struct WikidataAugmentor {
     api: Api,
 }
 
-impl Wikidata {
+impl Augmentor for WikidataAugmentor {
+    async fn query_wikidata_id(&self, name: &str) -> Result<Option<String>> {
+        let params: HashMap<String, String> = [
+            ("action".to_string(), "wbsearchentities".to_string()),
+            ("search".to_string(), name.to_string()),
+            ("language".to_string(), "en".to_string()),
+            ("limit".to_string(), "1".to_string()),
+            ("type".to_string(), "item".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let res = self.api.get_query_api_json(&params).await?;
+        if let Some(r) = res["search"].as_array().and_then(|s| s.first()) {
+            if let Some(id) = r["id"].as_str() {
+                return Ok(Some(id.to_string()));
+            }
+        }
+        Ok(None)
+    }
+    
+
+    async fn query_photo(&self, id: &str) -> Result<Option<data::Photo>> {
+        let params: HashMap<String, String> = [
+            ("action".to_string(), "wbgetentities".to_string()),
+            ("ids".to_string(), id.to_string()),
+            ("props".to_string(), "claims".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let res = self.api.get_query_api_json(&params).await?;
+
+        if let Some(entity) = res["entities"].as_object().and_then(|e| e.get(id)) {
+            if let Some(claims) = entity.get("claims") {
+                if let Some(claim) = claims.get("P18") {
+                    if let Some(claim) = claim.as_array().and_then(|a| a.first()) {
+                        if let Some(mainsnak) = claim.get("mainsnak") {
+                            if let Some(datavalue) = mainsnak.get("datavalue") {
+                                if let Some(value) = datavalue.get("value") {
+                                    if let Some(file_name) = value.as_str() {
+                                        let attribution = self.fetch_file_attribution(file_name).await?;
+                                        let url = self.fetch_file_url(file_name).await?;
+
+                                        return Ok(Some(data::Photo {
+                                            url,
+                                            attribution: Some(attribution),
+                                        }));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+impl WikidataAugmentor {
+    async fn new() -> Self {
+        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        WikidataAugmentor { api }
+    }
+
     async fn fetch_file_attribution(&self, file_name: &str) -> Result<String> {
         let params: HashMap<String, String> = [
             ("action".to_string(), "query".to_string()),
@@ -105,75 +172,7 @@ impl Wikidata {
     }
 }
 
-impl AugmentationSource for Wikidata {
-    async fn query_wikidata_id(&self, name: &str) -> Result<Option<String>> {
-        let params: HashMap<String, String> = [
-            ("action".to_string(), "wbsearchentities".to_string()),
-            ("search".to_string(), name.to_string()),
-            ("language".to_string(), "en".to_string()),
-            ("limit".to_string(), "1".to_string()),
-            ("type".to_string(), "item".to_string()),
-        ]
-        .iter()
-        .cloned()
-        .collect();
-        let res = self.api.get_query_api_json(&params).await?;
-        if let Some(r) = res["search"].as_array().and_then(|s| s.first()) {
-            if let Some(id) = r["id"].as_str() {
-                return Ok(Some(id.to_string()));
-            }
-        }
-        Ok(None)
-    }
-    
-
-    async fn query_photo(&self, id: &str) -> Result<Option<data::Photo>> {
-        let params: HashMap<String, String> = [
-            ("action".to_string(), "wbgetentities".to_string()),
-            ("ids".to_string(), id.to_string()),
-            ("props".to_string(), "claims".to_string()),
-        ]
-        .iter()
-        .cloned()
-        .collect();
-        let res = self.api.get_query_api_json(&params).await?;
-
-        if let Some(entity) = res["entities"].as_object().and_then(|e| e.get(id)) {
-            if let Some(claims) = entity.get("claims") {
-                if let Some(claim) = claims.get("P18") {
-                    if let Some(claim) = claim.as_array().and_then(|a| a.first()) {
-                        if let Some(mainsnak) = claim.get("mainsnak") {
-                            if let Some(datavalue) = mainsnak.get("datavalue") {
-                                if let Some(value) = datavalue.get("value") {
-                                    if let Some(file_name) = value.as_str() {
-                                        let attribution = self.fetch_file_attribution(file_name).await?;
-                                        let url = self.fetch_file_url(file_name).await?;
-
-                                        return Ok(Some(data::Photo {
-                                            url,
-                                            attribution: Some(attribution),
-                                        }));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(None)
-    }
-}
-
-impl Wikidata {
-    async fn new() -> Self {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
-        Wikidata { api }
-    }
-}
-
-async fn augment_photo(repo: &mut repo::Repository, source: &Wikidata) -> Result<()> {
+async fn augment_photo(repo: &mut repo::Repository, source: &WikidataAugmentor) -> Result<()> {
     let persons_to_augment = repo.query_persons_without_photo()?;
 
     for person in persons_to_augment {
@@ -193,7 +192,7 @@ async fn augment_photo(repo: &mut repo::Repository, source: &Wikidata) -> Result
     Ok(())
 }
 
-async fn augment_wikidata_id(repo: &mut repo::Repository, source: &Wikidata) -> Result<()> {
+async fn augment_wikidata_id(repo: &mut repo::Repository, source: &WikidataAugmentor) -> Result<()> {
     let persons_to_augment = repo.query_persons_without_contact(data::ContactType::Wikidata)?;
 
     for person in persons_to_augment {

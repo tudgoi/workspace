@@ -4,14 +4,15 @@ use serde::de::DeserializeOwned;
 use std::fs;
 use std::path::PathBuf;
 
+mod augment;
 mod context;
 mod data;
 mod dto;
 mod export;
 mod import;
-mod augment;
 mod render;
 mod repo;
+mod ingest;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -50,6 +51,13 @@ enum Commands {
         #[arg(short = 'f', long, value_enum)]
         fields: Vec<Field>,
     },
+
+    Ingest {
+        db: PathBuf,
+
+        #[arg(short = 's', long, value_enum)]
+        source: Source,
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -67,6 +75,7 @@ enum OutputFormat {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Source {
     Wikidata,
+    Gemini,
 }
 
 fn main() -> Result<()> {
@@ -95,6 +104,8 @@ fn main() -> Result<()> {
             source: source_name,
             fields,
         } => augment::run(db.as_path(), source_name, fields),
+        Commands::Ingest { db, source } => ingest::run(db.as_path(), source)
+            .with_context(|| "could not run `ingest`"),
     }
 }
 

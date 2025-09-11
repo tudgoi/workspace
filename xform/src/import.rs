@@ -6,7 +6,7 @@ use std::process::Command;
 use super::from_toml_file;
 use super::{data, repo};
 
-fn get_updated(file_path: &Path) -> Result<String> {
+fn get_updated(file_path: &Path) -> Result<Option<String>> {
     let path_str = file_path.to_str()
         .context("failed to convert path to string")?;
     let result = Command::new("git")
@@ -28,7 +28,7 @@ fn get_updated(file_path: &Path) -> Result<String> {
     let date_str = str::from_utf8(&output.stdout)
         .with_context(|| format!("could not read output of git command"))?;
     
-    Ok(date_str.trim().to_string())
+    Ok(Some(date_str.trim().to_string()))
 }
 
 pub fn run(source: &Path, output: &Path) -> Result<()> {
@@ -64,7 +64,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
-        repo.save_person(id, &person, &updated)?;
+        repo.save_person(id, &person, updated.as_deref())?;
     }
 
     // process office

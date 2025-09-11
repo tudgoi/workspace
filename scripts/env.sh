@@ -57,6 +57,10 @@ augment() {
     cargo run --manifest-path xform/Cargo.toml augment $@
 }
 
+ingest() {
+    cargo run --manifest-path xform/Cargo.toml -- ingest $@
+}
+
 all () {
     import && render && search-index
 }
