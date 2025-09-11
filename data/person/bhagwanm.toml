@@ -1,5 +1,11 @@
 name = "Bhagwant Mann"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/f/f8/Bhagwant_Mann.png"
+
+[contacts]
+wikidata = "Q4900687"
+
 [[tenures]]
 office = "cmopb"
 start = "2022-03-16"

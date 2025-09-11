@@ -1,5 +1,11 @@
 name = "M. K. Stalin"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/8/8e/Mkspicture.jpg"
+
+[contacts]
+wikidata = "Q983475"
+
 [[tenures]]
 office = "cmotn"
 start = "2021-05-07"

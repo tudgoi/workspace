@@ -1,5 +1,11 @@
 name = "N. Rangasamy"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/7/71/N_Rangaswamy.jpg"
+
+[contacts]
+wikidata = "Q599267"
+
 [[tenures]]
 office = "cmopy"
 start = "2021-05-07"

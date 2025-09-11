@@ -1,5 +1,11 @@
 name = "Ashok Gehlot"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/0/05/Ashok_Gehlot.jpg"
+
+[contacts]
+wikidata = "Q3345004"
+
 [[tenures]]
 office = "cmorj"
 start = "2018-12-17"

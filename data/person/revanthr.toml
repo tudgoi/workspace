@@ -1,5 +1,11 @@
 name = "Revanth Reddy"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/e/ef/Revanth_Reddy.png"
+
+[contacts]
+wikidata = "Q7317733"
+
 [[tenures]]
 office = "cmot"
 start = "2023-12-07"

@@ -1,5 +1,11 @@
 name = "Nayab Singh Saini"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/f/f5/Nayab_Singh_Saini.jpg"
+
+[contacts]
+wikidata = "Q28408160"
+
 [[tenures]]
 office = "cmohr"
 start = "2024-03-12"

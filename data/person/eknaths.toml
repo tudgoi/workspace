@@ -1,5 +1,11 @@
 name = "Eknath Shinde"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/4/4b/Eknath_Shinde_with_PM_Narendra_Modi_Cropped.jpg"
+
+[contacts]
+wikidata = "Q18750400"
+
 [[tenures]]
 office = "cmomh"
 start = "2022-06-30"

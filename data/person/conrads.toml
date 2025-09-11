@@ -1,5 +1,11 @@
 name = "Conrad Sangma"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/8/88/The_Chief_Minister_of_Meghalaya%2C_Shri_Conrad_Sangma.JPG"
+
+[contacts]
+wikidata = "Q5162596"
+
 [[tenures]]
 office = "cmoml"
 start = "2018-03-06"

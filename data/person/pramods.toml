@@ -1,5 +1,11 @@
 name = "Pramod Sawant"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/8/8b/The_Chief_Minister_of_Goa%2C_Shri_Pramod_Sawant.jpg"
+
+[contacts]
+wikidata = "Q28222879"
+
 [[tenures]]
 office = "cmog"
 start = "2019-03-19"

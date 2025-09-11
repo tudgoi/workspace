@@ -1,5 +1,11 @@
 name = "Naveen Patnaik"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/4/43/Shri_Naveen_Patnaik.jpg"
+
+[contacts]
+wikidata = "Q1190856"
+
 [[tenures]]
 office = "cmoo"
 start = "2000-03-05"

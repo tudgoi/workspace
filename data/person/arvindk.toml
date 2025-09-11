@@ -1,5 +1,12 @@
 name = "Arvind Kejriwal"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/1/18/Arvind_Kejriwal_September_02%2C_2017_crop.jpg"
+attribution = """Vice President's Secretariat, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"""
+
+[contacts]
+wikidata = "Q59155"
+
 [[tenures]]
 office = "cmodl"
 start = "2015-02-14"

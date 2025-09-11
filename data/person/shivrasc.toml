@@ -1,5 +1,11 @@
 name = "Shivraj Singh Chouhan"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/c/c0/Shivraj_Singh_Chouhan_%28Cropped_3%29.jpg"
+
+[contacts]
+wikidata = "Q3180602"
+
 [[tenures]]
 office = "cmomp"
 start = "2020-03-23"

@@ -1,5 +1,11 @@
 name = "Nitish Kumar"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/7/72/Nitish_Kumar.jpg"
+
+[contacts]
+wikidata = "Q122304"
+
 [[tenures]]
 office = "cmobr"
 start = "2024-01-28"

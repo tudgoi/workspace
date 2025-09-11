@@ -1,5 +1,11 @@
 name = "Bhupesh Baghel"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/3/39/Bhupesh_Baghel%2C_June_2018.jpg"
+
+[contacts]
+wikidata = "Q4902181"
+
 [[tenures]]
 office = "cmocg"
 start = "2018-12-17"

@@ -1,5 +1,11 @@
 name = "Yogi Adityanath"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/6/64/Yogi_Adithyanath_in_Uttar_Pradesh_2023.jpg"
+
+[contacts]
+wikidata = "Q4683097"
+
 [[tenures]]
 office = "cmoup"
 start = "2017-03-19"

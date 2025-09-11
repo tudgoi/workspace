@@ -1,5 +1,11 @@
 name = "Hemant Soren"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/8/87/Hemant_Soren_9039.JPG"
+
+[contacts]
+wikidata = "Q13619621"
+
 [[tenures]]
 office = "cmojh"
 start = "2019-12-29"

@@ -1,5 +1,11 @@
 name = "Pinarayi Vijayan"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/4/43/Chief_Minister_Pinarayi_Vijayan_2023.tif"
+
+[contacts]
+wikidata = "Q3595385"
+
 [[tenures]]
 office = "cmok"
 start = "2016-05-25"

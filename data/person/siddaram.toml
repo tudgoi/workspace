@@ -1,5 +1,11 @@
 name = "Siddaramaiah"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/0/06/Siddaramaiah_at_the_function_Akshaya_Patra_Foundation_in_Karnataka.jpg"
+
+[contacts]
+wikidata = "Q7508046"
+
 [[tenures]]
 office = "cmok"
 start = "2023-05-20"

@@ -1,5 +1,11 @@
 name = "Lalduhoma"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/4/48/Lalduhawma.jpg"
+
+[contacts]
+wikidata = "Q7503817"
+
 [[tenures]]
 office = "cmomz"
 start = "2023-12-08"

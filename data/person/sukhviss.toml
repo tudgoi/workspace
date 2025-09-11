@@ -1,5 +1,12 @@
 name = "Sukhvinder Singh Sukhu"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/b/b0/Sukhvinder_Singh_Sukhu.jpg"
+attribution = "Prime Minister's Office (India), GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
+
+[contacts]
+wikidata = "Q112191581"
+
 [[tenures]]
 office = "cmohp"
 start = "2022-12-11"

@@ -1,5 +1,11 @@
 name = "Bhupendrabhai Patel"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/0/0d/Bhupendra_PAtel_Sanskrit.jpg"
+
+[contacts]
+wikidata = "Q48732972"
+
 [[tenures]]
 office = "cmogj"
 start = "2021-09-13"

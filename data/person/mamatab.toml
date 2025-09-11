@@ -1,5 +1,11 @@
 name = "Mamata Banerjee"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/9/99/Mamata_Banerjee_-_Kolkata_2011-12-08_7531_%28cropped%29.JPG"
+
+[contacts]
+wikidata = "Q465041"
+
 [[tenures]]
 office = "cmowb"
 start = "2011-05-20"

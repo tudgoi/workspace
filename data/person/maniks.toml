@@ -1,5 +1,11 @@
 name = "Manik Saha"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/0/04/Manik_Saha_Invitation_for_HWC_2023.jpg"
+
+[contacts]
+wikidata = "Q111341502"
+
 [[tenures]]
 office = "cmotr"
 start = "2022-05-15"
