@@ -13,7 +13,7 @@ pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<(
     let source = match source {
         Source::Wikidata => WikidataAugmentor::new().await,
         Source::Gemini => bail!("gemini augmentor not yet implemented"),
-        Source::Stdin => bail!("stdin agumentor not yet implemented"),
+        Source::Json => bail!("json agumentor not yet implemented"),
     };
 
     for field in &fields {

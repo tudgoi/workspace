@@ -2,16 +2,16 @@ use anyhow::{Context, Result};
 
 use crate::{data, ingest::Ingestor};
 
-pub struct StdinIngestor {
+pub struct JsonIngestor {
 }
 
-impl StdinIngestor {
+impl JsonIngestor {
     pub fn new() -> Result<Self> {
-        Ok(StdinIngestor { })
+        Ok(JsonIngestor { })
     }
 }
 
-impl Ingestor for StdinIngestor {
+impl Ingestor for JsonIngestor {
     async fn query(&self, input: &str) -> Result<Vec<data::Person>> {
         Ok(serde_json::from_str(input)
             .with_context(|| format!("could not parse JSON for person"))?)

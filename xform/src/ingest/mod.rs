@@ -4,23 +4,23 @@ use tokio::io::AsyncReadExt;
 
 use crate::{
     Source, context, data,
-    ingest::{gemini::GeminiIngestor, stdin::StdinIngestor},
+    ingest::{gemini::GeminiIngestor, json::JsonIngestor},
     repo,
 };
 
 mod gemini;
-mod stdin;
+mod json;
 
 pub enum IngestorEnum {
     Gemini(GeminiIngestor),
-    Stdin(StdinIngestor),
+    Json(JsonIngestor),
 }
 
 impl Ingestor for IngestorEnum {
     async fn query(&self, input: &str) -> Result<Vec<data::Person>> {
         match self {
             IngestorEnum::Gemini(i) => i.query(input).await,
-            IngestorEnum::Stdin(i) => i.query(input).await,
+            IngestorEnum::Json(i) => i.query(input).await,
         }
     }
 }
@@ -30,7 +30,7 @@ pub async fn run(db_path: &Path, source: Source) -> Result<()> {
     let ingestor = match source {
         Source::Wikidata => bail!("wikidata source not yet implemented"),
         Source::Gemini => IngestorEnum::Gemini(GeminiIngestor::new()?),
-        Source::Stdin => IngestorEnum::Stdin(StdinIngestor::new()?),
+        Source::Json => IngestorEnum::Json(JsonIngestor::new()?),
     };
 
     let mut repo = repo::Repository::new(db_path)
