@@ -6,17 +6,15 @@ use tera;
 use tera::Tera;
 
 use crate::repo::Repository;
-use crate::OutputFormat;
+use crate::{OutputFormat, context::PersonContext};
 
 use super::{from_toml_file, repo};
 use crate::context::{self, Maintenance, Page};
 
-pub fn run(
-    db: &Path,
-    templates: &Path,
-    output: &Path,
-    output_format: OutputFormat,
-) -> Result<()> {
+pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputFormat) -> Result<()> {
+    let context_fetcher = ContextFetcher::new(db, templates)
+        .with_context(|| format!("could not create context fetcher"))?;
+
     let render_dir = match output_format {
         OutputFormat::Json => {
             let dir = output.join("json");
@@ -31,55 +29,33 @@ pub fn run(
             dir
         }
     };
+
+    let renderer = Renderer::new(templates, output_format)?;
+
     let mut search_index = Vec::new();
-
-    // read config
-    let config: context::Config = from_toml_file(templates.join("config.toml"))
-        .with_context(|| format!("could not parse config"))?;
-
-    // open template
-    let templates_glob = templates.join("**").join("*.html");
-    let templates_glob_str = templates_glob
-        .to_str()
-        .context(format!("could not convert template path {:?}", templates))?;
-    let tera =
-        Tera::new(templates_glob_str).with_context(|| format!("could not create Tera instance"))?;
-
-    // open repo
-    let repo = repo::Repository::new(db)
-        .with_context(|| format!("could not open repository at {:?}", db))?;
 
     // persons
     render_persons(
-        &repo,
-        &render_dir,
+        &context_fetcher,
+        &renderer,
+        output,
         output_format,
-        &tera,
-        &config,
         &mut search_index,
     )
     .with_context(|| format!("could not render persons"))?;
 
     // render index
-    let counts = repo.query_counts()?;
-    let context = context::IndexContext {
-        persons: counts.persons,
-        offices: counts.offices,
-        page: Page {
-            path: "".to_string(),
-        },
-        config: config.clone(),
-    };
-    render_page(
-        "index",
-        &context,
-        &render_dir,
-        output_format,
-        &tera,
-        "index.html",
-    )
-    .with_context(|| format!("could not render index"))?;
+    let context = context_fetcher
+        .fetch_index()
+        .with_context(|| format!("could not fetch context for index"))?;
+    let str = renderer
+        .render_index(&context)
+        .with_context(|| format!("could not render index"))?;
+    let output_path = render_dir.join(format!("{}.json", "index"));
+    fs::write(output_path.as_path(), str)
+        .with_context(|| format!("could not write rendered file {:?}", output_path))?;
 
+    // write the search index file
     if output_format == OutputFormat::Html {
         let search_index_str = serde_json::to_string(&search_index)?;
         let search_dir = output.join("search");
@@ -91,41 +67,41 @@ pub fn run(
     Ok(())
 }
 
-#[derive(Serialize, Debug)]
-struct SearchIndexEntry {
-    title: String,
-    url: String,
+pub struct ContextFetcher {
+    config: context::Config,
+    repo: Repository,
 }
 
-fn render_persons(
-    repo: &Repository,
-    output: &Path,
-    output_format: OutputFormat,
-    tera: &Tera,
-    config: &context::Config,
-    search_index: &mut Vec<SearchIndexEntry>,
-) -> Result<()> {
-    // persons
-    let person_path = output.join("person");
-    fs::create_dir(person_path.as_path())
-        .with_context(|| format!("could not create person dir {:?}", person_path))?;
+impl ContextFetcher {
+    pub fn new(db: &Path, templates: &Path) -> Result<Self> {
+        // read config
+        let config: context::Config = from_toml_file(templates.join("config.toml"))
+            .with_context(|| format!("could not parse config"))?;
+        let repo = repo::Repository::new(db)
+            .with_context(|| format!("could not open repository at {:?}", db))?;
 
-    let persons = repo
-        .query_all_persons()
-        .with_context(|| "could not query all persons")?;
+        Ok(ContextFetcher { config, repo })
+    }
 
-    for (id, person_data) in persons {
-        let updated = repo
+    pub fn fetch_person(&self, id: &str) -> Result<context::PersonContext> {
+        let person_data = self
+            .repo
+            .query_person(&id)
+            .with_context(|| format!("could not fetch person data for {}", id))?
+            .with_context(|| format!("no person with id {} when fetching person data", id))?;
+        let updated = self
+            .repo
             .query_person_updated_date(&id)
             .with_context(|| format!("could not query updated date for person {}", id))?;
 
-        let offices_for_person = repo
+        let offices_for_person = self
+            .repo
             .query_offices_for_person(&id)
             .with_context(|| format!("could not query offices for person {}", id))?;
 
         // person
         let person = context::Person {
-            id: id.clone(),
+            id: id.to_string(),
             name: person_data.name,
         };
 
@@ -133,17 +109,26 @@ fn render_persons(
         let mut offices = Vec::new();
         for office_dto in offices_for_person {
             // supervisors
-            let supervisors = repo
+            let supervisors = self
+                .repo
                 .query_supervisors_for_office(&office_dto.id)
-                .with_context(|| format!("could not query supervisors for office {}", office_dto.id))?;
+                .with_context(|| {
+                    format!("could not query supervisors for office {}", office_dto.id)
+                })?;
 
             // subordinates
-            let subordinates = repo
+            let subordinates = self
+                .repo
                 .query_subordinates_for_office(&office_dto.id)
-                .with_context(|| format!("could not query subordinates for office {}", office_dto.id))?;
+                .with_context(|| {
+                    format!("could not query subordinates for office {}", office_dto.id)
+                })?;
 
             offices.push(context::OfficeDetails {
-                office: context::Office { id: office_dto.id, name: office_dto.name },
+                office: context::Office {
+                    id: office_dto.id,
+                    name: office_dto.name,
+                },
                 photo: office_dto.photo,
                 contacts: office_dto.contacts,
                 supervisors: if supervisors.is_empty() {
@@ -170,8 +155,7 @@ fn render_persons(
             updated,
         };
 
-        // construct context
-        let person_context = context::PersonContext {
+        Ok(context::PersonContext {
             person,
             photo: person_data.photo,
             contacts: person_data.contacts,
@@ -180,19 +164,112 @@ fn render_persons(
             } else {
                 Some(offices)
             },
-            config: config.clone(),
+            config: self.config.clone(),
             page,
             metadata,
-        };
+        })
+    }
+
+    pub fn fetch_index(&self) -> Result<context::IndexContext> {
+        let counts = self.repo.query_counts()?;
+
+        Ok(context::IndexContext {
+            persons: counts.persons,
+            offices: counts.offices,
+            page: Page {
+                path: "".to_string(),
+            },
+            config: self.config.clone(),
+        })
+    }
+}
+
+pub struct Renderer {
+    tera: Tera,
+    output_format: OutputFormat,
+}
+
+impl Renderer {
+    pub fn new(templates: &Path, output_format: OutputFormat) -> Result<Self> {
+        let templates_glob = templates.join("**").join("*.html");
+        let templates_glob_str = templates_glob
+            .to_str()
+            .with_context(|| format!("could not convert template path {:?}", templates))?;
+        let tera = Tera::new(templates_glob_str)
+            .with_context(|| format!("could not create Tera instance"))?;
+
+        Ok(Renderer {
+            tera,
+            output_format,
+        })
+    }
+
+    pub fn render_index(&self, context: &context::IndexContext) -> Result<String> {
+        self.render(context, "index.html")
+    }
+
+    pub fn render_person(&self, context: &PersonContext) -> Result<String> {
+        self.render(context, "person.html")
+    }
+    
+    fn render<T: serde::Serialize>(&self, context: &T, template_name: &str) -> Result<String> {
+        match self.output_format {
+            OutputFormat::Json => {
+                let str = serde_json::to_string(&context)?;
+
+                Ok(str)
+            }
+            OutputFormat::Html => {
+                let context = tera::Context::from_serialize(context)
+                    .with_context(|| format!("could not create convert person to context"))?;
+                self.tera.render(template_name, &context).with_context(|| {
+                    format!(
+                        "could not render template page.html with context {:?}",
+                        context
+                    )
+                })
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Debug)]
+struct SearchIndexEntry {
+    title: String,
+    url: String,
+}
+
+fn render_persons(
+    context_fetcher: &ContextFetcher,
+    renderer: &Renderer,
+    output: &Path,
+    output_format: OutputFormat,
+    search_index: &mut Vec<SearchIndexEntry>,
+) -> Result<()> {
+    // persons
+    let person_path = output.join("person");
+    fs::create_dir(person_path.as_path())
+        .with_context(|| format!("could not create person dir {:?}", person_path))?;
+
+    let person_ids = context_fetcher
+        .repo
+        .query_all_persons()
+        .with_context(|| "could not query all persons")?;
+
+    for id in person_ids {
+        let person_context = context_fetcher
+            .fetch_person(&id)
+            .with_context(|| format!("could not fetch context for person {}", id))?;
+        let str = renderer.render_person(&person_context)?;
 
         match output_format {
             OutputFormat::Json => {
                 let output_path = person_path.join(format!("{}.json", person_context.person.id));
-                let context_json = serde_json::to_string(&person_context)?;
-                fs::write(output_path.as_path(), context_json)
+                fs::write(output_path.as_path(), str)
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
             }
             OutputFormat::Html => {
+                // add to search index
                 let office_name = if let Some(ref offices) = person_context.offices {
                     if let Some(ref office) = offices.first() {
                         Some(&office.office.name)
@@ -219,13 +296,6 @@ fn render_persons(
                 });
 
                 let output_path = person_path.join(format!("{}.html", person_context.person.id));
-                let context = tera::Context::from_serialize(person_context)
-                    .with_context(|| format!("could not create convert person to context"))?;
-
-                // write output
-                let str = tera
-                    .render("page.html", &context)
-                    .with_context(|| format!("could not render template page.html with context {:?}", context))?;
 
                 fs::write(output_path.as_path(), str)
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
@@ -233,37 +303,5 @@ fn render_persons(
         }
     }
 
-    Ok(())
-}
-
-fn render_page<T: serde::Serialize>(
-    name: &str,
-    context: &T,
-    output_path: &Path,
-    output_format: OutputFormat,
-    tera: &Tera,
-    template_name: &str,
-) -> Result<()> {
-    match output_format {
-        OutputFormat::Json => {
-            let output_path = output_path.join(format!("{}.json", name));
-            let context_json = serde_json::to_string(context)?;
-            fs::write(output_path.as_path(), context_json)
-                .with_context(|| format!("could not write rendered file {:?}", output_path))?;
-        }
-        OutputFormat::Html => {
-            let output_path = output_path.join(format!("{}.html", name));
-            let context = tera::Context::from_serialize(context)
-                .with_context(|| format!("could not create context"))?;
-
-            // write output
-            let str = tera
-                .render(template_name, &context)
-                .with_context(|| format!("could not render template `{}`", template_name))?;
-
-            fs::write(output_path.as_path(), str)
-                .with_context(|| format!("could not write rendered file {:?}", output_path))?;
-        }
-    }
     Ok(())
 }

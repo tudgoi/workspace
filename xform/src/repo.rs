@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde_variant::to_variant_name;
 
 use crate::{
@@ -168,7 +168,7 @@ impl Repository {
                 (id, &tenure.office, &tenure.start, &tenure.end),
             )
             .with_context(|| format!("could not insert tenure into DB for {}", id))?;
-        
+
         Ok(())
     }
 
@@ -491,42 +491,47 @@ impl Repository {
         Ok(tenures)
     }
 
-    pub fn query_all_persons(&self) -> Result<HashMap<String, data::Person>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT id, name, photo_url, photo_attribution
-            FROM person
-            ORDER BY id
-        ",
-        )?;
+    pub fn query_person(&self, id: &str) -> Result<Option<data::Person>> {
+        let person_row = self
+            .conn
+            .query_row(
+                "SELECT name, photo_url, photo_attribution FROM person WHERE id = ?1",
+                [id],
+                |row| {
+                    let photo = if let Some(url) = row.get(1)? {
+                        Some(data::Photo {
+                            url,
+                            attribution: row.get(2)?,
+                        })
+                    } else {
+                        None
+                    };
+                    Ok((row.get(0)?, photo))
+                },
+            )
+            .optional()?;
 
-        let iter = stmt.query_map([], |row| {
-            let photo = if let Some(url) = row.get(2)? {
-                Some(data::Photo {
-                    url,
-                    attribution: row.get(3)?,
-                })
-            } else {
-                None
-            };
-            Ok((row.get(0)?, row.get(1)?, photo))
-        })?;
+        if let Some((name, photo)) = person_row {
+            let contacts = self.query_contacts_for_person(id)?;
+            let tenures = self.query_tenures_for_person(id)?;
 
-        let mut persons = HashMap::new();
-        for result in iter {
-            let (id, name, photo): (String, String, Option<data::Photo>) = result?;
-            let contacts = self.query_contacts_for_person(&id)?;
-            let tenures = self.query_tenures_for_person(&id)?;
-
-            let person_data = data::Person {
+            let person = data::Person {
                 name,
                 photo,
                 contacts: Some(contacts).filter(|c| !c.is_empty()),
                 tenures: Some(tenures).filter(|t| !t.is_empty()),
             };
-
-            persons.insert(id, person_data);
+            Ok(Some(person))
+        } else {
+            Ok(None)
         }
+    }
+
+    pub fn query_all_persons(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare("SELECT id FROM person ORDER BY id")?;
+
+        let persons = stmt.query_map([], |row| row.get(0))?
+            .collect::<Result<Vec<String>, _>>()?;
 
         Ok(persons)
     }
@@ -590,12 +595,14 @@ impl Repository {
         let mut stmt = self
             .conn
             .prepare("SELECT id, name FROM office WHERE id = ?1")?;
-        let office = stmt.query_row([id], |row| {
-            Ok(context::Office {
-                id: row.get(0)?,
-                name: row.get(1)?,
-            })           
-        }).optional()?;
+        let office = stmt
+            .query_row([id], |row| {
+                Ok(context::Office {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            })
+            .optional()?;
 
         Ok(office)
     }

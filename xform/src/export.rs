@@ -25,7 +25,10 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     let persons = repo
         .query_all_persons()
         .with_context(|| "could not query all persons")?;
-    for (id, person_data) in persons {
+    for id in persons {
+        let person_data = repo.query_person(&id)
+            .with_context(|| format!("could not query person"))?
+            .with_context(|| format!("no person found"))?;
         let toml_string =
             toml::to_string_pretty(&person_data).context("could not serialize person to TOML")?;
 
