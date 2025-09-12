@@ -13,6 +13,8 @@ use crate::{
     dto,
 };
 
+const DB_SCHEMA_SQL: &str = include_str!("schema.sql");
+
 pub struct Repository {
     conn: Connection,
     all_supervising_relation_variants: HashMap<String, data::SupervisingRelation>,
@@ -71,92 +73,8 @@ impl Repository {
     }
 
     pub fn setup_database(&self) -> Result<()> {
-        self.conn
-            .execute(
-                "CREATE TABLE person (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                photo_url TEXT,
-                photo_attribution TEXT,
-
-                updated TEXT
-            )",
-                (),
-            )
-            .with_context(|| "could not create `person` table")?;
-
-        self.conn
-            .execute(
-                "CREATE TABLE person_contact (
-                id TEXT NOT NULL,
-                type TEXT NOT NULL,
-                value TEXT NOT NULL,
-                PRIMARY KEY (id, type)
-            )",
-                (),
-            )
-            .with_context(|| "could not create `person_contact` table")?;
-
-        self.conn
-            .execute(
-                "CREATE TABLE office (
-                id    TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                
-                photo_url TEXT,
-                photo_attribution TEXT
-            )",
-                (),
-            )
-            .with_context(|| "could not create `office` table")?;
-
-        self.conn
-            .execute(
-                "CREATE TABLE office_contact (
-                id TEXT NOT NULL,
-                type TEXT NOT NULL,
-                value TEXT NOT NULL,
-                PRIMARY KEY (id, type)
-            )",
-                (),
-            )
-            .with_context(|| "could not create `office_contact` table")?;
-
-        self.conn
-            .execute(
-                "CREATE TABLE supervisor (
-                office_id TEXT NOT NULL,
-                relation TEXT NOT NULL,
-                supervisor_office_id TEXT NOT NULL
-            )",
-                (),
-            )
-            .with_context(|| "could not create `supervisor` table")?;
-
-        self.conn
-            .execute(
-                "CREATE TABLE tenure (
-                person_id TEXT NOT NULL,
-                office_id TEXT NOT NULL,
-                start TEXT,
-                end TEXT
-            )",
-                (),
-            )
-            .with_context(|| "could not create `tenure` table")?;
-
-        self.conn
-            .execute(
-                "
-            CREATE VIEW incumbent (
-                office_id,
-                person_id
-            ) AS SELECT office_id, person_id
-            FROM tenure
-            WHERE end IS NULL",
-                (),
-            )
-            .with_context(|| "could not create view `incumbent`")?;
+        self.conn.execute_batch(DB_SCHEMA_SQL)
+            .with_context(|| format!("could not create DB schema"))?;
 
         Ok(())
     }
