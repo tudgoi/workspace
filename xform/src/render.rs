@@ -51,7 +51,11 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
     let str = renderer
         .render_index(&context)
         .with_context(|| format!("could not render index"))?;
-    let output_path = render_dir.join(format!("{}.json", "index"));
+    let extension = match output_format {
+        OutputFormat::Html => ".html",
+        OutputFormat::Json => ".json"
+    };
+    let output_path = render_dir.join(format!("index{}", extension));
     fs::write(output_path.as_path(), str)
         .with_context(|| format!("could not write rendered file {:?}", output_path))?;
 
@@ -209,9 +213,9 @@ impl Renderer {
     }
 
     pub fn render_person(&self, context: &PersonContext) -> Result<String> {
-        self.render(context, "person.html")
+        self.render(context, "page.html")
     }
-    
+
     fn render<T: serde::Serialize>(&self, context: &T, template_name: &str) -> Result<String> {
         match self.output_format {
             OutputFormat::Json => {
@@ -222,12 +226,9 @@ impl Renderer {
             OutputFormat::Html => {
                 let context = tera::Context::from_serialize(context)
                     .with_context(|| format!("could not create convert person to context"))?;
-                self.tera.render(template_name, &context).with_context(|| {
-                    format!(
-                        "could not render template page.html with context {:?}",
-                        context
-                    )
-                })
+                self.tera
+                    .render(template_name, &context)
+                    .with_context(|| format!("could not render template page.html with context"))
             }
         }
     }
@@ -246,6 +247,10 @@ fn render_persons(
     output_format: OutputFormat,
     search_index: &mut Vec<SearchIndexEntry>,
 ) -> Result<()> {
+    let output = output.join(match output_format {
+        OutputFormat::Html => "html",
+        OutputFormat::Json => "json",
+    });
     // persons
     let person_path = output.join("person");
     fs::create_dir(person_path.as_path())

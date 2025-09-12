@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Context, Result};
 use axum::{
     Router,
-    extract::State,
+    extract::{State},
     response::{Html, IntoResponse},
     routing::get,
 };
@@ -22,6 +22,7 @@ pub async fn run(db: &Path, templates: &Path, port: Option<&str>) -> Result<()> 
 
     let app = Router::new()
         .route("/", get(root))
+        .route("/person/{id}", get(person_page))
         .with_state(Arc::new(state));
 
     let addr = format!("0.0.0.0:{}", port.unwrap_or("8080"));
@@ -67,5 +68,30 @@ async fn root(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         .renderer
         .render_index(&context)
         .expect("could not render index");
+    Html(body)
+}
+
+async fn person_page(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(id_with_ext): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    println!("Request called for {}", id_with_ext);
+    let id = id_with_ext.trim_end_matches(".html");
+
+    let context_fetcher = state
+        .context_fetcher
+        .lock()
+        .expect("should be able to acquire lock");
+
+    let person_context = match context_fetcher.fetch_person(id) {
+        Ok(context) => context,
+        Err(e) => return Html(format!("Person not found<p>{}", e)), // Or a proper 404 page
+    };
+
+    let body = state
+        .renderer
+        .render_person(&person_context)
+        .expect("could not render person page");
+
     Html(body)
 }
