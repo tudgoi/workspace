@@ -62,6 +62,7 @@ enum Commands {
     
     Serve {
         db: PathBuf,
+        templates: PathBuf,
         
         #[arg(short = 'p', long)]
         port: Option<String>,
@@ -120,8 +121,9 @@ fn main() -> Result<()> {
         Commands::Ingest { db, source } => ingest::run(db.as_path(), source)
             .with_context(|| "could not run `ingest`"),
         
-        Commands::Serve { db, port } => serve::run(&db, port.as_deref())
-            .with_context(|| "failed to run `serve`"),
+        Commands::Serve { db, templates, port } => {
+            serve::run(&db, &templates, port.as_deref()).with_context(|| "failed to run `serve`")
+        }
     }
 }
 
