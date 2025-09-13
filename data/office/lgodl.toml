@@ -1,5 +1,5 @@
 name = "Lieutenant Governor of Delhi"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "cmodl"
+during_the_pleasure_of = "poi"

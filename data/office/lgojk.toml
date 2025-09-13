@@ -4,5 +4,5 @@ name = "Lieutenant Governor of Jammu and Kashmir"
 wikipedia = "List_of_lieutenant_governors_of_Jammu_and_Kashmir"
 
 [supervisors]
-during_the_pleasure_of = "poi"
 adviser = "cmojk"
+during_the_pleasure_of = "poi"

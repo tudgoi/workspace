@@ -1,7 +1,12 @@
 name = "Omar Abdullah"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/f/fb/Omar_Abdullah_%28cropped%29.jpg"
+attribution = """<a rel="nofollow" class="external text" href="https://www.flickr.com/people/52243088@N00/">Joel's Goa Pics</a>, CC BY-SA 2.0 <https://creativecommons.org/licenses/by-sa/2.0>, via Wikimedia Commons"""
+
 [contacts]
 wikipedia = "Omar_Abdullah"
+wikidata = "Q2745305"
 
 [[tenures]]
 office_id = "cmojk"

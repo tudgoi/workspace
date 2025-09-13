@@ -1,9 +1,18 @@
 name = "Praful Khoda Patel"
 
-[[tenures]]
-office_id = "aodh"
-start = "2020-01-26"
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/1/1b/Shri_Praful_Khoda_Patel.jpg"
+attribution = """
+<bdi><a href="https://en.wikipedia.org/wiki/en:Prime_Minister%27s_Office_(India)" class="extiw" title="w:en:Prime Minister's Office (India)"><span title="Office of the Prime Minister of India">Prime Minister's Office</span></a>
+</bdi>, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"""
+
+[contacts]
+wikidata = "Q7237573"
 
 [[tenures]]
 office_id = "aold"
 start = "2020-12-05"
+
+[[tenures]]
+office_id = "aodh"
+start = "2020-01-26"
