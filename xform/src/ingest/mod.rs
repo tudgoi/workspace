@@ -1,9 +1,10 @@
 use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tokio::io::AsyncReadExt;
 
 use crate::{
-    Source, context, data,
+    Source, data,
     ingest::{gemini::GeminiIngestor, json::JsonIngestor},
     repo,
 };
@@ -17,7 +18,7 @@ pub enum IngestorEnum {
 }
 
 impl Ingestor for IngestorEnum {
-    async fn query(&self, input: &str) -> Result<Vec<data::Person>> {
+    async fn query(&self, input: &str) -> Result<Data> {
         match self {
             IngestorEnum::Gemini(i) => i.query(input).await,
             IngestorEnum::Json(i) => i.query(input).await,
@@ -41,58 +42,50 @@ pub async fn run(db_path: &Path, source: Source) -> Result<()> {
         .read_to_string(&mut input)
         .await
         .with_context(|| "could not read from stdin")?;
-    let persons = ingestor
+    let data = ingestor
         .query(&input)
         .await
-        .with_context(|| format!("could not query persons from {:?}", source))?;
+        .with_context(|| format!("could not query from {:?}", source))?;
+    
+    for office in &data.offices {
+        repo.save_office(&office.id, &office.value)
+            .with_context(|| format!("could not save office {}", office.id))?;
+    }
 
-    for person in &persons {
-        let id = &build_id_from_person_name(&person.name);
+    for person in &data.persons {
+        println!("ingesting {} ({})...", person.value.name, person.id);
+        repo.save_person(&person.id, &person.value.name, None, None, None)
+            .with_context(|| format!("could not ingest person {} ({})", person.id, person.value.name))?;
 
-        println!("ingesting {} ({})...", person.name, id);
-        repo.save_person(id, &person.name, None, None, None)
-            .with_context(|| format!("could not save person {} ({})", id, person.name))?;
-
-        if let Some(tenures) = person.tenures.as_ref() {
-            for tenure in tenures {
-                // check for fuzzy match
-                let offices = repo.query_office_with_name(&tenure.office)?;
-                let office_id = if let Some(office) = offices.first() {
-                    office.id.clone()
-                } else {
-                    // derive office id
-                    let office_id = derive_id_from_office_name(&tenure.office);
-                    // check if office id already exists
-                    if repo.query_office_with_id(&office_id)?.is_none() {
-                        // insert new office
-                        let office = context::Office {
-                            id: office_id.clone(),
-                            name: tenure.office.clone(),
-                        };
-                        println!(" - inserting office {} ({})", office.name, office.id);
-                        repo.save_office(&office)?;
-                    }
-
-                    office_id
-                };
-                let tenure = data::Tenure {
-                    office: office_id,
-                    start: tenure.start.clone(),
-                    end: tenure.end.clone(),
-                    additional_charge: tenure.additional_charge,
-                };
-                println!(" - saving tenure as {}", tenure.office);
-                repo.save_tenure_for_person(id, &tenure)
-                    .with_context(|| format!("could not save tenure"))?;
-            }
+        if let Some(tenures) = person.value.tenures.as_ref() {
+            repo.save_tenures_for_person(&person.id, tenures)
+                .with_context(|| format!("could not ingest tenures"))?;
         }
     }
 
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PersonWithId {
+    pub id: String,
+    pub value: data::Person,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OfficeWithId {
+    pub id: String,
+    pub value: data::Office,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Data {
+    pub offices: Vec<OfficeWithId>,
+    pub persons: Vec<PersonWithId>,
+}
+
 trait Ingestor {
-    async fn query(&self, input: &str) -> Result<Vec<data::Person>>;
+    async fn query(&self, input: &str) -> Result<Data>;
 }
 
 fn build_id_from_person_name(name: &str) -> String {

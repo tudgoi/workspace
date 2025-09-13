@@ -1,34 +1,69 @@
 {
-  "items": {
-    "properties": {
-      "name": {
-        "type": "string"
-      },
-      "tenures": {
-        "items": {
+  "offices": {
+    "type": "array",
+    "items": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "A unique ID for the office with all lower case characters. Parts can be separated with with hyphen. For Council of Minisers of a state, use 'com<2 letter abbreviation of state>'"
+        },
+        "value": {
+          "type": "object",
           "properties": {
-            "end": {
-              "type": "string"
+            "name": {
+              "type": "string",
+              "description": "Name of the office. Closely match the title of the wikipedia article. e.g. Tamil Nadu Council of Ministers."
+            }
+          }
+        }
+      }
+    }
+  },
+  "persons": {
+    "type": "array",
+    "items": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "A unique ID for the person. For real persons, maximum of 8 characters, all lower case. The first part is from the first name. The last part is the initials of the subsequent names. The second part should always contain initials from all the names. So you can truncate the first name to whatever characters as can be accomadated. e.g. 'Narendra Modi' is 'narendrm'. In case of people with initials, already in the name, put those initials in the second part. e.g. 'M. K. Stalin' becomes 'stalinmk'. For pseudo persons representing a group e.g. 'Second Yogi Adityanath ministry', the id will be prefixed with the ID of the office followed by the short name, suffixed with a number in arabic numerals. e.g. 'comup-yogi3'"
+        },
+        "value": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Should closely match the title of the Wikipedia page of that person, if one exists."
             },
-            "office": {
-              "type": "string"
-            },
-            "start": {
-              "type": "string"
+            "tenures": {
+              "items": {
+                "type": "object",
+                "description": "Represents the tenure this person has had in any of the offices.",
+                "properties": {
+                  "end": {
+                    "type": "string",
+                    "description": "The date in which this tenure ended. In ISO format 'YYY-MM-DD'. e.g. '2025-07-12'"
+                  },
+                  "office": {
+                    "type": "string",
+                    "description": "The ID of the office that they have held. Should match the id in the offices array."
+                  },
+                  "start": {
+                    "type": "string",
+                    "description": "The date in which this tenure started. In ISO format 'YYY-MM-DD'. e.g. '2025-07-12'"
+                  }
+                },
+                "required": [
+                  "office"
+                ]
+              },
+              "type": "array"
             }
           },
           "required": [
-            "office"
-          ],
-          "type": "object"
-        },
-        "type": "array"
+            "name"
+          ]
+        }
       }
-    },
-    "required": [
-      "name"
-    ],
-    "type": "object"
-  },
-  "type": "array"
+    }
+  }
 }

@@ -180,27 +180,19 @@ impl Repository {
         Ok(())
     }
 
-    pub fn save_office(&mut self, office: &context::Office) -> Result<()> {
-        self.conn
-            .execute(
-                "INSERT INTO office (id, name) VALUES (?1, ?2)",
-                params![&office.id, &office.name],
-            )
-            .with_context(|| format!("could not insert office {} into DB", &office.id))?;
-        Ok(())
-    }
-
-    pub fn save_office_data(&mut self, id: &str, office: &data::Office) -> Result<()> {
+    pub fn save_office(&mut self, id: &str, office: &data::Office) -> Result<()> {
         let (photo_url, photo_attribution) = if let Some(photo) = &office.photo {
             (Some(photo.url.as_str()), photo.attribution.as_deref())
         } else {
             (None, None)
         };
 
-        self.conn
-            .execute(
+        let tx = self.conn.transaction()?;
+
+        // Use INSERT OR REPLACE to handle both new and existing offices.
+        tx.execute(
                 "
-            INSERT INTO office (
+            INSERT OR REPLACE INTO office (
                 id, name,
                 photo_url, photo_attribution
             ) VALUES (?1, ?2, ?3, ?4)
@@ -208,11 +200,16 @@ impl Repository {
                 (id, &office.name, photo_url, photo_attribution),
             )
             .with_context(|| format!("could not insert office {} into DB", id))?;
+        
+        tx.commit()?;
 
         if let Some(contacts) = &office.contacts {
             self.save_office_contacts(id, contacts)
                 .with_context(|| format!("could not save contacts for office {}", id))?;
         }
+
+        // Clear existing supervisors before saving new ones to avoid duplicates
+        self.conn.execute("DELETE FROM supervisor WHERE office_id = ?1", params![id])?;
 
         if let Some(supervisors) = &office.supervisors {
             for (name, value) in supervisors {
@@ -222,6 +219,7 @@ impl Repository {
                 ).with_context(|| "could not insert supervisor into DB")?;
             }
         }
+
         Ok(())
     }
 
@@ -494,36 +492,6 @@ impl Repository {
         Ok(offices)
     }
 
-    pub fn query_office_with_name(&self, name: &str) -> Result<Vec<context::Office>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, name FROM office WHERE name LIKE ?1")?;
-        let mut rows = stmt.query([format!("%{}%", name)])?;
-        let mut offices = Vec::new();
-        while let Some(row) = rows.next()? {
-            offices.push(context::Office {
-                id: row.get(0)?,
-                name: row.get(1)?,
-            });
-        }
-        Ok(offices)
-    }
-
-    pub fn query_office_with_id(&self, id: &str) -> Result<Option<context::Office>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, name FROM office WHERE id = ?1")?;
-        let office = stmt
-            .query_row([id], |row| {
-                Ok(context::Office {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                })
-            })
-            .optional()?;
-
-        Ok(office)
-    }
     pub fn query_subordinates_for_office(
         &self,
         office_id: &str,

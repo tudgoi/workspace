@@ -3,7 +3,7 @@ use gemini_rust::Gemini;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
-use crate::{data, ingest::Ingestor};
+use crate::ingest::{Data, Ingestor};
 
 pub struct GeminiIngestor {
     client: Gemini,
@@ -20,7 +20,7 @@ impl GeminiIngestor {
 }
 
 impl Ingestor for GeminiIngestor {
-    async fn query(&self, input: &str) -> Result<Vec<data::Person>> {
+    async fn query(&self, input: &str) -> Result<Data> {
         let schema = persons_json_schema();
 
         let response = self.client
@@ -42,7 +42,10 @@ impl Ingestor for GeminiIngestor {
 
         //let persons: Vec<data::Person> = serde_json::from_str(&json_text)?;
         
-        Ok(Vec::new())        
+        Ok(Data {
+            offices: Vec::new(),
+            persons: Vec::new(),
+        })        
     }
 }
 

@@ -87,7 +87,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let office: data::Office = from_toml_file(file_entry.path())
             .with_context(|| format!("failed to parse template"))?;
-        repo.save_office_data(id, &office)?;
+        repo.save_office(id, &office)?;
     }
 
     Ok(())
