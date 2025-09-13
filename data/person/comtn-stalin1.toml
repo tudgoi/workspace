@@ -1,4 +1,7 @@
 name = "M. K. Stalin ministry"
 
+[contacts]
+wikidata = "Q106920492"
+
 [[tenures]]
 office = "comtn"

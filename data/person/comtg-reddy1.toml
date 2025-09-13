@@ -1,4 +1,7 @@
 name = "Revanth Reddy ministry"
 
+[contacts]
+wikidata = "Q123688099"
+
 [[tenures]]
 office = "comtg"

@@ -1,4 +1,7 @@
 name = "Bhajan Lal Sharma ministry"
 
+[contacts]
+wikidata = "Q123762522"
+
 [[tenures]]
 office = "comrj"

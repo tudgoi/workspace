@@ -1,4 +1,7 @@
 name = "Second Vijayan ministry"
 
+[contacts]
+wikidata = "Q106869086"
+
 [[tenures]]
 office = "comkl"

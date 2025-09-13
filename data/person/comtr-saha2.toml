@@ -1,4 +1,7 @@
 name = "Second Saha ministry"
 
+[contacts]
+wikidata = "Q117231166"
+
 [[tenures]]
 office = "comtr"

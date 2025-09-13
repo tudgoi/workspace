@@ -1,4 +1,7 @@
 name = "Second Siddaramaiah ministry"
 
+[contacts]
+wikidata = "Q118521559"
+
 [[tenures]]
 office = "comka"

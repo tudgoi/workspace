@@ -1,4 +1,7 @@
 name = "Lalduhoma ministry"
 
+[contacts]
+wikidata = "Q123701211"
+
 [[tenures]]
 office = "commz"

@@ -1,4 +1,7 @@
 name = "Mann ministry"
 
+[contacts]
+wikidata = "Q111242592"
+
 [[tenures]]
 office = "compb"

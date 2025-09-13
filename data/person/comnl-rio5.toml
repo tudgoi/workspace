@@ -1,4 +1,7 @@
 name = "Fifth Rio ministry"
 
+[contacts]
+wikidata = "Q117006424"
+
 [[tenures]]
 office = "comnl"

@@ -1,4 +1,7 @@
 name = "Fifth Pema Khandu Ministry"
 
+[contacts]
+wikidata = "Q126617547"
+
 [[tenures]]
 office = "comar"

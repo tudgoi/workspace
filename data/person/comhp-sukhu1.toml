@@ -1,4 +1,7 @@
 name = "Sukhu ministry"
 
+[contacts]
+wikidata = "Q115907746"
+
 [[tenures]]
 office = "comhp"

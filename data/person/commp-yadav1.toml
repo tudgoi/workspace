@@ -1,4 +1,7 @@
 name = "Mohan Yadav ministry"
 
+[contacts]
+wikidata = "Q123758943"
+
 [[tenures]]
 office = "commp"
