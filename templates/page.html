@@ -186,7 +186,7 @@
 
 {% block updated %}
   {% if metadata.updated %}
-  Last updated on {{ metadata.updated | date(format="%d %B, %Y")}}
+  Last updated on {{ metadata.commit_date | date(format="%d %B, %Y")}}
   {% else %}
   Local version
   {% endif %}

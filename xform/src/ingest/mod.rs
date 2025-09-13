@@ -88,6 +88,7 @@ trait Ingestor {
     async fn query(&self, input: &str) -> Result<Data>;
 }
 
+#[allow(dead_code)]
 fn build_id_from_person_name(name: &str) -> String {
     let parts: Vec<&str> = name.split_whitespace().collect();
     if parts.is_empty() {
@@ -113,6 +114,7 @@ fn build_id_from_person_name(name: &str) -> String {
     }
 }
 
+#[allow(dead_code)]
 fn derive_id_from_office_name(name: &str) -> String {
     name.split_whitespace()
         .filter_map(|s| s.chars().next())

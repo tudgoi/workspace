@@ -93,10 +93,10 @@ impl ContextFetcher {
             .query_person(&id)
             .with_context(|| format!("could not fetch person data for {}", id))?
             .with_context(|| format!("no person with id {} when fetching person data", id))?;
-        let updated = self
+        let commit_date = self
             .repo
-            .query_person_updated_date(&id)
-            .with_context(|| format!("could not query updated date for person {}", id))?;
+            .query_person_commit_date(&id)
+            .with_context(|| format!("could not query commit date for person {}", id))?;
 
         let offices_for_person = self
             .repo
@@ -156,7 +156,7 @@ impl ContextFetcher {
         // metadata
         let metadata = context::Metadata {
             maintenance: Maintenance { incomplete: true },
-            updated,
+            commit_date,
         };
 
         Ok(context::PersonContext {
@@ -188,7 +188,7 @@ impl ContextFetcher {
     }
     
     pub fn fetch_changes(&self) -> Result<context::ChangesContext> {
-        let persons = self.repo.query_changed_persons()?;
+        let persons = self.repo.query_uncommitted_persons()?;
 
         Ok(context::ChangesContext {
             changes: persons,

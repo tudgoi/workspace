@@ -6,7 +6,7 @@ use std::process::Command;
 use super::from_toml_file;
 use super::{data, repo};
 
-fn get_updated(file_path: &Path) -> Result<Option<String>> {
+fn get_commit_date(file_path: &Path) -> Result<Option<String>> {
     let path_str = file_path
         .to_str()
         .context("failed to convert path to string")?;
@@ -39,7 +39,7 @@ fn get_updated(file_path: &Path) -> Result<Option<String>> {
         .arg(path_str)
         .output();
     let output =
-        result.with_context(|| format!("could not get last updated date for {:?}", file_path))?;
+        result.with_context(|| format!("could not get last commit date for {:?}", file_path))?;
     if !output.status.success() {
         let error_message = std::str::from_utf8(&output.stderr)
             .unwrap_or("Unknown error")
@@ -86,16 +86,16 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             file_stem
         ))?;
 
-        let updated = get_updated(file_entry.path().as_path()).with_context(|| {
+        let commit_date = get_commit_date(file_entry.path().as_path()).with_context(|| {
             format!(
-                "could not get last updated date for {:?}",
+                "could not get last commit date for {:?}",
                 file_entry.path()
             )
         })?;
 
         let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
-        repo.save_person_data(id, &person, updated.as_deref())?;
+        repo.save_person_data(id, &person, commit_date.as_deref())?;
     }
 
     // process office
@@ -120,6 +120,8 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             .with_context(|| format!("failed to parse template"))?;
         repo.save_office(id, &office)?;
     }
+    repo.enable_commit_tracking()
+        .with_context(|| format!("could not enable commit tracking"))?;
 
     Ok(())
 }

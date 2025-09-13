@@ -31,7 +31,7 @@ pub async fn run(db: &Path, templates: &Path, port: Option<&str>) -> Result<()> 
         .await
         .with_context(|| format!("could not listen"))?;
 
-    println!("Listening at http://{}/", addr);
+    println!("Changes at http://{}/changes", addr);
     axum::serve(listener, app)
         .await
         .with_context(|| format!("could not start server"))?;

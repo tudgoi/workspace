@@ -73,7 +73,8 @@ impl Repository {
     }
 
     pub fn setup_database(&self) -> Result<()> {
-        self.conn.execute_batch(DB_SCHEMA_SQL)
+        self.conn
+            .execute_batch(DB_SCHEMA_SQL)
             .with_context(|| format!("could not create DB schema"))?;
 
         Ok(())
@@ -104,7 +105,7 @@ impl Repository {
         name: &str,
         photo_url: Option<&str>,
         photo_attribution: Option<&str>,
-        updated: Option<&str>,
+        commit_date: Option<&str>,
     ) -> Result<()> {
         self.conn
             .execute(
@@ -112,9 +113,9 @@ impl Repository {
             INSERT INTO person (
                 id, name,
                 photo_url, photo_attribution,
-                updated
+                commit_date
             ) VALUES (?1, ?2, ?3, ?4, ?5)",
-                (id, name, photo_url, photo_attribution, updated),
+                (id, name, photo_url, photo_attribution, commit_date),
             )
             .with_context(|| format!("could not insert person {} into DB", id))?;
 
@@ -125,7 +126,7 @@ impl Repository {
         &mut self,
         id: &str,
         person: &data::Person,
-        updated: Option<&str>,
+        commit_date: Option<&str>,
     ) -> Result<()> {
         let (photo_url, photo_attribution) = if let Some(photo) = &person.photo {
             (Some(photo.url.as_str()), photo.attribution.as_deref())
@@ -133,7 +134,7 @@ impl Repository {
             (None, None)
         };
 
-        self.save_person(id, &person.name, photo_url, photo_attribution, updated)?;
+        self.save_person(id, &person.name, photo_url, photo_attribution, commit_date)?;
 
         if let Some(contacts) = &person.contacts {
             self.save_person_contacts(id, contacts)?;
@@ -191,16 +192,16 @@ impl Repository {
 
         // Use INSERT OR REPLACE to handle both new and existing offices.
         tx.execute(
-                "
+            "
             INSERT OR REPLACE INTO office (
                 id, name,
                 photo_url, photo_attribution
             ) VALUES (?1, ?2, ?3, ?4)
         ",
-                (id, &office.name, photo_url, photo_attribution),
-            )
-            .with_context(|| format!("could not insert office {} into DB", id))?;
-        
+            (id, &office.name, photo_url, photo_attribution),
+        )
+        .with_context(|| format!("could not insert office {} into DB", id))?;
+
         tx.commit()?;
 
         if let Some(contacts) = &office.contacts {
@@ -209,7 +210,8 @@ impl Repository {
         }
 
         // Clear existing supervisors before saving new ones to avoid duplicates
-        self.conn.execute("DELETE FROM supervisor WHERE office_id = ?1", params![id])?;
+        self.conn
+            .execute("DELETE FROM supervisor WHERE office_id = ?1", params![id])?;
 
         if let Some(supervisors) = &office.supervisors {
             for (name, value) in supervisors {
@@ -252,11 +254,11 @@ impl Repository {
                 .query_row("SELECT COUNT(*) FROM office", [], |row| row.get(0))?,
         })
     }
-    
-    pub fn query_changed_persons(&self) -> Result<Vec<context::Person>> {
+
+    pub fn query_uncommitted_persons(&self) -> Result<Vec<context::Person>> {
         let mut stmt = self
             .conn
-            .prepare("SELECT id, name FROM person WHERE updated IS NULL ORDER BY id")?;
+            .prepare("SELECT id, name FROM person WHERE commit_date IS NULL ORDER BY id")?;
 
         let persons = stmt
             .query_map([], |row| {
@@ -278,12 +280,12 @@ impl Repository {
         Ok(())
     }
 
-    pub fn query_person_updated_date(&self, id: &str) -> Result<Option<String>> {
+    pub fn query_person_commit_date(&self, id: &str) -> Result<Option<String>> {
         self.conn
-            .query_row("SELECT updated FROM person WHERE id = ?1", [id], |row| {
+            .query_row("SELECT commit_date FROM person WHERE id = ?1", [id], |row| {
                 row.get(0)
             })
-            .with_context(|| format!("could not query updated date for person {}", id))
+            .with_context(|| format!("could not query commit date date for person {}", id))
     }
     pub fn query_contacts_for_person(
         &self,
@@ -448,7 +450,8 @@ impl Repository {
     pub fn query_all_persons(&self) -> Result<Vec<String>> {
         let mut stmt = self.conn.prepare("SELECT id FROM person ORDER BY id")?;
 
-        let persons = stmt.query_map([], |row| row.get(0))?
+        let persons = stmt
+            .query_map([], |row| row.get(0))?
             .collect::<Result<Vec<String>, _>>()?;
 
         Ok(persons)
@@ -656,7 +659,10 @@ impl Repository {
         Ok(persons)
     }
 
-    pub fn query_external_persons_without_photo(&self, contact_type: data::ContactType) -> Result<HashMap<String, String>> {
+    pub fn query_external_persons_without_photo(
+        &self,
+        contact_type: data::ContactType,
+    ) -> Result<HashMap<String, String>> {
         let contact_type = to_variant_name(&contact_type)?;
         let mut stmt = self.conn.prepare(
             "
@@ -686,5 +692,13 @@ impl Repository {
         }
 
         Ok(map)
+    }
+
+    pub fn enable_commit_tracking(&mut self) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO commit_tracking (id, enabled) VALUES (1, 1)",
+            params![],
+        )?;
+        Ok(())
     }
 }
