@@ -20,4 +20,4 @@ wikibase = "0.7.5"
 md5 = "0.7.0"
 gemini-rust = "1.3.1"
 schemars = "1.0.4"
-axum = "0.8.4"
+axum = { version = "0.8.4", features = ["macros"] }

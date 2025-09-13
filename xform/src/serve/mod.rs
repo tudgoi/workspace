@@ -1,23 +1,45 @@
 use std::{
-    path::Path,
-    sync::{Arc, Mutex},
+    path::PathBuf,
+    sync::Arc,
 };
 
 use anyhow::{Context, Result};
 use axum::{
-    Router,
-    extract::{State},
-    response::{Html, IntoResponse},
+    http::StatusCode,
+    response::{Html, IntoResponse, Response},
     routing::get,
+    extract::State,
+    Router,
 };
 
 use crate::{
-    OutputFormat,
     render::{ContextFetcher, Renderer},
+    OutputFormat,
 };
 
+struct AppError(anyhow::Error);
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Something went wrong: {}", self.0),
+        )
+            .into_response()
+    }
+}
+
+impl<E> From<E> for AppError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
+}
+
 #[tokio::main]
-pub async fn run(db: &Path, templates: &Path, port: Option<&str>) -> Result<()> {
+pub async fn run(db: PathBuf, templates: PathBuf, port: Option<&str>) -> Result<()> {
     let state = AppState::new(db, templates)?;
 
     let app = Router::new()
@@ -40,73 +62,65 @@ pub async fn run(db: &Path, templates: &Path, port: Option<&str>) -> Result<()> 
 }
 
 struct AppState {
-    context_fetcher: Mutex<ContextFetcher>,
-    renderer: Renderer,
+    db: PathBuf,
+    templates: PathBuf,
 }
 
 impl AppState {
-    pub fn new(db: &Path, templates: &Path) -> Result<Self> {
-        let context_fetcher = ContextFetcher::new(db, templates)
-            .with_context(|| format!("could not create context fetcher"))?;
-
-        let renderer = Renderer::new(templates, OutputFormat::Html)?;
-
-        Ok(AppState {
-            context_fetcher: Mutex::new(context_fetcher),
-            renderer,
-        })
+    pub fn new(db: PathBuf, templates: PathBuf) -> Result<Self> {
+        Ok(AppState { db, templates })
     }
 }
 
-async fn root(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let context = state
-        .context_fetcher
-        .lock()
-        .expect("should be able to acquire lock")
+#[axum::debug_handler]
+async fn root(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
+    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+        .with_context(|| format!("could not create context fetcher"))?;
+    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
+
+    let context = context_fetcher
         .fetch_index()
-        .expect("could not fetch index context");
-    let body = state
-        .renderer
+        .with_context(|| format!("could not fetch index context"))?;
+    let body = renderer
         .render_index(&context)
-        .expect("could not render index");
-    Html(body)
+        .with_context(|| format!("could not render index"))?;
+
+    Ok(Html(body))
 }
 
+#[axum::debug_handler]
 async fn person_page(
     State(state): State<Arc<AppState>>,
     axum::extract::Path(id_with_ext): axum::extract::Path<String>,
-) -> impl IntoResponse {
+) -> Result<Html<String>, AppError> {
     println!("Request called for {}", id_with_ext);
     let id = id_with_ext.trim_end_matches(".html");
 
-    let context_fetcher = state
-        .context_fetcher
-        .lock()
-        .expect("should be able to acquire lock");
+    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+        .with_context(|| format!("could not create context fetcher"))?;
+    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
-    let person_context = match context_fetcher.fetch_person(id) {
-        Ok(context) => context,
-        Err(e) => return Html(format!("Person not found<p>{}", e)), // Or a proper 404 page
-    };
+    let person_context = context_fetcher.fetch_person(id)?;
 
-    let body = state
-        .renderer
+    let body = renderer
         .render_person(&person_context)
-        .expect("could not render person page");
+        .with_context(|| "could not render person page")?;
 
-    Html(body)
+    Ok(Html(body))
 }
 
-async fn changes(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let context = state
-        .context_fetcher
-        .lock()
-        .expect("should be able to acquire lock")
+#[axum::debug_handler]
+async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
+    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+        .with_context(|| format!("could not create context fetcher"))?;
+    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
+
+    let context = context_fetcher
         .fetch_changes()
-        .expect("could not fetch changes context");
-    let body = state
-        .renderer
+        .with_context(|| "could not fetch changes context")?;
+    let body = renderer
         .render_changes(&context)
-        .expect("could not render index");
-    Html(body)
+        .with_context(|| "could not render index")?;
+
+    Ok(Html(body))
 }

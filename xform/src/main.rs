@@ -122,7 +122,7 @@ fn main() -> Result<()> {
             .with_context(|| "could not run `ingest`"),
         
         Commands::Serve { db, templates, port } => {
-            serve::run(&db, &templates, port.as_deref()).with_context(|| "failed to run `serve`")
+            serve::run(db, templates, port.as_deref()).with_context(|| "failed to run `serve`")
         }
     }
 }
