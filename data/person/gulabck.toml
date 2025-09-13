@@ -9,5 +9,5 @@ wikipedia = "Gulab_Chand_Kataria"
 wikidata = "Q5617192"
 
 [[tenures]]
-office = "gopb"
+office_id = "gopb"
 start = "2024-07-31"

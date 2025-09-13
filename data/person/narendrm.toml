@@ -10,5 +10,5 @@ wikipedia = "Narendra_Modi"
 wikidata = "Q1058"
 
 [[tenures]]
-office = "pm"
+office_id = "pm"
 start = "2014-05-26"

@@ -8,5 +8,5 @@ wikipedia = "Y._S._Jagan_Mohan_Reddy"
 wikidata = "Q3531971"
 
 [[tenures]]
-office = "cmoap"
+office_id = "cmoap"
 start = "2019-05-30"

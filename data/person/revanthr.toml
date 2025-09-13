@@ -8,5 +8,5 @@ wikipedia = "Revanth_Reddy"
 wikidata = "Q7317733"
 
 [[tenures]]
-office = "cmot"
+office_id = "cmot"
 start = "2023-12-07"

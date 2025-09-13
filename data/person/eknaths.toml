@@ -8,5 +8,5 @@ wikipedia = "Eknath_Shinde"
 wikidata = "Q18750400"
 
 [[tenures]]
-office = "cmomh"
+office_id = "cmomh"
 start = "2022-06-30"

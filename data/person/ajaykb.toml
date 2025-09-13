@@ -8,9 +8,9 @@ wikipedia = "Ajay_Kumar_Bhalla"
 wikidata = "Q84214668"
 
 [[tenures]]
-office = "gonl"
+office_id = "gonl"
 start = "2025-08-25"
 
 [[tenures]]
-office = "gomn"
+office_id = "gomn"
 start = "2025-01-03"

@@ -8,5 +8,5 @@ wikipedia = "Prem_Singh_Tamang"
 wikidata = "Q23879743"
 
 [[tenures]]
-office = "cmos"
+office_id = "cmos"
 start = "2019-05-27"

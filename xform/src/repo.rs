@@ -84,7 +84,7 @@ impl Repository {
         self.conn
             .execute(
                 "INSERT INTO tenure (person_id, office_id, start, end) VALUES (?1, ?2, ?3, ?4)",
-                (id, &tenure.office, &tenure.start, &tenure.end),
+                (id, &tenure.office_id, &tenure.start, &tenure.end),
             )
             .with_context(|| format!("could not insert tenure into DB for {}", id))?;
 
@@ -397,7 +397,7 @@ impl Repository {
         )?;
         let iter = stmt.query_map([person_id], |row| {
             Ok(data::Tenure {
-                office: row.get(0)?,
+                office_id: row.get(0)?,
                 start: row.get(1)?,
                 end: row.get(2)?,
                 additional_charge: None, // This info is not stored in the DB

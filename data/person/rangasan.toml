@@ -8,5 +8,5 @@ wikipedia = "N._Rangaswamy"
 wikidata = "Q599267"
 
 [[tenures]]
-office = "cmopy"
+office_id = "cmopy"
 start = "2021-05-07"

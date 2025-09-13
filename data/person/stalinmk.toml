@@ -8,5 +8,5 @@ wikipedia = "M._K._Stalin"
 wikidata = "Q983475"
 
 [[tenures]]
-office = "cmotn"
+office_id = "cmotn"
 start = "2021-05-07"

@@ -5,5 +5,5 @@ wikipedia = "Third_Modi_ministry"
 wikidata = "Q126392128"
 
 [[tenures]]
-office = "ucom"
+office_id = "ucom"
 start = "2024-06-09"

@@ -9,5 +9,5 @@ wikipedia = "Syed_Abdul_Nazeer"
 wikidata = "Q28962585"
 
 [[tenures]]
-office = "goap"
+office_id = "goap"
 start = "2023-02-24"

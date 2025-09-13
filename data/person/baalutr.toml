@@ -10,5 +10,5 @@ wikipedia = "T._R._Baalu"
 wikidata = "Q3534034"
 
 [[tenures]]
-office = "mp-ls-sriperumbudur"
+office_id = "mp-ls-sriperumbudur"
 start = "2019-05-23"

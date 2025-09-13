@@ -5,4 +5,4 @@ wikipedia = "Mann_ministry"
 wikidata = "Q111242592"
 
 [[tenures]]
-office = "compb"
+office_id = "compb"

@@ -36,7 +36,7 @@ pub enum ContactType {
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct Tenure {
-    pub office: String,
+    pub office_id: String,
     pub start: Option<String>,
     pub end: Option<String>,
     pub additional_charge: Option<bool>,

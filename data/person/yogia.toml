@@ -8,5 +8,5 @@ wikipedia = "Yogi_Adityanath"
 wikidata = "Q4683097"
 
 [[tenures]]
-office = "cmoup"
+office_id = "cmoup"
 start = "2017-03-19"

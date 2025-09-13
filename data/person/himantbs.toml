@@ -8,5 +8,5 @@ wikipedia = "Himanta_Biswa_Sarma"
 wikidata = "Q5765114"
 
 [[tenures]]
-office = "cmoas"
+office_id = "cmoas"
 start = "2021-05-10"

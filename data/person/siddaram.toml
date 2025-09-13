@@ -8,5 +8,5 @@ wikipedia = "Siddaramaiah"
 wikidata = "Q7508046"
 
 [[tenures]]
-office = "cmok"
+office_id = "cmok"
 start = "2023-05-20"

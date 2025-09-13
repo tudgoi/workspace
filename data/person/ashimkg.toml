@@ -9,5 +9,5 @@ wikipedia = "Ashim_Kumar_Ghosh"
 wikidata = "Q4854461"
 
 [[tenures]]
-office = "gohr"
+office_id = "gohr"
 start = "2025-07-21"

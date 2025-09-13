@@ -8,5 +8,5 @@ wikipedia = "Pema_Khandu"
 wikidata = "Q7161834"
 
 [[tenures]]
-office = "cmoap"
+office_id = "cmoap"
 start = "2016-07-17"

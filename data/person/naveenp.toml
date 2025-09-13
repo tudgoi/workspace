@@ -8,5 +8,5 @@ wikipedia = "Naveen_Patnaik"
 wikidata = "Q1190856"
 
 [[tenures]]
-office = "cmoo"
+office_id = "cmoo"
 start = "2000-03-05"

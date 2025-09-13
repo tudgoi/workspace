@@ -9,5 +9,5 @@ wikipedia = "Neiphiu_Rio"
 wikidata = "Q3530214"
 
 [[tenures]]
-office = "cmonl"
+office_id = "cmonl"
 start = "2018-03-08"

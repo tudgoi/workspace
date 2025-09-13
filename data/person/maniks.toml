@@ -8,5 +8,5 @@ wikipedia = "Manik_Saha"
 wikidata = "Q111341502"
 
 [[tenures]]
-office = "cmotr"
+office_id = "cmotr"
 start = "2022-05-15"

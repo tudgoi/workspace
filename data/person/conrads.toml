@@ -8,5 +8,5 @@ wikipedia = "Conrad_Sangma"
 wikidata = "Q5162596"
 
 [[tenures]]
-office = "cmoml"
+office_id = "cmoml"
 start = "2018-03-06"

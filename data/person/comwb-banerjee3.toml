@@ -1,4 +1,4 @@
 name = "Third Banerjee ministry"
 
 [[tenures]]
-office = "comwb"
+office_id = "comwb"

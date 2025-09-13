@@ -8,5 +8,5 @@ wikipedia = "Ashok_Gehlot"
 wikidata = "Q3345004"
 
 [[tenures]]
-office = "cmorj"
+office_id = "cmorj"
 start = "2018-12-17"

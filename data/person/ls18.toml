@@ -5,5 +5,5 @@ wikipedia = "18th_Lok_Sabha"
 wikidata = "Q123052644"
 
 [[tenures]]
-office = "ls"
+office_id = "ls"
 start = "2024-06-10"

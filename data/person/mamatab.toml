@@ -8,5 +8,5 @@ wikipedia = "Mamata_Banerjee"
 wikidata = "Q465041"
 
 [[tenures]]
-office = "cmowb"
+office_id = "cmowb"
 start = "2011-05-20"

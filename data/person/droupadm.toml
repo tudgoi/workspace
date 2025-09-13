@@ -9,5 +9,5 @@ wikipedia = "Droupadi_Murmu"
 wikidata = "Q19901232"
 
 [[tenures]]
-office = "poi"
+office_id = "poi"
 start = "2022-07-25"

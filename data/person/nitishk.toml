@@ -8,5 +8,5 @@ wikipedia = "Nitish_Kumar"
 wikidata = "Q122304"
 
 [[tenures]]
-office = "cmobr"
+office_id = "cmobr"
 start = "2024-01-28"

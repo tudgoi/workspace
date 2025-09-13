@@ -8,5 +8,5 @@ wikipedia = "Pramod_Sawant"
 wikidata = "Q28222879"
 
 [[tenures]]
-office = "cmog"
+office_id = "cmog"
 start = "2019-03-19"

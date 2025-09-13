@@ -8,5 +8,5 @@ wikipedia = "Bhagwant_Mann"
 wikidata = "Q4900687"
 
 [[tenures]]
-office = "cmopb"
+office_id = "cmopb"
 start = "2022-03-16"

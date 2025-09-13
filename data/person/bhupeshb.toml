@@ -8,5 +8,5 @@ wikipedia = "Bhupesh_Baghel"
 wikidata = "Q4902181"
 
 [[tenures]]
-office = "cmocg"
+office_id = "cmocg"
 start = "2018-12-17"

@@ -11,5 +11,5 @@ wikipedia = "Pushkar_Singh_Dhami"
 wikidata = "Q28370220"
 
 [[tenures]]
-office = "cmou"
+office_id = "cmou"
 start = "2021-07-04"

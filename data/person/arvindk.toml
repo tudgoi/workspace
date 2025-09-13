@@ -9,5 +9,5 @@ wikipedia = "Arvind_Kejriwal"
 wikidata = "Q59155"
 
 [[tenures]]
-office = "cmodl"
+office_id = "cmodl"
 start = "2015-02-14"
