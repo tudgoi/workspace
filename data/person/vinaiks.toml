@@ -1,0 +1,12 @@
+name = "Vinai Kumar Saxena"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/6/61/Vinai_Kumar_Saxena%2C_who_is_serving_as_the_22nd_Lieutenant_Governor_of_Delhi%2C_photographed_on_June_24%2C_2022.jpg"
+attribution = "The Lieutenant Governor, Delhi, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
+
+[contacts]
+wikipedia = "Vinai_Kumar_Saxena"
+
+[[tenures]]
+office_id = "lgodl"
+start = "2022-05-26"

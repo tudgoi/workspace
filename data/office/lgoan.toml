@@ -1,0 +1,4 @@
+name = "Lieutenant Governor of the Andaman and Nicobar Islands"
+
+[supervisors]
+during_the_pleasure_of = "poi"

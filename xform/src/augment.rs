@@ -158,11 +158,6 @@ impl WikidataAugmentor {
 
         let res = self.api.get_query_api_json(&params).await?;
 
-        println!(
-            "response from wikidata: {}",
-            serde_json::to_string_pretty(&res)?
-        );
-
         if let Some(page) = res["query"]["pages"]
             .as_object()
             .and_then(|p| p.values().next())
