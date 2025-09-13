@@ -1,1 +1,4 @@
 name = "Odisha Council of Ministers"
+
+[supervisors]
+head = "cmood"

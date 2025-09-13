@@ -1,1 +1,4 @@
 name = "Punjab Council of Ministers"
+
+[supervisors]
+head = "cmopb"

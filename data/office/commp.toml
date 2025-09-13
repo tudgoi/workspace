@@ -1,1 +1,4 @@
 name = "Madhya Pradesh Council of Ministers"
+
+[supervisors]
+head = "cmomp"

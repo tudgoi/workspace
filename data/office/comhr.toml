@@ -1,1 +1,4 @@
 name = "Haryana Council of Ministers"
+
+[supervisors]
+head = "cmohr"

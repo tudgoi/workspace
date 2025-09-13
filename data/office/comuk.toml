@@ -1,1 +1,4 @@
 name = "Uttarakhand Council of Ministers"
+
+[supervisors]
+head = "cmouk"

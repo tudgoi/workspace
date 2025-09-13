@@ -1,1 +1,4 @@
 name = "West Bengal Council of Ministers"
+
+[supervisors]
+head = "cmowb"

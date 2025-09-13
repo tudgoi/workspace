@@ -1,1 +1,4 @@
 name = "Kerala Council of Ministers"
+
+[supervisors]
+head = "cmokl"

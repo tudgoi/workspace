@@ -1,1 +1,4 @@
 name = "Manipur Council of Ministers"
+
+[supervisors]
+head = "cmomn"

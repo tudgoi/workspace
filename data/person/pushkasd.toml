@@ -2,7 +2,7 @@ name = "Pushkar Singh Dhami"
 
 [photo]
 url = "https://upload.wikimedia.org/wikipedia/commons/9/95/Pushkar_Singh_Dhami%2C_Chief_Minister_of_Uttarakhand.jpg"
-attribution = """Prime Minister's Office, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"""
+attribution = "Prime Minister's Office, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
 
 [contacts]
 wikipedia = "Pushkar_Singh_Dhami"

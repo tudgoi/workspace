@@ -1,1 +1,4 @@
 name = "Tripura Council of Ministers"
+
+[supervisors]
+head = "cmotr"

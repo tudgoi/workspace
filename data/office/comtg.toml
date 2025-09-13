@@ -1,1 +1,4 @@
 name = "Telangana Council of Ministers"
+
+[supervisors]
+head = "cmotg"
