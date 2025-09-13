@@ -4,6 +4,7 @@ name = "Yogi Adityanath"
 url = "https://upload.wikimedia.org/wikipedia/commons/6/64/Yogi_Adithyanath_in_Uttar_Pradesh_2023.jpg"
 
 [contacts]
+wikipedia = "Yogi_Adityanath"
 wikidata = "Q4683097"
 
 [[tenures]]
