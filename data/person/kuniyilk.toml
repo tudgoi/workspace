@@ -1,6 +1,13 @@
 name = "Kuniyil Kailashnathan"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/d/d3/K._Kailashnathan_%28cropped%29.png"
+attribution = """
+<bdi><a href="https://en.wikipedia.org/wiki/en:Prime_Minister%27s_Office_(India)" class="extiw" title="w:en:Prime Minister's Office (India)"><span title="Office of the Prime Minister of India">Prime Minister's Office</span></a>
+</bdi>, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"""
+
 [contacts]
+wikipedia = "Kuniyil_Kailashnathan"
 wikidata = "Q17180691"
 
 [[tenures]]
