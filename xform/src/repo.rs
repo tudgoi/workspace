@@ -190,10 +190,9 @@ impl Repository {
 
         let tx = self.conn.transaction()?;
 
-        // Use INSERT OR REPLACE to handle both new and existing offices.
         tx.execute(
             "
-            INSERT OR REPLACE INTO office (
+            INSERT INTO office (
                 id, name,
                 photo_url, photo_attribution
             ) VALUES (?1, ?2, ?3, ?4)
@@ -209,16 +208,12 @@ impl Repository {
                 .with_context(|| format!("could not save contacts for office {}", id))?;
         }
 
-        // Clear existing supervisors before saving new ones to avoid duplicates
-        self.conn
-            .execute("DELETE FROM supervisor WHERE office_id = ?1", params![id])?;
-
         if let Some(supervisors) = &office.supervisors {
             for (name, value) in supervisors {
                 self.conn.execute(
                     "INSERT INTO supervisor (office_id, relation, supervisor_office_id) VALUES (?1, ?2, ?3)",
                     params![id, to_variant_name(name)?, value],
-                ).with_context(|| "could not insert supervisor into DB")?;
+                ).with_context(|| format!("could not insert supervisor {} into DB", value))?;
             }
         }
 

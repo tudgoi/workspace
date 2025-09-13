@@ -68,6 +68,29 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
     repo.setup_database()
         .with_context(|| format!("could not setup database tables"))?;
 
+    // process office
+    let data_dir = source.join("office");
+    let paths = data_dir
+        .read_dir()
+        .with_context(|| format!("could not open office directory {:?}", data_dir))?;
+
+    for path in paths {
+        let file_entry =
+            path.with_context(|| format!("could not read office data directory {:?}", data_dir))?;
+        let file_path = file_entry.path();
+        let file_stem = file_path
+            .file_stem()
+            .with_context(|| format!("invalid file name {:?} in office directory", file_path))?;
+        let id = file_stem.to_str().context(format!(
+            "could not convert filename {:?} to string",
+            file_stem
+        ))?;
+
+        let office: data::Office = from_toml_file(file_entry.path())
+            .with_context(|| format!("failed to parse template"))?;
+        repo.save_office(id, &office)?;
+    }
+
     // process person
     let data_dir = source.join("person");
     let paths = data_dir
@@ -98,28 +121,6 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         repo.save_person_data(id, &person, commit_date.as_deref())?;
     }
 
-    // process office
-    let data_dir = source.join("office");
-    let paths = data_dir
-        .read_dir()
-        .with_context(|| format!("could not open office directory {:?}", data_dir))?;
-
-    for path in paths {
-        let file_entry =
-            path.with_context(|| format!("could not read office data directory {:?}", data_dir))?;
-        let file_path = file_entry.path();
-        let file_stem = file_path
-            .file_stem()
-            .with_context(|| format!("invalid file name {:?} in office directory", file_path))?;
-        let id = file_stem.to_str().context(format!(
-            "could not convert filename {:?} to string",
-            file_stem
-        ))?;
-
-        let office: data::Office = from_toml_file(file_entry.path())
-            .with_context(|| format!("failed to parse template"))?;
-        repo.save_office(id, &office)?;
-    }
     repo.enable_commit_tracking()
         .with_context(|| format!("could not enable commit tracking"))?;
 

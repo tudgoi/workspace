@@ -38,6 +38,7 @@ CREATE TABLE person_contact (
   type TEXT NOT NULL,
   value TEXT NOT NULL,
   PRIMARY KEY (id, type)
+  FOREIGN KEY(id) REFERENCES person(id)
 );
 --- commit tracking
 CREATE TRIGGER person_contact_ai
@@ -106,18 +107,22 @@ CREATE TABLE office_contact (
   type TEXT NOT NULL,
   value TEXT NOT NULL,
   PRIMARY KEY (id, type)
+  FOREIGN KEY(id) REFERENCES office(id)
 );
 CREATE TABLE supervisor (
   office_id TEXT NOT NULL,
   relation TEXT NOT NULL,
-  supervisor_office_id TEXT NOT NULL
+  supervisor_office_id TEXT NOT NULL,
+  FOREIGN KEY(office_id) REFERENCES office(id)
 );
 -- [tenure]
 CREATE TABLE tenure (
   person_id TEXT NOT NULL,
   office_id TEXT NOT NULL,
   start TEXT,
-end TEXT
+  end TEXT,
+  FOREIGN KEY(person_id) REFERENCES person(id),
+  FOREIGN KEY(office_id) REFERENCES office(id)
 );
 --- commit tracking
 CREATE TRIGGER tenure_ai
