@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use anyhow::{bail, Context, Result};
 use crate::{Field, Source, data, repo};
+use anyhow::{Context, Result, bail};
 use wikibase::mediawiki::api::Api;
 
 #[tokio::main]
@@ -20,7 +20,7 @@ pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<(
         match field {
             Field::Wikidata => {
                 augment_wikidata_id(&mut repo, &source).await?;
-            },
+            }
             Field::Photo => {
                 augment_photo(&mut repo, &source).await?;
             }
@@ -59,7 +59,6 @@ impl Augmentor for WikidataAugmentor {
         }
         Ok(None)
     }
-    
 
     async fn query_photo(&self, id: &str) -> Result<Option<data::Photo>> {
         let params: HashMap<String, String> = [
@@ -80,7 +79,8 @@ impl Augmentor for WikidataAugmentor {
                             if let Some(datavalue) = mainsnak.get("datavalue") {
                                 if let Some(value) = datavalue.get("value") {
                                     if let Some(file_name) = value.as_str() {
-                                        let attribution = self.fetch_file_attribution(file_name).await?;
+                                        let attribution =
+                                            self.fetch_file_attribution(file_name).await?;
                                         let url = self.fetch_file_url(file_name).await?;
 
                                         return Ok(Some(data::Photo {
@@ -102,7 +102,9 @@ impl Augmentor for WikidataAugmentor {
 
 impl WikidataAugmentor {
     async fn new() -> Self {
-        let api = Api::new("https://www.wikidata.org/w/api.php").await.unwrap();
+        let api = Api::new("https://www.wikidata.org/w/api.php")
+            .await
+            .unwrap();
         WikidataAugmentor { api }
     }
 
@@ -119,20 +121,33 @@ impl WikidataAugmentor {
 
         let res = self.api.get_query_api_json(&params).await?;
 
-        println!("response from wikidata: {}", serde_json::to_string_pretty(&res)?);
+        println!(
+            "response from wikidata: {}",
+            serde_json::to_string_pretty(&res)?
+        );
 
-        if let Some(page) = res["query"]["pages"].as_object().and_then(|p| p.values().next()) {
+        if let Some(page) = res["query"]["pages"]
+            .as_object()
+            .and_then(|p| p.values().next())
+        {
             if let Some(imageinfo) = page["imageinfo"].as_array().and_then(|i| i.first()) {
                 if let Some(extmetadata) = imageinfo.get("extmetadata") {
                     let artist = if let Some(artist) = extmetadata.get("Artist") {
                         artist["value"].as_str()
-                    } else { None };
-                    let license_short_name = if let Some(short_name) = extmetadata.get("LicenseShortName") {
-                        short_name["value"].as_str()
-                    } else { None };
+                    } else {
+                        None
+                    };
+                    let license_short_name =
+                        if let Some(short_name) = extmetadata.get("LicenseShortName") {
+                            short_name["value"].as_str()
+                        } else {
+                            None
+                        };
                     let license_url = if let Some(url) = extmetadata.get("LicenseUrl") {
                         url["value"].as_str()
-                    } else { None };
+                    } else {
+                        None
+                    };
 
                     let mut attribution_parts: Vec<String> = Vec::new();
                     if let Some(artist_str) = artist {
@@ -154,7 +169,7 @@ impl WikidataAugmentor {
                 }
             }
         }
-        
+
         bail!("could not fetch attribution for file")
     }
 
@@ -171,9 +186,15 @@ impl WikidataAugmentor {
 
         let res = self.api.get_query_api_json(&params).await?;
 
-        println!("response from wikidata: {}", serde_json::to_string_pretty(&res)?);
+        println!(
+            "response from wikidata: {}",
+            serde_json::to_string_pretty(&res)?
+        );
 
-        if let Some(page) = res["query"]["pages"].as_object().and_then(|p| p.values().next()) {
+        if let Some(page) = res["query"]["pages"]
+            .as_object()
+            .and_then(|p| p.values().next())
+        {
             if let Some(imageinfo) = page["imageinfo"].as_array().and_then(|i| i.first()) {
                 if let Some(url) = imageinfo.get("url") {
                     if let Some(url) = url.as_str() {
@@ -188,26 +209,25 @@ impl WikidataAugmentor {
 }
 
 async fn augment_photo(repo: &mut repo::Repository, source: &WikidataAugmentor) -> Result<()> {
-    let persons_to_augment = repo.query_persons_without_photo()?;
+    let map = repo.query_external_persons_without_photo(data::ContactType::Wikidata)?;
 
-    for person in persons_to_augment {
-        println!(
-            "augmenting photo for {} ({})...",
-            person.name, person.id
-        );
-        let wikidata_id = repo.query_contact_for_person(&person.id, data::ContactType::Wikidata)?;
+    for (wikidata_id, person_id) in map {
+        println!("augmenting photo for {}:{}...", wikidata_id, person_id);
         let photo = source.query_photo(&wikidata_id).await?;
         if let Some(photo) = photo {
             println!("- found {}", photo.url);
-            repo.save_person_photo(&person.id, &photo)?;
+            repo.save_person_photo(&person_id, &photo)?;
         } else {
-            println!("- no Wikidata ID found");
+            println!("- no photo found");
         }
     }
     Ok(())
 }
 
-async fn augment_wikidata_id(repo: &mut repo::Repository, source: &WikidataAugmentor) -> Result<()> {
+async fn augment_wikidata_id(
+    repo: &mut repo::Repository,
+    source: &WikidataAugmentor,
+) -> Result<()> {
     let persons_to_augment = repo.query_persons_without_contact(data::ContactType::Wikidata)?;
 
     for person in persons_to_augment {

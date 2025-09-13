@@ -278,21 +278,6 @@ impl Repository {
         Ok(())
     }
 
-    pub fn query_contact_for_person(
-        &self,
-        id: &str,
-        contact_type: data::ContactType,
-    ) -> Result<String> {
-        let contact_type_str = to_variant_name(&contact_type)?;
-        self.conn
-            .query_row(
-                "SELECT value FROM person_contact WHERE id = ?1 AND type = ?2",
-                params![id, contact_type_str],
-                |row| row.get(0),
-            )
-            .with_context(|| format!("could not query contact for person {}", id))
-    }
-
     pub fn query_person_updated_date(&self, id: &str) -> Result<Option<String>> {
         self.conn
             .query_row("SELECT updated FROM person WHERE id = ?1", [id], |row| {
@@ -671,21 +656,35 @@ impl Repository {
         Ok(persons)
     }
 
-    pub fn query_persons_without_photo(&self) -> Result<Vec<context::Person>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, name FROM person WHERE photo_url IS NULL")?;
-        let iter = stmt.query_map([], |row| {
-            Ok(context::Person {
-                id: row.get(0)?,
-                name: row.get(1)?,
-            })
+    pub fn query_external_persons_without_photo(&self, contact_type: data::ContactType) -> Result<HashMap<String, String>> {
+        let contact_type = to_variant_name(&contact_type)?;
+        let mut stmt = self.conn.prepare(
+            "
+            SELECT
+                pc.value, -- wikidata_id
+                p.id      -- person_id
+            FROM
+                person p
+            JOIN
+                person_contact pc ON p.id = pc.id
+            WHERE
+                p.photo_url IS NULL
+                AND pc.type = ?1
+            ",
+        )?;
+
+        let iter = stmt.query_map([contact_type], |row| {
+            let wikidata_id: String = row.get(0)?;
+            let person_id: String = row.get(1)?;
+            Ok((wikidata_id, person_id))
         })?;
 
-        let mut persons = Vec::new();
+        let mut map = HashMap::new();
         for result in iter {
-            persons.push(result?);
+            let (wikidata_id, person_id) = result?;
+            map.insert(wikidata_id, person_id);
         }
-        Ok(persons)
+
+        Ok(map)
     }
 }
