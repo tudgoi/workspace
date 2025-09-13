@@ -252,6 +252,23 @@ impl Repository {
                 .query_row("SELECT COUNT(*) FROM office", [], |row| row.get(0))?,
         })
     }
+    
+    pub fn query_changed_persons(&self) -> Result<Vec<context::Person>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name FROM person WHERE updated IS NULL ORDER BY id")?;
+
+        let persons = stmt
+            .query_map([], |row| {
+                Ok(context::Person {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            })?
+            .collect::<Result<Vec<context::Person>, _>>()?;
+
+        Ok(persons)
+    }
 
     pub fn save_person_photo(&mut self, id: &str, photo: &data::Photo) -> Result<()> {
         self.conn.execute(

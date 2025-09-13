@@ -58,6 +58,13 @@ pub struct IndexContext {
 }
 
 #[derive(Serialize, Debug)]
+pub struct ChangesContext {
+    pub changes: Vec<Person>,
+    pub config: Config,
+    pub page: Page,   
+}
+
+#[derive(Serialize, Debug)]
 pub struct PersonContext {
     pub person: Person,
     pub photo: Option<data::Photo>,
@@ -99,7 +106,7 @@ pub struct Officer {
 
 #[derive(Serialize, Debug)]
 pub struct Page {
-    pub path: String,
+    pub base: String,
 }
 
 #[derive(Serialize, Debug)]

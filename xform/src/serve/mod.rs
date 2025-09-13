@@ -23,6 +23,7 @@ pub async fn run(db: &Path, templates: &Path, port: Option<&str>) -> Result<()> 
     let app = Router::new()
         .route("/", get(root))
         .route("/person/{id}", get(person_page))
+        .route("/changes", get(changes))
         .with_state(Arc::new(state));
 
     let addr = format!("0.0.0.0:{}", port.unwrap_or("8080"));
@@ -93,5 +94,19 @@ async fn person_page(
         .render_person(&person_context)
         .expect("could not render person page");
 
+    Html(body)
+}
+
+async fn changes(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let context = state
+        .context_fetcher
+        .lock()
+        .expect("should be able to acquire lock")
+        .fetch_changes()
+        .expect("could not fetch changes context");
+    let body = state
+        .renderer
+        .render_changes(&context)
+        .expect("could not render index");
     Html(body)
 }

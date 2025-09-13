@@ -75,11 +75,15 @@
 
 {% macro render_officer(officer) %}
     {% if officer.person %}
-        {% set link = macros::link_id(type='person', id=officer.person.id) %}
-        <a href="{{ link }}">{{ officer.person.name }}</a>,
+        {{ macros::render_person(person=officer.person) }}
     {% endif %}
     {{ officer.office_name }}
 {% endmacro render_officer %}
+
+{% macro render_person(person) %}
+    {% set link = macros::render_link_id(type='person', id=person.id) %}
+    <a href="{{ link }}">{{ person.name }}</a>
+{% endmacro render_person %}
 
 {% macro render_photo(photo, alt) %}
     {% set url = photo.url %}
@@ -114,8 +118,8 @@
     {% set page_path = term ~ '.md' %}
     {% set page = get_page(path = page_path) %}
     {{ macros::link_page(page=page) }}
-{% endmacro link_term %}
+{% endmacro link_office %}
 
-{% macro link_id(type, id) %}
-    {{ "../" ~ type ~ "/" ~ id ~ ".html"}}
-{% endmacro link_id %}
+{% macro render_link_id(type, id) %}
+    {{ page.base ~ type ~ "/" ~ id ~ ".html"}}
+{% endmacro render_link_id %}

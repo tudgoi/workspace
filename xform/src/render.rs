@@ -150,7 +150,7 @@ impl ContextFetcher {
 
         // page
         let page = context::Page {
-            path: "".to_string(),
+            base: "../".to_string(),
         };
 
         // metadata
@@ -181,7 +181,19 @@ impl ContextFetcher {
             persons: counts.persons,
             offices: counts.offices,
             page: Page {
-                path: "".to_string(),
+                base: "./".to_string(),
+            },
+            config: self.config.clone(),
+        })
+    }
+    
+    pub fn fetch_changes(&self) -> Result<context::ChangesContext> {
+        let persons = self.repo.query_changed_persons()?;
+
+        Ok(context::ChangesContext {
+            changes: persons,
+            page: Page {
+                base: "./".to_string(),
             },
             config: self.config.clone(),
         })
@@ -210,6 +222,10 @@ impl Renderer {
 
     pub fn render_index(&self, context: &context::IndexContext) -> Result<String> {
         self.render(context, "index.html")
+    }
+
+    pub fn render_changes(&self, context: &context::ChangesContext) -> Result<String> {
+        self.render(context, "changes.html")
     }
 
     pub fn render_person(&self, context: &PersonContext) -> Result<String> {
