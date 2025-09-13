@@ -7,8 +7,30 @@ use super::from_toml_file;
 use super::{data, repo};
 
 fn get_updated(file_path: &Path) -> Result<Option<String>> {
-    let path_str = file_path.to_str()
+    let path_str = file_path
+        .to_str()
         .context("failed to convert path to string")?;
+
+    // First, check for local or staged changes.
+    let status_output = Command::new("git")
+        .arg("status")
+        .arg("--porcelain")
+        .arg(path_str)
+        .output()
+        .with_context(|| format!("could not get git status for {:?}", file_path))?;
+
+    if !status_output.status.success() {
+        let error_message = std::str::from_utf8(&status_output.stderr)
+            .unwrap_or("Unknown git status error")
+            .to_string();
+        bail!("Git status command failed with error: {}", error_message);
+    }
+
+    // If there is any output, it means there are uncommitted changes.
+    if !status_output.stdout.is_empty() {
+        return Ok(None);
+    }
+
     let result = Command::new("git")
         .arg("log")
         .arg("-1")
@@ -16,8 +38,8 @@ fn get_updated(file_path: &Path) -> Result<Option<String>> {
         .arg("--date=short")
         .arg(path_str)
         .output();
-    let output = result
-        .with_context(|| format!("could not get last updated date for {:?}", file_path))?;
+    let output =
+        result.with_context(|| format!("could not get last updated date for {:?}", file_path))?;
     if !output.status.success() {
         let error_message = std::str::from_utf8(&output.stderr)
             .unwrap_or("Unknown error")
@@ -26,9 +48,14 @@ fn get_updated(file_path: &Path) -> Result<Option<String>> {
         bail!("Git command failed with error: {}", error_message);
     }
     let date_str = str::from_utf8(&output.stdout)
-        .with_context(|| format!("could not read output of git command"))?;
-    
-    Ok(Some(date_str.trim().to_string()))
+        .with_context(|| format!("could not read output of git command"))?
+        .trim();
+
+    if date_str.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(date_str.trim().to_string()))
+    }
 }
 
 pub fn run(source: &Path, output: &Path) -> Result<()> {
@@ -58,9 +85,13 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             "could not convert filename {:?} to string",
             file_stem
         ))?;
-        
-        let updated = get_updated(file_entry.path().as_path())
-            .with_context(|| format!("could not get last updated date for {:?}", file_entry.path()))?;
+
+        let updated = get_updated(file_entry.path().as_path()).with_context(|| {
+            format!(
+                "could not get last updated date for {:?}",
+                file_entry.path()
+            )
+        })?;
 
         let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
