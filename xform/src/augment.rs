@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::{Field, Source, data, repo};
-use anyhow::{Context, Result, bail};
+use crate::{data, repo, Field, Source};
+use anyhow::{bail, Context, Result};
+use async_trait::async_trait;
 use wikibase::mediawiki::api::Api;
 
 #[tokio::main]
 pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<()> {
-    let mut repo = repo::Repository::new(db_path)
-        .with_context(|| "could not open repository for ingestion")?;
+    let mut repo =
+        repo::Repository::new(db_path).with_context(|| "could not open repository for ingestion")?;
 
-    let source = match source {
-        Source::Wikidata => WikidataAugmentor::new().await,
+    let source: Box<dyn Augmentor> = match source {
+        Source::Wikidata => Box::new(WikidataAugmentor::new().await),
         Source::Gemini => bail!("gemini augmentor not yet implemented"),
         Source::Json => bail!("json agumentor not yet implemented"),
     };
@@ -19,10 +20,13 @@ pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<(
     for field in &fields {
         match field {
             Field::Wikidata => {
-                augment_wikidata_id(&mut repo, &source).await?;
+                augment_wikidata_id(&mut repo, source.as_ref()).await?;
             }
             Field::Photo => {
-                augment_photo(&mut repo, &source).await?;
+                augment_photo(&mut repo, source.as_ref()).await?;
+            }
+            Field::Wikipedia => {
+                augment_wikipedia(&mut repo, source.as_ref()).await?;
             }
         }
     }
@@ -30,15 +34,18 @@ pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<(
     Ok(())
 }
 
+#[async_trait]
 trait Augmentor {
     async fn query_wikidata_id(&self, name: &str) -> Result<Option<String>>;
     async fn query_photo(&self, id: &str) -> Result<Option<data::Photo>>;
+    async fn query_wikipedia(&self, id: &str) -> Result<Option<String>>;
 }
 
 struct WikidataAugmentor {
     api: Api,
 }
 
+#[async_trait]
 impl Augmentor for WikidataAugmentor {
     async fn query_wikidata_id(&self, name: &str) -> Result<Option<String>> {
         let params: HashMap<String, String> = [
@@ -88,6 +95,36 @@ impl Augmentor for WikidataAugmentor {
                                             attribution: Some(attribution),
                                         }));
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    async fn query_wikipedia(&self, id: &str) -> Result<Option<String>> {
+        let params: HashMap<String, String> = [
+            ("action".to_string(), "wbgetentities".to_string()),
+            ("ids".to_string(), id.to_string()),
+            ("props".to_string(), "sitelinks/urls".to_string()),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let res = self.api.get_query_api_json(&params).await?;
+
+        if let Some(entity) = res["entities"].as_object().and_then(|e| e.get(id)) {
+            if let Some(sitelinks) = entity.get("sitelinks") {
+                if let Some(enwiki) = sitelinks.get("enwiki") {
+                    if let Some(url) = enwiki.get("url") {
+                        if let Some(url_str) = url.as_str() {
+                            if let Some(title) = url_str.split('/').last() {
+                                if !title.is_empty() {
+                                    return Ok(Some(title.to_string()));
                                 }
                             }
                         }
@@ -208,7 +245,7 @@ impl WikidataAugmentor {
     }
 }
 
-async fn augment_photo(repo: &mut repo::Repository, source: &WikidataAugmentor) -> Result<()> {
+async fn augment_photo(repo: &mut repo::Repository, source: &dyn Augmentor) -> Result<()> {
     let map = repo.query_external_persons_without_photo(data::ContactType::Wikidata)?;
 
     for (wikidata_id, person_id) in map {
@@ -224,10 +261,7 @@ async fn augment_photo(repo: &mut repo::Repository, source: &WikidataAugmentor) 
     Ok(())
 }
 
-async fn augment_wikidata_id(
-    repo: &mut repo::Repository,
-    source: &WikidataAugmentor,
-) -> Result<()> {
+async fn augment_wikidata_id(repo: &mut repo::Repository, source: &dyn Augmentor) -> Result<()> {
     let persons_to_augment = repo.query_persons_without_contact(data::ContactType::Wikidata)?;
 
     for person in persons_to_augment {
@@ -241,6 +275,28 @@ async fn augment_wikidata_id(
             repo.save_person_contact(&person.id, &data::ContactType::Wikidata, &wikidata_id)?;
         } else {
             println!("- no Wikidata ID found");
+        }
+    }
+    Ok(())
+}
+
+async fn augment_wikipedia(repo: &mut repo::Repository, source: &dyn Augmentor) -> Result<()> {
+    let map = repo.query_persons_with_contact_without_contact(
+        data::ContactType::Wikidata,
+        data::ContactType::Wikipedia,
+    )?;
+
+    for (wikidata_id, person_id) in map {
+        println!(
+            "augmenting wikipedia for {}:{}...",
+            wikidata_id, person_id
+        );
+        let wikipedia_url = source.query_wikipedia(&wikidata_id).await?;
+        if let Some(wikipedia_url) = wikipedia_url {
+            println!("- found {}", wikipedia_url);
+            repo.save_person_contact(&person_id, &data::ContactType::Wikipedia, &wikipedia_url)?;
+        } else {
+            println!("- no wikipedia page found");
         }
     }
     Ok(())

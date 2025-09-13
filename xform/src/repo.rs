@@ -694,6 +694,45 @@ impl Repository {
         Ok(map)
     }
 
+    pub fn query_persons_with_contact_without_contact(
+        &self,
+        with_contact_type: data::ContactType,
+        without_contact_type: data::ContactType,
+    ) -> Result<HashMap<String, String>> {
+        let with_contact_type_str = to_variant_name(&with_contact_type)?;
+        let without_contact_type_str = to_variant_name(&without_contact_type)?;
+
+        let mut stmt = self.conn.prepare(
+            "
+            SELECT with_pc.value, p.id
+            FROM person p
+            JOIN person_contact with_pc ON p.id = with_pc.id AND with_pc.type = ?1
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM person_contact without_pc
+                WHERE without_pc.id = p.id AND without_pc.type = ?2
+            )
+            ",
+        )?;
+
+        let iter = stmt.query_map(
+            [with_contact_type_str, without_contact_type_str],
+            |row| {
+                let with_contact_value: String = row.get(0)?;
+                let person_id: String = row.get(1)?;
+                Ok((with_contact_value, person_id))
+            },
+        )?;
+
+        let mut map = HashMap::new();
+        for result in iter {
+            let (with_contact_value, person_id) = result?;
+            map.insert(with_contact_value, person_id);
+        }
+
+        Ok(map)
+    }
+
     pub fn enable_commit_tracking(&mut self) -> Result<()> {
         self.conn.execute(
             "INSERT OR IGNORE INTO commit_tracking (id, enabled) VALUES (1, 1)",
