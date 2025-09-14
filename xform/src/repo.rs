@@ -122,7 +122,7 @@ impl Repository {
         Ok(())
     }
 
-    pub fn save_person_data(
+    pub fn insert_person_data(
         &mut self,
         id: &str,
         person: &data::Person,
@@ -404,6 +404,33 @@ impl Repository {
             tenures.push(result?);
         }
         Ok(tenures)
+    }
+    
+    pub fn query_past_tenures(&self, id: &str) -> Result<Vec<context::TenureDetails>> {
+        let mut stmt = self.conn.prepare(
+            "
+            SELECT
+                q.office_id,
+                o.name,
+                q.start,
+                q.end
+            FROM quondam AS q
+            INNER JOIN office AS o ON o.id = q.office_id
+            WHERE q.person_id = ?1
+            ORDER BY q.end DESC
+        ",
+        )?;
+        let iter = stmt.query_map([id], |row| {
+            Ok(context::TenureDetails {
+                office: context::Office {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                },
+                start: row.get(2)?,
+                end: row.get(3)?,
+            })
+        })?;
+        Ok(iter.collect::<Result<Vec<_>, _>>()?)
     }
 
     pub fn query_person(&self, id: &str) -> Result<Option<data::Person>> {

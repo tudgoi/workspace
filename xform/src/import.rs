@@ -118,7 +118,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
-        repo.save_person_data(id, &person, commit_date.as_deref())?;
+        repo.insert_person_data(id, &person, commit_date.as_deref())?;
     }
 
     repo.enable_commit_tracking()

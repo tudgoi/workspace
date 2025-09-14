@@ -37,8 +37,7 @@ CREATE TABLE person_contact (
   id TEXT NOT NULL,
   type TEXT NOT NULL,
   value TEXT NOT NULL,
-  PRIMARY KEY (id, type)
-  FOREIGN KEY(id) REFERENCES person(id)
+  PRIMARY KEY (id, type) FOREIGN KEY(id) REFERENCES person(id)
 );
 --- commit tracking
 CREATE TRIGGER person_contact_ai
@@ -106,8 +105,7 @@ CREATE TABLE office_contact (
   id TEXT NOT NULL,
   type TEXT NOT NULL,
   value TEXT NOT NULL,
-  PRIMARY KEY (id, type)
-  FOREIGN KEY(id) REFERENCES office(id)
+  PRIMARY KEY (id, type) FOREIGN KEY(id) REFERENCES office(id)
 );
 CREATE TABLE supervisor (
   office_id TEXT NOT NULL,
@@ -120,9 +118,9 @@ CREATE TABLE tenure (
   person_id TEXT NOT NULL,
   office_id TEXT NOT NULL,
   start TEXT,
-  end TEXT,
-  FOREIGN KEY(person_id) REFERENCES person(id),
-  FOREIGN KEY(office_id) REFERENCES office(id)
+end TEXT,
+FOREIGN KEY(person_id) REFERENCES person(id),
+FOREIGN KEY(office_id) REFERENCES office(id)
 );
 --- commit tracking
 CREATE TRIGGER tenure_ai
@@ -158,9 +156,19 @@ SET commit_date = NULL
 WHERE id = old.person_id;
 END;
 -- [incumbent]
-CREATE VIEW incumbent (office_id, person_id) AS
+CREATE VIEW incumbent (office_id, person_id, start) AS
 SELECT office_id,
-  person_id
+  person_id,
+  start
 FROM tenure
 WHERE
 end IS NULL;
+--[quondam]
+CREATE VIEW quondam (office_id, person_id, start, end) AS
+SELECT office_id,
+  person_id,
+  start,
+  end
+FROM tenure
+WHERE
+end IS NOT NULL;

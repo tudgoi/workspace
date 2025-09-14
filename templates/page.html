@@ -23,6 +23,10 @@
     grid-area: contacts;
   }
 
+  div.past-tenures {
+    grid-area: past-tenures;
+  }
+
   div.subordinates {
     grid-area: subordinates;
   }
@@ -42,6 +46,7 @@
       "offices"
       "contacts"
       "subordinates"
+      "past-tenures"
       "sources";
     margin-bottom: 1em;
   }
@@ -55,6 +60,7 @@
         "photo offices"
         "photo contacts"
         "subordinates subordinates"
+        "past-tenures past-tenures"
         "sources sources";
     }
   }
@@ -168,6 +174,19 @@
     {% endif %}
   </div>
 
+  <div class="past-tenures">
+    {% if past_tenures %}
+      <hr/>
+      <dl>
+        <dt>Past Tenures</dt>
+        <dd><ul>
+        {% for tenure in past_tenures %}
+            <li>{{ tenure.office.name }}, <em>{{ tenure.start }} to {{ tenure.end }}</em></li>
+        {% endfor %}
+        </ul></dd>
+      </dl>
+    {% endif %}
+  </div>
   <div class="sources">
     {% if page.extra.sources %}
     <hr>

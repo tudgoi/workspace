@@ -70,10 +70,18 @@ pub struct PersonContext {
     pub photo: Option<data::Photo>,
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
     pub offices: Option<Vec<OfficeDetails>>,
+    pub past_tenures: Option<Vec<TenureDetails>>,
 
     pub config: Config,
     pub page: Page,
     pub metadata: Metadata,
+}
+
+#[derive(Serialize, Debug)]
+pub struct TenureDetails {
+    pub office: Office,
+    pub start: String,
+    pub end: String,
 }
 
 #[derive(Serialize, Debug)]

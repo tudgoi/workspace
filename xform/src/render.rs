@@ -147,6 +147,8 @@ impl ContextFetcher {
                 },
             });
         }
+        
+        let past_tenures = self.repo.query_past_tenures(&id)?;
 
         // page
         let page = context::Page {
@@ -163,11 +165,8 @@ impl ContextFetcher {
             person,
             photo: person_data.photo,
             contacts: person_data.contacts,
-            offices: if offices.is_empty() {
-                None
-            } else {
-                Some(offices)
-            },
+            offices: Some(offices).filter(|v| !v.is_empty()),
+            past_tenures: Some(past_tenures).filter(|v| !v.is_empty()),
             config: self.config.clone(),
             page,
             metadata,
