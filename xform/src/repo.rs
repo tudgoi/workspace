@@ -9,8 +9,9 @@ use serde_variant::to_variant_name;
 
 use crate::{
     context,
-    data::{self},
-    dto,
+    data::{self, SupervisingRelation},
+    dto::{self, EntityType},
+    graph,
 };
 
 const DB_SCHEMA_SQL: &str = include_str!("schema.sql");
@@ -99,26 +100,18 @@ impl Repository {
         Ok(())
     }
 
-    pub fn save_person(
+    pub fn insert_entity(
         &mut self,
+        entity_type: &dto::EntityType,
         id: &str,
         name: &str,
-        photo_url: Option<&str>,
-        photo_attribution: Option<&str>,
-        commit_date: Option<&str>,
     ) -> Result<()> {
-        self.conn
-            .execute(
-                "
-            INSERT INTO person (
-                id, name,
-                photo_url, photo_attribution,
-                commit_date
-            ) VALUES (?1, ?2, ?3, ?4, ?5)",
-                (id, name, photo_url, photo_attribution, commit_date),
-            )
-            .with_context(|| format!("could not insert person {} into DB", id))?;
-
+        let entity_type_str = to_variant_name(entity_type)
+            .with_context(|| format!("could not convert {:?} to string", entity_type))?;
+        self.conn.execute(
+            "INSERT INTO entity (type, id, name) VALUES (?1, ?2, ?3)",
+            params![entity_type_str, id, name],
+        )?;
         Ok(())
     }
 
@@ -128,21 +121,41 @@ impl Repository {
         person: &data::Person,
         commit_date: Option<&str>,
     ) -> Result<()> {
-        let (photo_url, photo_attribution) = if let Some(photo) = &person.photo {
-            (Some(photo.url.as_str()), photo.attribution.as_deref())
-        } else {
-            (None, None)
-        };
+        let tx = self.conn.transaction()?;
 
-        self.save_person(id, &person.name, photo_url, photo_attribution, commit_date)?;
+        // Insert into the base 'entity' table
+        tx.execute(
+            "INSERT INTO entity (type, id, name) VALUES ('person', ?1, ?2)",
+            params![id, &person.name],
+        )?;
 
-        if let Some(contacts) = &person.contacts {
-            self.save_person_contacts(id, contacts)?;
+        // Insert photo if it exists
+        if let Some(photo) = &person.photo {
+            tx.execute(
+                "INSERT INTO entity_photo (entity_type, entity_id, url, attribution) VALUES ('person', ?1, ?2, ?3)",
+                params![id, &photo.url, &photo.attribution],
+            )?;
         }
 
+        // Insert contacts if they exist
+        if let Some(contacts) = &person.contacts {
+            for (contact_type, value) in contacts {
+                tx.execute("INSERT INTO entity_contact (entity_type, entity_id, type, value) VALUES ('person', ?1, ?2, ?3)", params![id, to_variant_name(contact_type)?, value])?;
+            }
+        }
+
+        // Insert tenures if they exist
         if let Some(tenures) = &person.tenures {
-            self.save_tenures_for_person(id, tenures)?
-        };
+            for tenure in tenures {
+                tx.execute("INSERT INTO person_office_tenure (person_id, office_id, start, end) VALUES (?1, ?2, ?3, ?4)", params![id, &tenure.office_id, &tenure.start, &tenure.end])?;
+            }
+        }
+
+        if let Some(date) = commit_date {
+            tx.execute("INSERT INTO entity_commit (entity_type, entity_id, date) VALUES ('person', ?1, ?2)", params![id, date])?;
+        }
+
+        tx.commit()?;
 
         Ok(())
     }
@@ -174,69 +187,71 @@ impl Repository {
     ) -> Result<()> {
         self.conn
             .execute(
-                "INSERT OR REPLACE INTO person_contact (id, type, value) VALUES (?1, ?2, ?3)",
+                "INSERT OR IGNORE INTO person_contact (id, type, value) VALUES (?1, ?2, ?3)",
                 params![id, to_variant_name(contact_type)?, value],
             )
             .with_context(|| format!("could not insert contact for person {}", id))?;
         Ok(())
     }
 
-    pub fn save_office(&mut self, id: &str, office: &data::Office) -> Result<()> {
-        let (photo_url, photo_attribution) = if let Some(photo) = &office.photo {
-            (Some(photo.url.as_str()), photo.attribution.as_deref())
-        } else {
-            (None, None)
-        };
+    pub fn save_office_contact(
+        &mut self,
+        id: &str,
+        contact_type: &data::ContactType,
+        value: &str,
+    ) -> Result<()> {
+        self.insert_entity_contact(
+            &EntityType::Office,
+            id,
+            contact_type,
+            value,
+        )
+    }
 
+    pub fn save_office(&mut self, id: &str, office: &data::Office) -> Result<()> {
         let tx = self.conn.transaction()?;
 
+        // Insert into the base 'entity' table
         tx.execute(
-            "
-            INSERT INTO office (
-                id, name,
-                photo_url, photo_attribution
-            ) VALUES (?1, ?2, ?3, ?4)
-        ",
-            (id, &office.name, photo_url, photo_attribution),
-        )
-        .with_context(|| format!("could not insert office {} into DB", id))?;
+            "INSERT INTO entity (type, id, name) VALUES ('office', ?1, ?2)",
+            params![id, &office.name],
+        )?;
+
+        // Insert photo if it exists
+        if let Some(photo) = &office.photo {
+            tx.execute(
+                "INSERT INTO entity_photo (entity_type, entity_id, url, attribution) VALUES ('office', ?1, ?2, ?3)",
+                params![id, &photo.url, &photo.attribution],
+            ).with_context(|| format!("could not insert photo for office"))?;
+        }
+
+        // Insert supervisors if they exist
+        if let Some(supervisors) = &office.supervisors {
+            for (relation, supervisor_office_id) in supervisors {
+                tx.execute("INSERT INTO office_supervisor (office_id, relation, supervisor_office_id) VALUES (?1, ?2, ?3)", params![id, to_variant_name(relation)?, supervisor_office_id])?;
+            }
+        }
 
         tx.commit()?;
 
         if let Some(contacts) = &office.contacts {
-            self.save_office_contacts(id, contacts)
-                .with_context(|| format!("could not save contacts for office {}", id))?;
-        }
-
-        if let Some(supervisors) = &office.supervisors {
-            for (name, value) in supervisors {
-                self.conn.execute(
-                    "INSERT INTO supervisor (office_id, relation, supervisor_office_id) VALUES (?1, ?2, ?3)",
-                    params![id, to_variant_name(name)?, value],
-                ).with_context(|| format!("could not insert supervisor {} into DB", value))?;
-            }
         }
 
         Ok(())
     }
 
-    pub fn save_office_contacts(
+    pub fn save_supervisor(
         &mut self,
-        id: &str,
-        contacts: &BTreeMap<data::ContactType, String>,
+        office_id: &str,
+        relation: &data::SupervisingRelation,
+        supervisor_office_id: &str,
     ) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        {
-            let mut stmt = tx.prepare_cached(
-                "INSERT INTO office_contact (id, type, value) VALUES (?1, ?2, ?3)",
-            )?;
-            for (contact_type, value) in contacts {
-                stmt.execute(params![id, to_variant_name(&contact_type)?, value])
-                    .with_context(|| format!("could not insert contact for office {}", id))?;
-            }
-        }
-        tx.commit()
-            .context(format!("failed to insert contacts for office"))
+        self.conn.execute(
+            "INSERT INTO supervisor (office_id, relation, supervisor_office_id) VALUES (?1, ?2, ?3)",
+            params![office_id, to_variant_name(relation)?, supervisor_office_id],
+        ).with_context(|| format!("could not insert supervisor {} into DB", supervisor_office_id))?;
+
+        Ok(())
     }
 
     pub fn query_counts(&self) -> Result<dto::Counts> {
@@ -267,19 +282,13 @@ impl Repository {
         Ok(persons)
     }
 
-    pub fn save_person_photo(&mut self, id: &str, photo: &data::Photo) -> Result<()> {
-        self.conn.execute(
-            "UPDATE person SET photo_url = ?1, photo_attribution = ?2 WHERE id = ?3",
-            params![&photo.url, &photo.attribution, id],
-        )?;
-        Ok(())
-    }
-
     pub fn query_person_commit_date(&self, id: &str) -> Result<Option<String>> {
         self.conn
-            .query_row("SELECT commit_date FROM person WHERE id = ?1", [id], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT commit_date FROM person WHERE id = ?1",
+                [id],
+                |row| row.get(0),
+            )
             .with_context(|| format!("could not query commit date date for person {}", id))
     }
     pub fn query_contacts_for_person(
@@ -405,7 +414,7 @@ impl Repository {
         }
         Ok(tenures)
     }
-    
+
     pub fn query_past_tenures(&self, id: &str) -> Result<Vec<context::TenureDetails>> {
         let mut stmt = self.conn.prepare(
             "
@@ -423,8 +432,8 @@ impl Repository {
         let iter = stmt.query_map([id], |row| {
             Ok(context::TenureDetails {
                 office: context::Office {
-                id: row.get(0)?,
-                name: row.get(1)?,
+                    id: row.get(0)?,
+                    name: row.get(1)?,
                 },
                 start: row.get(2)?,
                 end: row.get(3)?,
@@ -737,14 +746,11 @@ impl Repository {
             ",
         )?;
 
-        let iter = stmt.query_map(
-            [with_contact_type_str, without_contact_type_str],
-            |row| {
-                let with_contact_value: String = row.get(0)?;
-                let person_id: String = row.get(1)?;
-                Ok((with_contact_value, person_id))
-            },
-        )?;
+        let iter = stmt.query_map([with_contact_type_str, without_contact_type_str], |row| {
+            let with_contact_value: String = row.get(0)?;
+            let person_id: String = row.get(1)?;
+            Ok((with_contact_value, person_id))
+        })?;
 
         let mut map = HashMap::new();
         for result in iter {
@@ -759,6 +765,159 @@ impl Repository {
         self.conn.execute(
             "INSERT OR IGNORE INTO commit_tracking (id, enabled) VALUES (1, 1)",
             params![],
+        )?;
+        Ok(())
+    }
+
+    pub fn entity_exists(&self, entity_type: &dto::EntityType, id: &str) -> Result<bool> {
+        let entity_type = to_variant_name(entity_type)
+            .with_context(|| format!("could not convert {:?} to string", entity_type))?;
+        let mut stmt = self.conn.prepare(
+            "SELECT EXISTS(
+                 SELECT 1 FROM entity WHERE type = ?1 AND id = ?2
+             )",
+        )?;
+
+        let exists: i32 = stmt.query_row((entity_type, id), |row| row.get(0))?;
+        Ok(exists != 0)
+    }
+
+    pub fn entity_photo_exists(&self, entity_type: &dto::EntityType, id: &str) -> Result<bool> {
+        let entity_type_str = to_variant_name(entity_type)
+            .with_context(|| format!("could not convert {:?} to string", entity_type))?;
+        let mut stmt = self.conn.prepare(
+            "SELECT EXISTS(
+                 SELECT 1 FROM entity_photo WHERE entity_type = ?1 AND entity_id = ?2
+             )",
+        )?;
+        let exists: i32 = stmt.query_row((entity_type_str, id), |row| row.get(0))?;
+        Ok(exists != 0)
+    }
+
+    pub fn insert_entity_photo(
+        &mut self,
+        entity_type: &dto::EntityType,
+        id: &str,
+        url: &str,
+        attribution: Option<&str>,
+    ) -> Result<()> {
+        let entity_type_str = to_variant_name(entity_type)
+            .with_context(|| format!("could not convert {:?} to string", entity_type))?;
+        self.conn.execute(
+            "INSERT INTO entity_photo (entity_type, entity_id, url, attribution)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![entity_type_str, id, url, attribution],
+        )?;
+        Ok(())
+    }
+
+    /// Do an FTS query on entity_idx table and optionally restrict to the given entity_type
+    pub fn search_entities(
+        &self,
+        query: &str,
+        entity_type: Option<&EntityType>,
+    ) -> Result<Vec<dto::Entity>> {
+        let mut sql = "SELECT e.type, e.id, e.name FROM entity_idx AS fts
+                       JOIN entity AS e ON fts.rowid = e.rowid
+                       WHERE fts(?1)".to_string();
+        if entity_type.is_some() {
+            sql.push_str(" AND e.type = ?2");
+        }
+        sql.push_str(" ORDER BY rank");
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        
+        let entity_type_str = if let Some(et) = entity_type {
+            Some(to_variant_name(et)?)
+        } else {
+            None
+        };
+
+        let entities = if let Some(ref et_str) = entity_type_str {
+            stmt.query_map(params![query, et_str], |row| {
+                let entity_type_str: String = row.get(0)?;
+                let entity_type = if entity_type_str == "person" { EntityType::Person } else { EntityType::Office };
+                Ok(dto::Entity { entity_type, id: row.get(1)?, name: row.get(2)? })
+            })?.collect::<Result<Vec<_>, _>>()?
+        } else {
+            stmt.query_map(params![query], |row| {
+                let entity_type_str: String = row.get(0)?;
+                let entity_type = if entity_type_str == "person" { EntityType::Person } else { EntityType::Office };
+                Ok(dto::Entity { entity_type, id: row.get(1)?, name: row.get(2)? })
+            })?.collect::<Result<Vec<_>, _>>()?
+        };
+
+        Ok(entities)
+    }
+
+    pub fn entity_contact_exists(
+        &self,
+        entity_type: &dto::EntityType,
+        id: &str,
+        contact_type: &data::ContactType,
+    ) -> Result<bool> {
+        let entity_type_str = to_variant_name(entity_type)?;
+        let contact_type_str = to_variant_name(contact_type)?;
+        let mut stmt = self.conn.prepare(
+            "SELECT EXISTS(
+                SELECT 1 FROM entity_contact
+                WHERE entity_type = ?1 AND entity_id = ?2 AND type = ?3
+            )"
+        )?;
+        let exists: i32 = stmt.query_row((entity_type_str, id, contact_type_str), |row| row.get(0))?;
+        Ok(exists != 0)
+    }
+
+    pub fn insert_entity_contact(
+        &mut self,
+        entity_type: &dto::EntityType,
+        id: &str,
+        contact_type: &data::ContactType,
+        value: &str,
+    ) -> Result<()> {
+        let entity_type_str = to_variant_name(entity_type)?;
+        let contact_type_str = to_variant_name(contact_type)?;
+        self.conn.execute(
+            "INSERT INTO entity_contact (entity_type, entity_id, type, value) VALUES (?1, ?2, ?3, ?4)",
+            params![entity_type_str, id, contact_type_str, value],
+        )?;
+        Ok(())
+    }
+    
+    pub fn office_supervisor_exists(
+        &self,
+        id: &str,
+        relation: &data::SupervisingRelation,
+    ) -> Result<bool> {
+        let relation_str = to_variant_name(relation)?;
+        let mut stmt = self.conn.prepare(
+            "SELECT EXISTS(
+                SELECT 1 FROM office_supervisor WHERE office_id = ?1 AND relation = ?2
+            )"
+        )?;
+        let exists: i32 = stmt.query_row((id, relation_str), |row| row.get(0))?;
+        Ok(exists != 0)
+    }
+    
+    pub fn insert_office_supervisor(
+        &mut self,
+        office_id: &str,
+        relation: &data::SupervisingRelation,
+        supervisor_office_id: &str,
+    ) -> Result<()> {
+        let relation_str = to_variant_name(relation)?;
+        self.conn.execute(
+            "INSERT INTO office_supervisor (office_id, relation, supervisor_office_id)
+             VALUES (?1, ?2, ?3)",
+            params![office_id, relation_str, supervisor_office_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn insert_tenure(&mut self, person_id: &str, office_id: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO tenure (person_id, office_id) VALUES (?1, ?2)",
+            params![person_id, office_id],
         )?;
         Ok(())
     }

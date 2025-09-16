@@ -4,16 +4,17 @@ use serde::de::DeserializeOwned;
 use std::fs;
 use std::path::PathBuf;
 
-mod augment;
+//mod augment;
 mod context;
 mod data;
 mod dto;
-mod export;
+mod graph;
+//mod export;
 mod import;
-mod render;
-mod repo;
+//mod render;
 mod ingest;
-mod serve;
+mod repo;
+//mod serve;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -58,15 +59,18 @@ enum Commands {
 
         #[arg(short = 's', long, value_enum)]
         source: Source,
+
+        #[arg(short = 'd', long)]
+        directory: Option<PathBuf>,
     },
-    
+
     Serve {
         db: PathBuf,
         templates: PathBuf,
-        
+
         #[arg(short = 'p', long)]
         port: Option<String>,
-    }
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -87,6 +91,7 @@ enum Source {
     Wikidata,
     Gemini,
     Json,
+    Old,
 }
 
 fn main() -> Result<()> {
@@ -97,7 +102,8 @@ fn main() -> Result<()> {
             .with_context(|| "could not run `import`"),
 
         Commands::Export { db, output } => {
-            export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
+            // export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
+            todo!()
         }
 
         Commands::Render {
@@ -105,25 +111,34 @@ fn main() -> Result<()> {
             templates,
             output,
             output_format,
-        } => render::run(
+        } => todo!()
+        /* render::run(
             db.as_path(),
             templates.as_path(),
             output.as_path(),
             output_format,
         )
-        .with_context(|| "could not run `render`"),
-
+        .with_context(|| "could not run `render`")*/,
         Commands::Augment {
             db,
             source: source_name,
             fields,
-        } => augment::run(db.as_path(), source_name, fields),
+        } => todo!() /* augment::run(db.as_path(), source_name, fields) */,
 
-        Commands::Ingest { db, source } => ingest::run(db.as_path(), source)
+        Commands::Ingest {
+            db,
+            source,
+            directory,
+        } => ingest::run(db.as_path(), source, directory.as_deref())
             .with_context(|| "could not run `ingest`"),
-        
-        Commands::Serve { db, templates, port } => {
-            serve::run(db, templates, port.as_deref()).with_context(|| "failed to run `serve`")
+
+        Commands::Serve {
+            db,
+            templates,
+            port,
+        } => {
+            //serve::run(db, templates, port.as_deref()).with_context(|| "failed to run `serve`")
+            todo!()
         }
     }
 }
