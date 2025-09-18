@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-use crate::repo;
+use crate::{data, repo};
 
 pub fn run(db: &Path, output: &Path) -> Result<()> {
     // Create output directories
@@ -26,9 +26,22 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
         .query_all_persons()
         .with_context(|| "could not query all persons")?;
     for id in persons {
-        let person_data = repo.query_person(&id)
-            .with_context(|| format!("could not query person"))?
-            .with_context(|| format!("no person found"))?;
+        let person_dto = repo
+            .get_person(&id)?
+            .with_context(|| format!("person {} not found", id))?;
+
+        let tenures = repo.list_person_office_tenure(&id)?;
+
+        let person_data = data::Person {
+            name: person_dto.name,
+            photo: person_dto.photo,
+            contacts: person_dto.contacts.filter(|c| !c.is_empty()),
+            tenures: if tenures.is_empty() {
+                None
+            } else {
+                Some(tenures)
+            },
+        };
         let toml_string =
             toml::to_string_pretty(&person_data).context("could not serialize person to TOML")?;
 
@@ -41,7 +54,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
 
     // Export offices
     let offices = repo
-        .query_all_offices()
+        .list_all_office()
         .with_context(|| "could not query all offices")?;
 
     for (id, office_data) in offices {

@@ -39,7 +39,6 @@ pub struct Tenure {
     pub office_id: String,
     pub start: Option<String>,
     pub end: Option<String>,
-    pub additional_charge: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -5,8 +5,6 @@ use std::path::Path;
 use tera;
 use tera::Tera;
 
-use crate::dto;
-use crate::repo::Repository;
 use crate::{OutputFormat, context::PersonContext};
 
 use super::{from_toml_file, repo};
@@ -74,7 +72,7 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
 
 pub struct ContextFetcher {
     config: context::Config,
-    repo: Repository,
+    repo: repo::Repository,
 }
 
 impl ContextFetcher {
@@ -152,7 +150,7 @@ impl ContextFetcher {
 
         Ok(context::PersonContext {
             person: context::Person {
-                id: id.to_string(),
+                id: person.id,
                 name: person.name,
             },
             photo: person.photo,

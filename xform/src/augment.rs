@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::{data, dto, repo, Field, Source};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use wikibase::{mediawiki::api::Api, EntityType};
+use wikibase::mediawiki::api::Api;
 
 #[tokio::main]
 pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<()> {
