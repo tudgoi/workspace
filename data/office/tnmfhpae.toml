@@ -1,0 +1,7 @@
+name = "Minister for Housing, Prohibition and Excise"
+
+[contacts]
+email = "minister_housing@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

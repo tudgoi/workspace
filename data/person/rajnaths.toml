@@ -1,0 +1,11 @@
+name = "Rajnath Singh"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/d/d2/Rajnath.jpg"
+
+[contacts]
+website = "https://www.rajnathsingh.in/"
+wikipedia = "Rajnath_Singh"
+
+[[tenures]]
+office_id = "cm"

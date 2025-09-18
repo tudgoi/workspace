@@ -1,0 +1,7 @@
+name = "MLA (Gudiyattam (SC))"
+
+[contacts]
+email = "mlagudiyattam@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

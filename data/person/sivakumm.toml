@@ -1,0 +1,7 @@
+name = "M. Sivakumar"
+
+[photo]
+url = "https://chennaicorporation.gov.in/gcc/council/council-address/photo/ward001.jpg"
+
+[[tenures]]
+office_id = "gccc-ward-1"

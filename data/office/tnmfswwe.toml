@@ -1,0 +1,7 @@
+name = "Minister for Social Welfare & Women Empowerment"
+
+[contacts]
+email = "minister_sw@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

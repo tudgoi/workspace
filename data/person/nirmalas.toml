@@ -1,0 +1,10 @@
+name = "Nirmala Sitharaman"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/7/77/Smt._Nirmala_Sitharaman_Hon%27ble_Finance_Minister_of_India.jpg"
+
+[contacts]
+wikipedia = "Nirmala_Sitharaman"
+
+[[tenures]]
+office_id = "cm"

@@ -1,0 +1,7 @@
+name = "MLA (Valparai (SC))"
+
+[contacts]
+email = "mlavalparai@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

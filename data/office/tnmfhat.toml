@@ -1,0 +1,7 @@
+name = "Minister for Handlooms and Textiles"
+
+[contacts]
+email = "minister_textiles@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

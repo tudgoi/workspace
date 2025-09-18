@@ -1,0 +1,7 @@
+name = "Greater Chennai Corporation Councillor Ward 87"
+
+[contacts]
+email = "ward087@chennaicorporation.gov.in"
+
+[supervisors]
+member_of = "gccc"

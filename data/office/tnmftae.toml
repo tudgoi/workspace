@@ -1,0 +1,7 @@
+name = "Minister for Transport and Electricity"
+
+[contacts]
+email = "minister_transport@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

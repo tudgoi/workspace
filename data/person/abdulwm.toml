@@ -1,0 +1,10 @@
+name = "M. Abdul Wahab"
+
+[photo]
+url = "https://www.assembly.tn.gov.in/16thassembly/members/226.jpg"
+
+[contacts]
+address = "No.284/79, MGP Sannathi Street, Pettai, Tirunelveli-627 004"
+
+[[tenures]]
+office_id = "mla-palayamkottai"

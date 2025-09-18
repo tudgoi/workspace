@@ -1,0 +1,10 @@
+name = "Ma. Subramanian"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/7/7b/Ex.mayor.jpg"
+
+[contacts]
+wikipedia = "Ma._Subramanian"
+
+[[tenures]]
+office_id = "tnmfhfw"

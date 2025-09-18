@@ -1,0 +1,7 @@
+name = "Minister for Higher Education"
+
+[contacts]
+email = "minister_hredu@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

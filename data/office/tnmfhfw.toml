@@ -1,0 +1,7 @@
+name = "Minister for Health & Family Welfare"
+
+[contacts]
+email = "minister_health@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

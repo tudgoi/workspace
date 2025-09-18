@@ -1,0 +1,7 @@
+name = "Prema Suesh"
+
+[photo]
+url = "https://chennaicorporation.gov.in/gcc/council/council-address/photo/ward113.jpg"
+
+[[tenures]]
+office_id = "gccc-ward-113"

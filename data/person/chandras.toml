@@ -1,0 +1,10 @@
+name = "Chandran S"
+
+[photo]
+url = "https://www.assembly.tn.gov.in/16thassembly/members/003.jpg"
+
+[contacts]
+address = "No  10, Bharathidasan Street, Subramania  Nagar, Tiruttani."
+
+[[tenures]]
+office_id = "mla-tiruttani"

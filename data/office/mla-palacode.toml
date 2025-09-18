@@ -1,0 +1,7 @@
+name = "MLA (Palacode)"
+
+[contacts]
+email = "mlapalacode@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

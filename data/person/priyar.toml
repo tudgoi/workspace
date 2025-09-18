@@ -1,0 +1,10 @@
+name = "Priya Rajan"
+
+[photo]
+url = "https://chennaicorporation.gov.in/gcc/images/HonbleMayor.png"
+
+[contacts]
+wikipedia = "Priya_Rajan"
+
+[[tenures]]
+office_id = "mochn"

@@ -1,0 +1,7 @@
+name = "Minister for Water Resources"
+
+[contacts]
+email = "minister_wrd@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

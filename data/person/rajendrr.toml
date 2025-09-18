@@ -1,0 +1,10 @@
+name = "R. Rajendran"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/9/98/R_Rajendran.png"
+
+[contacts]
+wikipedia = "R._Rajendran"
+
+[[tenures]]
+office_id = "tnmft"

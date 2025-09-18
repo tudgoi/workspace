@@ -1,0 +1,4 @@
+name = "Minister for Milk and Dairy Development"
+
+[supervisors]
+member_of = "comtn"

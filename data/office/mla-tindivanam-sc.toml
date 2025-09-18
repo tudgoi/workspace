@@ -1,0 +1,7 @@
+name = "MLA (Tindivanam (SC))"
+
+[contacts]
+email = "mlatindivanam@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

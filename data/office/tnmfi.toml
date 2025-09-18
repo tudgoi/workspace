@@ -1,0 +1,7 @@
+name = "Minister for Industries"
+
+[contacts]
+email = "minister_industry@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

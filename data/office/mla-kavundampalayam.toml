@@ -1,0 +1,7 @@
+name = "MLA (Kavundampalayam)"
+
+[contacts]
+email = "mlakavundampalayam@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

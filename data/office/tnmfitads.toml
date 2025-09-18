@@ -1,0 +1,7 @@
+name = "Minister for Information Technology and Digital Services"
+
+[contacts]
+email = "minister_it@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

@@ -1,0 +1,10 @@
+name = "T. Udhayachandran"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/d/d3/T._Udhayachandran.jpg"
+
+[contacts]
+wikipedia = "T._Udhayachandran"
+
+[[tenures]]
+office_id = "pstg"

@@ -1,0 +1,7 @@
+name = "MLA (Usilampatti)"
+
+[contacts]
+email = "mlausilampatti@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

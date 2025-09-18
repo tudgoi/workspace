@@ -1,0 +1,7 @@
+name = "Minister for Minorities Welfare and Non Resident Tamils Welfare"
+
+[contacts]
+email = "minister_mw@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

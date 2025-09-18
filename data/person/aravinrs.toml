@@ -1,0 +1,10 @@
+name = "Aravind Ramesh  S"
+
+[photo]
+url = "https://www.assembly.tn.gov.in/16thassembly/members/027.jpg"
+
+[contacts]
+address = "No.15, Anna Street, Shozhinganallur, Chennai-600 119."
+
+[[tenures]]
+office_id = "mla-sholinganallur"

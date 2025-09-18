@@ -1,0 +1,7 @@
+name = "MLA (Tiruttani)"
+
+[contacts]
+email = "mlatiruttani@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

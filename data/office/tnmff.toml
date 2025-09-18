@@ -1,0 +1,7 @@
+name = "Minister for Finance and Environment Climate Change"
+
+[contacts]
+email = "minister_finance@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

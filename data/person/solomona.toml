@@ -1,0 +1,7 @@
+name = "A. Solomon"
+
+[photo]
+url = "https://chennaicorporation.gov.in/gcc/council/council-address/photo/ward162.jpg"
+
+[[tenures]]
+office_id = "gccc-ward-162"

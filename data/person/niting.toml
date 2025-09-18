@@ -1,0 +1,11 @@
+name = "Nitin Gadkari"
+
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/e/ec/Shri_Nitin_Jairam_Gadkari.jpg"
+
+[contacts]
+website = "https://nitingadkari.org.in/"
+wikipedia = "Nitin_Gadkari"
+
+[[tenures]]
+office_id = "cm"

@@ -1,0 +1,10 @@
+name = "Anbalagan  G"
+
+[photo]
+url = "https://www.assembly.tn.gov.in/16thassembly/members/171.jpg"
+
+[contacts]
+address = "No. 219, Natchiyar Koil Main Road, Sakkottai, Kumbakonam"
+
+[[tenures]]
+office_id = "mla-kumbakonam"

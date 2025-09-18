@@ -1,0 +1,10 @@
+name = "Amulu  V"
+
+[photo]
+url = "https://www.assembly.tn.gov.in/16thassembly/members/046.jpg"
+
+[contacts]
+address = "No.426, 2nd Aliyar Street, Kallur Post Seevoor, Gudiyattam, Vellore - 632 602"
+
+[[tenures]]
+office_id = "mla-gudiyattam-sc"

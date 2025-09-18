@@ -1,0 +1,7 @@
+name = "Minister for Revenue and Disaster Management"
+
+[contacts]
+email = "minister_revenue@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

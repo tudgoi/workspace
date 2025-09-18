@@ -1,0 +1,10 @@
+name = "K.N. Nehru"
+
+[photo]
+url = "https://cms.tn.gov.in/cms_migrated/document/ministers_list/nehru_140.jpg"
+
+[contacts]
+wikipedia = "K._N._Nehru"
+
+[[tenures]]
+office_id = "tnmfma"

@@ -1,0 +1,7 @@
+name = "MLA (Gandarvakottai (SC))"
+
+[contacts]
+email = "mlagandarvakottai@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

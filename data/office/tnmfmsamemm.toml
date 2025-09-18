@@ -1,0 +1,7 @@
+name = "Minister for Micro, Small and Medium Enterprises (MS&ME)"
+
+[contacts]
+email = "minister_ruralind@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

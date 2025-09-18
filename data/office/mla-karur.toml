@@ -1,0 +1,7 @@
+name = "MLA (Karur)"
+
+[contacts]
+email = "mlakarur@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

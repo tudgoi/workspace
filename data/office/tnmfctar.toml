@@ -1,0 +1,7 @@
+name = "Minister for Commercial Taxes and Registration"
+
+[contacts]
+email = "minister_ctax@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

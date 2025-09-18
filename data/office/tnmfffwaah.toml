@@ -1,0 +1,7 @@
+name = "Minister for Fisheries – Fishermen Welfare and Animal Husbandry"
+
+[contacts]
+email = "minister_fisheries@tn.gov.in, minister_ah@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

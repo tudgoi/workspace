@@ -1,0 +1,10 @@
+name = "R. Gandhi"
+
+[photo]
+url = "https://cms.tn.gov.in/cms_migrated/document/ministers_list/gandhi_041.jpg"
+
+[contacts]
+wikipedia = "R._Gandhi"
+
+[[tenures]]
+office_id = "tnmfhat"

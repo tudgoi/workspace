@@ -1,0 +1,7 @@
+name = "Minister for Forests and Khadi"
+
+[contacts]
+email = "minister_mdd@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

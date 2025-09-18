@@ -1,0 +1,7 @@
+name = "MLA (Erode East)"
+
+[contacts]
+email = "mlaerodeeast@tn.gov.in"
+
+[supervisors]
+member_of = "tn-la"

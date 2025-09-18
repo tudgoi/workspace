@@ -1,0 +1,7 @@
+name = "Deputy Chief Minister of Tamil Nadu"
+
+[contacts]
+email = "deputycm_office@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"

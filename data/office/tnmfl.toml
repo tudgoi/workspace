@@ -1,0 +1,7 @@
+name = "Minister for Law"
+
+[contacts]
+email = "minister_law@tn.gov.in"
+
+[supervisors]
+member_of = "comtn"
