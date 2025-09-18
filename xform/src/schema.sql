@@ -97,7 +97,7 @@ CREATE TABLE entity_commit (
   entity_type TEXT NOT NULL,
   entity_id TEXT NOT NULL,
   date TEXT NOT NULL,
-  PRIMARY KEY(entity_type, entity_id) FOREIGN KEY(entity_type, entity_id) REFERENCES entity(type, id)
+  PRIMARY KEY(entity_type, entity_id) FOREIGN KEY(entity_type, entity_id) REFERENCES entity(type, id) UNIQUE(entity_type, entity_id)
 );
 --- for [entity]
 CREATE TRIGGER entity_au_commit
@@ -108,7 +108,8 @@ UPDATE ON entity
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = new.type AND entity_id = new.id;
+WHERE entity_type = new.type
+  AND entity_id = new.id;
 END;
 CREATE TRIGGER entity_ad_commit
 AFTER DELETE ON entity
@@ -117,7 +118,8 @@ AFTER DELETE ON entity
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = old.type AND entity_id = old.id;
+WHERE entity_type = old.type
+  AND entity_id = old.id;
 END;
 --- for entity_photo
 CREATE TRIGGER entity_photo_ai_commit
@@ -128,7 +130,8 @@ INSERT ON entity_photo
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = new.entity_type AND entity_id = new.entity_id;
+WHERE entity_type = new.entity_type
+  AND entity_id = new.entity_id;
 END;
 CREATE TRIGGER entity_photo_au_commit
 AFTER
@@ -138,7 +141,8 @@ UPDATE ON entity_photo
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = new.entity_type AND entity_id = new.entity_id;
+WHERE entity_type = new.entity_type
+  AND entity_id = new.entity_id;
 END;
 CREATE TRIGGER entity_photo_ad_commit
 AFTER DELETE ON entity_photo
@@ -147,7 +151,8 @@ AFTER DELETE ON entity_photo
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = old.entity_type AND entity_id = old.entity_id;
+WHERE entity_type = old.entity_type
+  AND entity_id = old.entity_id;
 END;
 --- for entity_contact
 CREATE TRIGGER entity_contact_ai_commit
@@ -158,7 +163,8 @@ INSERT ON entity_contact
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = new.entity_type AND entity_id = new.entity_id;
+WHERE entity_type = new.entity_type
+  AND entity_id = new.entity_id;
 END;
 CREATE TRIGGER entity_contact_au_commit
 AFTER
@@ -167,8 +173,9 @@ UPDATE ON entity_contact
     SELECT enabled
     FROM commit_tracking
   ) > 0 BEGIN
-DELETE FROM  entity_commit
-WHERE entity_type = new.entity_type AND entity_id = new.entity_id;
+DELETE FROM entity_commit
+WHERE entity_type = new.entity_type
+  AND entity_id = new.entity_id;
 END;
 CREATE TRIGGER entity_contact_ad_commit
 AFTER DELETE ON entity_contact
@@ -177,7 +184,8 @@ AFTER DELETE ON entity_contact
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = old.entity_type AND entity_id = old.entity_id;
+WHERE entity_type = old.entity_type
+  AND entity_id = old.entity_id;
 END;
 --- for office_supervisor
 CREATE TRIGGER office_supervisor_ai_commit
@@ -188,7 +196,8 @@ INSERT ON office_supervisor
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = 'office' AND entity_id = new.office_id;
+WHERE entity_type = 'office'
+  AND entity_id = new.office_id;
 END;
 CREATE TRIGGER office_supervisor_au_commit
 AFTER
@@ -197,8 +206,9 @@ UPDATE ON office_supervisor
     SELECT enabled
     FROM commit_tracking
   ) > 0 BEGIN
-DELETE FROM  entity_commit
-WHERE entity_type = 'office' AND entity_id = new.office_id;
+DELETE FROM entity_commit
+WHERE entity_type = 'office'
+  AND entity_id = new.office_id;
 END;
 CREATE TRIGGER office_supervisor_ad_commit
 AFTER DELETE ON office_supervisor
@@ -207,7 +217,8 @@ AFTER DELETE ON office_supervisor
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = 'office' AND entity_id = old.office_id;
+WHERE entity_type = 'office'
+  AND entity_id = old.office_id;
 END;
 --- for person_office_tenure
 CREATE TRIGGER person_office_tenure_ai_commit
@@ -218,7 +229,8 @@ INSERT ON person_office_tenure
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = 'person' AND entity_id = new.person_id;
+WHERE entity_type = 'person'
+  AND entity_id = new.person_id;
 END;
 CREATE TRIGGER person_office_tenure_au_commit
 AFTER
@@ -227,8 +239,9 @@ UPDATE ON person_office_tenure
     SELECT enabled
     FROM commit_tracking
   ) > 0 BEGIN
-DELETE FROM  entity_commit
-WHERE entity_type = 'person' AND entity_id = new.person_id;
+DELETE FROM entity_commit
+WHERE entity_type = 'person'
+  AND entity_id = new.person_id;
 END;
 CREATE TRIGGER person_office_tenure_ad_commit
 AFTER DELETE ON person_office_tenure
@@ -237,5 +250,6 @@ AFTER DELETE ON person_office_tenure
     FROM commit_tracking
   ) > 0 BEGIN
 DELETE FROM entity_commit
-WHERE entity_type = 'person' AND entity_id = old.person_id;
+WHERE entity_type = 'person'
+  AND entity_id = old.person_id;
 END;

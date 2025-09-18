@@ -5,11 +5,12 @@ use std::path::Path;
 use tera;
 use tera::Tera;
 
+use crate::dto;
 use crate::repo::Repository;
 use crate::{OutputFormat, context::PersonContext};
 
 use super::{from_toml_file, repo};
-use crate::context::{self, Maintenance, Page};
+use crate::context::{self, Maintenance, Page, Person};
 
 pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputFormat) -> Result<()> {
     let context_fetcher = ContextFetcher::new(db, templates)
@@ -53,7 +54,7 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
         .with_context(|| format!("could not render index"))?;
     let extension = match output_format {
         OutputFormat::Html => ".html",
-        OutputFormat::Json => ".json"
+        OutputFormat::Json => ".json",
     };
     let output_path = render_dir.join(format!("index{}", extension));
     fs::write(output_path.as_path(), str)
@@ -88,26 +89,14 @@ impl ContextFetcher {
     }
 
     pub fn fetch_person(&self, id: &str) -> Result<context::PersonContext> {
-        let person_data = self
-            .repo
-            .query_person(&id)
-            .with_context(|| format!("could not fetch person data for {}", id))?
-            .with_context(|| format!("no person with id {} when fetching person data", id))?;
-        let commit_date = self
-            .repo
-            .query_person_commit_date(&id)
-            .with_context(|| format!("could not query commit date for person {}", id))?;
+        let person = self.repo.get_person(id)
+            .with_context(|| format!("could not fetch person"))?
+            .with_context(|| format!("no person found"))?;
 
         let offices_for_person = self
             .repo
-            .query_offices_for_person(&id)
-            .with_context(|| format!("could not query offices for person {}", id))?;
-
-        // person
-        let person = context::Person {
-            id: id.to_string(),
-            name: person_data.name,
-        };
+            .list_person_office_incumbent(&id)
+            .with_context(|| format!("could not query offices"))?;
 
         // office, official_contacts, supervisors, subordinates
         let mut offices = Vec::new();
@@ -115,7 +104,7 @@ impl ContextFetcher {
             // supervisors
             let supervisors = self
                 .repo
-                .query_supervisors_for_office(&office_dto.id)
+                .get_office_supervisors(&office_dto.id)
                 .with_context(|| {
                     format!("could not query supervisors for office {}", office_dto.id)
                 })?;
@@ -123,7 +112,7 @@ impl ContextFetcher {
             // subordinates
             let subordinates = self
                 .repo
-                .query_subordinates_for_office(&office_dto.id)
+                .get_office_subordinates(&office_dto.id)
                 .with_context(|| {
                     format!("could not query subordinates for office {}", office_dto.id)
                 })?;
@@ -147,8 +136,8 @@ impl ContextFetcher {
                 },
             });
         }
-        
-        let past_tenures = self.repo.query_past_tenures(&id)?;
+
+        let past_tenures = self.repo.get_person_past_tenures(&id)?;
 
         // page
         let page = context::Page {
@@ -158,13 +147,16 @@ impl ContextFetcher {
         // metadata
         let metadata = context::Metadata {
             maintenance: Maintenance { incomplete: true },
-            commit_date,
+            commit_date: person.commit_date,
         };
 
         Ok(context::PersonContext {
-            person,
-            photo: person_data.photo,
-            contacts: person_data.contacts,
+            person: context::Person {
+                id: id.to_string(),
+                name: person.name,
+            },
+            photo: person.photo,
+            contacts: person.contacts,
             offices: Some(offices).filter(|v| !v.is_empty()),
             past_tenures: Some(past_tenures).filter(|v| !v.is_empty()),
             config: self.config.clone(),
@@ -185,9 +177,16 @@ impl ContextFetcher {
             config: self.config.clone(),
         })
     }
-    
+
     pub fn fetch_changes(&self) -> Result<context::ChangesContext> {
-        let persons = self.repo.query_uncommitted_persons()?;
+        let persons = self
+            .repo
+            .list_entity_uncommitted()?
+            .into_iter()
+            .map(|v| Person {
+                id: v.id,
+                name: v.name,
+            }).collect();
 
         Ok(context::ChangesContext {
             changes: persons,

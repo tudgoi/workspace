@@ -4,17 +4,17 @@ use serde::de::DeserializeOwned;
 use std::fs;
 use std::path::PathBuf;
 
-//mod augment;
+mod augment;
 mod context;
 mod data;
 mod dto;
 mod graph;
-//mod export;
+mod export;
 mod import;
-//mod render;
+mod render;
 mod ingest;
 mod repo;
-//mod serve;
+mod serve;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -102,8 +102,8 @@ fn main() -> Result<()> {
             .with_context(|| "could not run `import`"),
 
         Commands::Export { db, output } => {
-            // export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
-            todo!()
+            export::run(db.as_path(), output.as_path())
+                .with_context(|| "could not run `export`")
         }
 
         Commands::Render {
@@ -111,19 +111,19 @@ fn main() -> Result<()> {
             templates,
             output,
             output_format,
-        } => todo!()
-        /* render::run(
+        } => render::run(
             db.as_path(),
             templates.as_path(),
             output.as_path(),
             output_format,
         )
-        .with_context(|| "could not run `render`")*/,
+        .with_context(|| "could not run `render`"),
         Commands::Augment {
             db,
             source: source_name,
             fields,
-        } => todo!() /* augment::run(db.as_path(), source_name, fields) */,
+        } => augment::run(db.as_path(), source_name, fields)
+            .with_context(|| "could not run `augment`"),
 
         Commands::Ingest {
             db,
@@ -137,8 +137,7 @@ fn main() -> Result<()> {
             templates,
             port,
         } => {
-            //serve::run(db, templates, port.as_deref()).with_context(|| "failed to run `serve`")
-            todo!()
+            serve::run(db, templates, port.as_deref()).with_context(|| "failed to run `serve`")
         }
     }
 }

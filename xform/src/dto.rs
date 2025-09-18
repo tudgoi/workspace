@@ -5,6 +5,15 @@ use serde::Serialize;
 use crate::{data, graph};
 
 #[derive(Debug)]
+pub struct Person {
+    pub id: String,
+    pub name: String,
+    pub photo: Option<data::Photo>,
+    pub contacts: Option<BTreeMap<data::ContactType, String>>,
+    pub commit_date: Option<String>,
+}
+
+#[derive(Debug)]
 pub struct Office {
     pub id: String,
     pub name: String,
@@ -26,7 +35,7 @@ pub struct Entity {
     pub name: String,
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum EntityType {
     Person,

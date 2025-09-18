@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::{data, repo, Field, Source};
+use crate::{data, dto, repo, Field, Source};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use wikibase::mediawiki::api::Api;
+use wikibase::{mediawiki::api::Api, EntityType};
 
 #[tokio::main]
 pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<()> {
@@ -249,7 +249,12 @@ async fn augment_photo(repo: &mut repo::Repository, source: &dyn Augmentor) -> R
         let photo = source.query_photo(&wikidata_id).await?;
         if let Some(photo) = photo {
             println!("- found {}", photo.url);
-            repo.save_person_photo(&person_id, &photo)?;
+            repo.insert_entity_photo(
+                &dto::EntityType::Person,
+                &person_id,
+                &photo.url,
+                photo.attribution.as_deref(),
+            )?;
         } else {
             println!("- no photo found");
         }
