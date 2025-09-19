@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the office that the person holds"
+    },
+    "contacts": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Email address of the person"
+        },
+        "phone": {
+          "type": "array",
+          "description": "List of phone numbers for this office",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

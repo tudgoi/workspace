@@ -1,0 +1,55 @@
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the officer."
+    },
+    "tenures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "description": "Represents the tenure this person has had in any of the offices.",
+        "properties": {
+          "start": {
+            "type": "string",
+            "description": "The date in which this tenure started. In ISO format 'YYY-MM-DD'. e.g. '2025-07-12'"
+          },
+          "end": {
+            "type": "string",
+            "description": "The date in which this tenure ended. In ISO format 'YYY-MM-DD'. e.g. '2025-07-12'"
+          },
+          "office": {
+            "type": "object",
+            "description": "The details of the office that they have held.",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the office"
+              },
+              "contacts": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "Email address of the office"
+                  },
+                  "phone": {
+                    "type": "array",
+                    "description": "List of phone numbers for this office",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
