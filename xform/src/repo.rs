@@ -13,7 +13,8 @@ use crate::{
     dto::{self, EntityType},
 };
 
-const DB_SCHEMA_SQL: &str = include_str!("schema.sql");
+const ENTITY_SCHEMA_SQL: &str = include_str!("../schema/entity.sql");
+const PROPERTY_SCHEMA_SQL: &str = include_str!("../schema/property.sql");
 
 pub struct Repository {
     conn: Connection,
@@ -74,9 +75,12 @@ impl Repository {
 
     pub fn setup_database(&self) -> Result<()> {
         self.conn
-            .execute_batch(DB_SCHEMA_SQL)
-            .with_context(|| format!("could not create DB schema"))?;
+            .execute_batch(ENTITY_SCHEMA_SQL)
+            .with_context(|| format!("could not create entity schema"))?;
 
+        self.conn
+            .execute_batch(PROPERTY_SCHEMA_SQL)
+            .with_context(|| format!("could not create property schema"))?;
         Ok(())
     }
 
