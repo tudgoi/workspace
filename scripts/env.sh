@@ -21,7 +21,7 @@ render() {
     (
         set -e
         rm -rf output/html output/search
-        cargo run --manifest-path xform/Cargo.toml render output/directory.db templates output
+        cargo run --manifest-path xform/Cargo.toml render output/directory.db templates output/html
         if [ -d "output/wasm_output" ]; then
             cp output/wasm_output/tinysearch_engine.* output/html
         fi

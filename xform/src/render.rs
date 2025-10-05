@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
-use serde_derive::Serialize;
+use rusqlite::Connection;
 use std::fs;
 use std::path::Path;
 use tera;
 use tera::Tera;
 
-use crate::{OutputFormat, context::PersonContext};
+use crate::{ENTITY_SCHEMA_SQL, OutputFormat, context::PersonContext};
 
 use super::{from_toml_file, repo};
 use crate::context::{self, Maintenance, Page, Person};
@@ -14,34 +14,14 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
     let context_fetcher = ContextFetcher::new(db, templates)
         .with_context(|| format!("could not create context fetcher"))?;
 
-    let render_dir = match output_format {
-        OutputFormat::Json => {
-            let dir = output.join("json");
-            fs::create_dir(dir.as_path())
-                .with_context(|| format!("could not create dir {:?}", dir))?;
-            dir
-        }
-        OutputFormat::Html => {
-            let dir = output.join("html");
-            fs::create_dir(dir.as_path())
-                .with_context(|| format!("could not create dir {:?}", dir))?;
-            dir
-        }
-    };
+    fs::create_dir(output)
+        .with_context(|| format!("could not create output dir {:?}", output))?;
 
     let renderer = Renderer::new(templates, output_format)?;
 
-    let mut search_index = Vec::new();
-
     // persons
-    render_persons(
-        &context_fetcher,
-        &renderer,
-        output,
-        output_format,
-        &mut search_index,
-    )
-    .with_context(|| format!("could not render persons"))?;
+    render_persons(&context_fetcher, &renderer, output, output_format)
+        .with_context(|| format!("could not render persons"))?;
 
     // render index
     let context = context_fetcher
@@ -54,17 +34,13 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
         OutputFormat::Html => ".html",
         OutputFormat::Json => ".json",
     };
-    let output_path = render_dir.join(format!("index{}", extension));
+    let output_path = output.join(format!("index{}", extension));
     fs::write(output_path.as_path(), str)
         .with_context(|| format!("could not write rendered file {:?}", output_path))?;
 
-    // write the search index file
     if output_format == OutputFormat::Html {
-        let search_index_str = serde_json::to_string(&search_index)?;
-        let search_dir = output.join("search");
-        fs::create_dir(search_dir.as_path())?;
-        let file_path = search_dir.join("index.json");
-        fs::write(file_path, search_index_str)?;
+        let search_db_path = output.join("search.db");
+        create_search_database(&search_db_path, db)?;
     }
 
     Ok(())
@@ -87,7 +63,9 @@ impl ContextFetcher {
     }
 
     pub fn fetch_person(&self, id: &str) -> Result<context::PersonContext> {
-        let person = self.repo.get_person(id)
+        let person = self
+            .repo
+            .get_person(id)
             .with_context(|| format!("could not fetch person"))?
             .with_context(|| format!("no person found"))?;
 
@@ -184,7 +162,8 @@ impl ContextFetcher {
             .map(|v| Person {
                 id: v.id,
                 name: v.name,
-            }).collect();
+            })
+            .collect();
 
         Ok(context::ChangesContext {
             changes: persons,
@@ -246,23 +225,12 @@ impl Renderer {
     }
 }
 
-#[derive(Serialize, Debug)]
-struct SearchIndexEntry {
-    title: String,
-    url: String,
-}
-
 fn render_persons(
     context_fetcher: &ContextFetcher,
     renderer: &Renderer,
     output: &Path,
     output_format: OutputFormat,
-    search_index: &mut Vec<SearchIndexEntry>,
 ) -> Result<()> {
-    let output = output.join(match output_format {
-        OutputFormat::Html => "html",
-        OutputFormat::Json => "json",
-    });
     // persons
     let person_path = output.join("person");
     fs::create_dir(person_path.as_path())
@@ -287,31 +255,6 @@ fn render_persons(
             }
             OutputFormat::Html => {
                 // add to search index
-                let office_name = if let Some(ref offices) = person_context.offices {
-                    if let Some(ref office) = offices.first() {
-                        Some(&office.office.name)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-                let title = if let Some(office_name) = office_name {
-                    format!(
-                        "{} ({}), {}",
-                        person_context.person.name, person_context.person.id, office_name
-                    )
-                } else {
-                    format!(
-                        "{} ({})",
-                        person_context.person.name, person_context.person.id
-                    )
-                };
-                search_index.push(SearchIndexEntry {
-                    title,
-                    url: format!("./person/{}.html", person_context.person.id),
-                });
-
                 let output_path = person_path.join(format!("{}.html", person_context.person.id));
 
                 fs::write(output_path.as_path(), str)
@@ -319,6 +262,30 @@ fn render_persons(
             }
         }
     }
+
+    Ok(())
+}
+
+fn create_search_database(search_db_path: &Path, db_path: &Path) -> Result<()> {
+    let db_path_str = db_path
+        .to_str()
+        .with_context(|| format!("could not convert {:?} to str", db_path))?;
+    let conn = Connection::open(search_db_path)
+        .with_context(|| format!("could not create search database"))?;
+    conn.execute_batch(ENTITY_SCHEMA_SQL)
+        .with_context(|| format!("could not setup search database"))?;
+    conn.execute("ATTACH DATABASE ?1 AS db", [db_path_str])
+        .with_context(|| format!("could not attach search database"))?;
+    conn.execute_batch("INSERT INTO entity SELECT * FROM db.entity")
+        .with_context(|| format!("could not copy data to search DB"))?;
+
+    conn.execute_batch("DETACH DATABASE db")
+        .with_context(|| format!("could not detach search database"))?;
+
+    // The error from `close` is `(Connection, Error)`, so we map it to just the error.
+    conn.close()
+        .map_err(|(_, err)| err)
+        .with_context(|| format!("could not close search database"))?;
 
     Ok(())
 }

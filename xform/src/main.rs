@@ -16,6 +16,9 @@ mod ingest;
 mod repo;
 mod serve;
 
+const ENTITY_SCHEMA_SQL: &str = include_str!("../schema/entity.sql");
+const PROPERTY_SCHEMA_SQL: &str = include_str!("../schema/property.sql");
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {

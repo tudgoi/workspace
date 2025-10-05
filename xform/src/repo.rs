@@ -10,11 +10,8 @@ use serde_variant::to_variant_name;
 use crate::{
     context,
     data::{self},
-    dto::{self, EntityType},
+    dto::{self, EntityType}, ENTITY_SCHEMA_SQL, PROPERTY_SCHEMA_SQL,
 };
-
-const ENTITY_SCHEMA_SQL: &str = include_str!("../schema/entity.sql");
-const PROPERTY_SCHEMA_SQL: &str = include_str!("../schema/property.sql");
 
 pub struct Repository {
     conn: Connection,
