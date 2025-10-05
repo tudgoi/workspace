@@ -5,12 +5,9 @@ use std::{
 
 use anyhow::{Context, Result};
 use axum::{
-    http::StatusCode,
-    response::{Html, IntoResponse, Response},
-    routing::get,
-    extract::State,
-    Router,
+    extract::State, http::StatusCode, response::{Html, IntoResponse, Response}, routing::{get, get_service}, Router
 };
+use tower_http::services::ServeDir;
 
 use crate::{
     render::{ContextFetcher, Renderer},
@@ -39,21 +36,22 @@ where
 }
 
 #[tokio::main]
-pub async fn run(db: PathBuf, templates: PathBuf, port: Option<&str>) -> Result<()> {
+pub async fn run(db: PathBuf, templates: PathBuf, static_files: PathBuf, port: Option<&str>) -> Result<()> {
     let state = AppState::new(db, templates)?;
 
     let app = Router::new()
         .route("/", get(root))
         .route("/person/{id}", get(person_page))
         .route("/changes", get(changes))
-        .with_state(Arc::new(state));
+        .with_state(Arc::new(state))
+        .nest_service("/static", ServeDir::new(static_files));
 
     let addr = format!("0.0.0.0:{}", port.unwrap_or("8080"));
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .with_context(|| format!("could not listen"))?;
 
-    println!("Changes at http://{}/changes", addr);
+    println!("Serving at http://{}/", addr);
     axum::serve(listener, app)
         .await
         .with_context(|| format!("could not start server"))?;

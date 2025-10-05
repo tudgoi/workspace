@@ -36,170 +36,123 @@ the <a href="https://github.com/tudgoi/workspace">project source code</a>.
     <div id="results" class="results"></div>
   </div>
 
-  <script>
-      let wasmModule = null;
-      let memory = null;
-      let searchFunction = null;
-      let freeFunction = null;
-      
-      async function initializeSearch() {
-          try {
-              const response = await fetch('./tinysearch_engine.wasm');
-              if (!response.ok) {
-                  throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
-              }
-              
-              const wasmBytes = await response.arrayBuffer();
-              const module = await WebAssembly.instantiate(wasmBytes);
-              
-              wasmModule = module.instance;
-              memory = wasmModule.exports.memory;
-              searchFunction = wasmModule.exports.search;
-              freeFunction = wasmModule.exports.free_search_result;
-              
-              if (!searchFunction || !freeFunction || !memory) {
-                  throw new Error('Required WASM exports not found');
-              }
-              
-              document.getElementById('status').textContent = 'Search engine ready! Try entering a query above.';
-              document.getElementById('searchInput').disabled = false;
-              document.getElementById('searchInput').focus();
-              
-          } catch (error) {
-              console.error('Failed to initialize search:', error);
-              document.getElementById('status').innerHTML = `<div class="error">Failed to initialize search: ${error.message}</div>`;
-          }
-      }
-      
-      function stringToWasmPtr(str) {
-          const bytes = new TextEncoder().encode(str + '\0');
-          const ptr = wasmModule.exports.__wbindgen_malloc(bytes.length);
-          if (!ptr) {
-              // Fallback: write to a known memory location
-              const memoryArray = new Uint8Array(memory.buffer);
-              const startOffset = 1024; // Use a safe offset
-              memoryArray.set(bytes, startOffset);
-              return startOffset;
-          }
-          new Uint8Array(memory.buffer, ptr, bytes.length).set(bytes);
-          return ptr;
-      }
-      
-      function wasmPtrToString(ptr) {
-          if (ptr === 0) return null;
-          
-          const memoryArray = new Uint8Array(memory.buffer);
-          let length = 0;
-          
-          // Find the null terminator
-          while (memoryArray[ptr + length] !== 0) {
-              length++;
-              if (length > 1000000) break; // Safety limit
-          }
-          
-          const bytes = memoryArray.slice(ptr, ptr + length);
-          return new TextDecoder().decode(bytes);
-      }
-      
-      function performSearch(query) {
-          const resultsDiv = document.getElementById('results');
-          const statusDiv = document.getElementById('status');
-          
-          if (!wasmModule) {
-              statusDiv.innerHTML = '<div class="error">Search engine not initialized</div>';
-              return;
-          }
-          
-          if (!query) {
-              resultsDiv.innerHTML = '';
-              statusDiv.textContent = 'Enter a search query to see results.';
-              return;
-          }
-          
-          try {
-              const startTime = performance.now();
-              
-              // Allocate memory for query string
-              let queryPtr;
-              try {
-                  queryPtr = stringToWasmPtr(query);
-              } catch (e) {
-                  // Fallback: use a fixed memory location
-                  const queryBytes = new TextEncoder().encode(query + '\0');
-                  const memoryArray = new Uint8Array(memory.buffer);
-                  queryPtr = 1024; // Fixed offset
-                  memoryArray.set(queryBytes, queryPtr);
-              }
-              
-              // Call search function
-              const resultPtr = searchFunction(queryPtr, 100);
-              
-              // Free query memory if we allocated it
-              if (wasmModule.exports.__wbindgen_free && queryPtr > 1024) {
-                  wasmModule.exports.__wbindgen_free(queryPtr, query.length + 1);
-              }
-              
-              const endTime = performance.now();
-              const searchTime = (endTime - startTime).toFixed(3);
-              
-              if (resultPtr === 0) {
-                  resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
-                  statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
-                  return;
-              }
-              
-              // Read result string
-              const resultString = wasmPtrToString(resultPtr);
-              
-              // Free result memory
-              freeFunction(resultPtr);
-              
-              if (!resultString) {
-                  resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
-                  statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
-                  return;
-              }
-              
-              const results = JSON.parse(resultString);
-              
-              if (results.length === 0) {
-                  resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
-                  statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
-              } else {
-                  const resultHTML = results.map(result => `
-                      <div class="result-item">
-                          <a href="${result.url}" class="result-title">${result.title}</a>
-                      </div>
-                  `).join('');
-                  
-                  resultsDiv.innerHTML = resultHTML;
-                  statusDiv.textContent = `Found ${results.length} result${results.length !== 1 ? 's' : ''} for "${query}" (${searchTime}ms)`;
-              }
-              
-          } catch (error) {
-              console.error('Search error:', error);
-              resultsDiv.innerHTML = '<div class="error">Search failed. Check console for details.</div>';
-              statusDiv.innerHTML = `<div class="error">Search failed: ${error.message}</div>`;
-          }
-      }
-        // Enter key support
-        document.getElementById('searchInput').addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
-                const query = document.getElementById('searchInput').value.trim();
-                performSearch(query);
-            }
-        })
+  <script type="module">
+    let db;
+    const statusDiv = document.getElementById('status');
+    const searchInput = document.getElementById('searchInput');
+    const resultsDiv = document.getElementById('results');
 
-        // Instant search support
-        document.getElementById('searchInput').addEventListener('input', function(event) {
-            const query = event.target.value.trim();
-            performSearch(query);
-        });
-      
-        // Initialize search engine
-        document.getElementById('searchInput').disabled = true;
+    async function initializeSearch() {
+        try {
+            const sqlite3 = await sqlite3InitModule();
+            const response = await fetch('/static/search.db');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch search.db: ${response.statusText}`);
+            }
+            const dbBuffer = await response.arrayBuffer();
+            db = new sqlite3.oo1.DB();
+            const p = sqlite3.wasm.allocFromTypedArray(dbBuffer);
+            db.onclose = { after: () => sqlite3.wasm.dealloc(p) };
+            let rc = sqlite3.capi.sqlite3_deserialize(
+                db.pointer, 'main', p, dbBuffer.byteLength, dbBuffer.byteLength,
+                sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE |
+                sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE
+            );
+            db.checkRc(rc);
+
+            searchInput.disabled = false;
+            statusDiv.textContent = 'Search engine loaded. Ready to search.';
+            searchInput.focus();
+        } catch (error) {
+            console.error('Initialization error:', error);
+            statusDiv.innerHTML = `<div class="error">Failed to load search engine: ${error.message}</div>`;
+        }
+    }
+
+    function performSearch(query) {
+        if (!db) {
+            statusDiv.innerHTML = '<div class="error">Search engine not initialized</div>';
+            return;
+        }
+
+        if (!query) {
+            resultsDiv.innerHTML = '';
+            statusDiv.textContent = 'Enter a search query to see results.';
+            return;
+        }
+
+        try {
+            const startTime = performance.now();
+
+            const results = [];
+            const sql = `
+                SELECT e.type, e.id, e.name 
+                FROM entity_idx(?1) AS fts
+                JOIN entity AS e ON fts.rowid = e.rowid
+                ORDER BY rank
+            `;
+            db.exec({
+                sql: sql,
+                bind: [`"${query.replace(/"/g, '""')}"`],
+                rowMode: 'object',
+                callback: function (row) {
+                    results.push(row);
+                }
+            });
+
+            const endTime = performance.now();
+            const searchTime = (endTime - startTime).toFixed(3);
+
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
+            } else {
+                const resultHTML = results.map(result => {
+                    const url = `{{ page.base }}${result.type}/${result.id}.html`;
+                    return `
+                        <div class="result-item">
+                            <a href="${url}" class="result-title">${result.name}</a>
+                        </div>
+                    `;
+                }).join('');
+
+                resultsDiv.innerHTML = resultHTML;
+                statusDiv.textContent = `Found ${results.length} result${results.length !== 1 ? 's' : ''} for "${query}" (${searchTime}ms)`;
+            }
+
+        } catch (error) {
+            console.error('Search error:', error);
+            resultsDiv.innerHTML = '<div class="error">Search failed. Check console for details.</div>';
+            statusDiv.innerHTML = `<div class="error">Search failed: ${error.message}</div>`;
+        }
+    }
+
+    // Load sqlite3.js and initialize
+    const script = document.createElement('script');
+    script.src = '/static/jswasm/sqlite3.js';
+    script.onload = () => {
+        self.sqlite3InitModule = self.sqlite3InitModule;
         initializeSearch();
-    </script>
+    };
+    document.head.appendChild(script);
+
+    // Event Listeners
+    searchInput.addEventListener('keypress', function (event) {
+        // Enter key support
+        if (event.key === 'Enter') {
+            const query = searchInput.value.trim();
+            performSearch(query);
+        }
+    });
+
+    searchInput.addEventListener('input', function (event) {
+        // Instant search support
+        const query = event.target.value.trim();
+        performSearch(query);
+    });
+
+    // Disable input until ready
+    searchInput.disabled = true;
+  </script>
 
 {% endblock content %}
-
