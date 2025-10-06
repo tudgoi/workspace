@@ -43,10 +43,10 @@ end IS NULL;
 --[person_office_quondam]
 CREATE VIEW person_office_quondam (person_id, office_id, start,end
 ) AS
-SELECT office_id,
-  person_id,
+SELECT person_id,
+  office_id,
   start,
-end
+  end
 FROM person_office_tenure
 WHERE
 end IS NOT NULL;
