@@ -9,6 +9,7 @@ use crate::data;
 pub struct Config {
     pub title: String,
     pub base_url: String,
+    pub source_url: String,
     pub icons: Icons,
     pub labels: Labels,
     pub defaults: Defaults,
