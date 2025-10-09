@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use axum::{
-    extract::State, http::StatusCode, response::{Html, IntoResponse, Response}, routing::{get, get_service}, Router
+    extract::State, http::StatusCode, response::{Html, IntoResponse, Response}, routing::get, Router
 };
 use tower_http::services::ServeDir;
 
@@ -42,6 +42,7 @@ pub async fn run(db: PathBuf, templates: PathBuf, static_files: PathBuf, port: O
     let app = Router::new()
         .route("/", get(root))
         .route("/person/{id}", get(person_page))
+        .route("/office/{id}", get(office_page))
         .route("/changes", get(changes))
         .with_state(Arc::new(state))
         .nest_service("/static", ServeDir::new(static_files));
@@ -107,6 +108,26 @@ async fn person_page(
     Ok(Html(body))
 }
 
+#[axum::debug_handler]
+async fn office_page(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(id_with_ext): axum::extract::Path<String>,
+) -> Result<Html<String>, AppError> {
+    println!("Request called for {}", id_with_ext);
+    let id = id_with_ext.trim_end_matches(".html");
+
+    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+        .with_context(|| format!("could not create context fetcher"))?;
+    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
+
+    let office_context = context_fetcher.fetch_office(id)?;
+
+    let body = renderer
+        .render_office(&office_context)
+        .with_context(|| "could not render office page")?;
+
+    Ok(Html(body))
+}
 #[axum::debug_handler]
 async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
     let context_fetcher = ContextFetcher::new(&state.db, &state.templates)

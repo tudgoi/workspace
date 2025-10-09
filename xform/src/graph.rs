@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
+use serde::Serialize;
+
 use crate::data;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum EntityType {
     Person,
     Office,

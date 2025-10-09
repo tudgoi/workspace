@@ -14,19 +14,15 @@
   }
 
   div.offices {
-    grid-area: offices;
+    grid-area: incumbent;
   }
 
   div.contacts {
     grid-area: contacts;
   }
 
-  div.past-tenures {
-    grid-area: past-tenures;
-  }
-
   div.subordinates {
-    grid-area: subordinates;
+    grid-area: quondams;
   }
 
   div.sources {
@@ -41,10 +37,8 @@
       "maintenance"
       "title"
       "photo"
-      "offices"
       "contacts"
-      "subordinates"
-      "past-tenures"
+      "quondams"
       "sources";
     margin-bottom: 1em;
   }
@@ -55,10 +49,8 @@
       grid-template-areas:
         "maintenance maintenance"
         "photo title"
-        "photo offices"
         "photo contacts"
-        "subordinates subordinates"
-        "past-tenures past-tenures"
+        "quondams quondams"
         "sources sources";
     }
   }
@@ -123,63 +115,36 @@
   </div>
   <div class="photo">
     {% if photo %}
-      {{ macros::render_photo(photo=photo, alt=person.name) }}
+      {{ macros::render_photo(photo=photo, alt=office.name) }}
     {% elif offices and (offices | length > 0) and offices[0].photo %}
-      {{ macros::render_photo(photo=offices[0].photo, alt=person.name) }}
+      {{ macros::render_photo(photo=offices[0].photo, alt=office.name) }}
     {% else %}
-      {{ macros::render_photo(photo=config.defaults.photo, alt=person.name) }}
+      {{ macros::render_photo(photo=config.defaults.photo, alt=office.name) }}
     {% endif %}
   </div>
   <div class="title">
-    <h2>{{ person.name }}</h2>
+    <h2>{{ office.name }}</h2>
+    {% if incumbent %}
+      {{ macros::render_person(person=incumbent) }}
+    {% endif %}
     <hr/>
   </div>
-  <div class="offices">
-    {% if offices %}
-      <dl class="office-list">
-        {% for office in offices %}
-          <dt>{{ macros::render_office(id=office.office.id, name=office.office.name) }}</dt>
-          <dd>
-          {% if office.contacts %}
-            {{ macros::render_contacts(contacts=office.contacts) }}
-          {% endif %}
-          {% if office.supervisors %}
-            {{ macros::render_supervisors(officers=office.supervisors) }}
-          {% endif %}
-        {% endfor %}
-      </dl>
-    {% endif %}
+    
   </div>
   <div class="contacts">
     {% if contacts %}
-      <hr/>
       {{ macros::render_contacts(contacts=contacts) }}
     {% endif %}
   </div>
-  <div class="subordinates">
-    {% if offices %}
-      <hr/>
-      <dl>
-        {% for office in offices %}
-          {% if office.subordinates %}
-            <dt>{{ office.office.name }}</dt>
-            <dd>
-              {{ macros::render_subordinates(officers=office.subordinates) }}
-            </dd>
-          {% endif %}
-        {% endfor %}
-      </dl>
-    {% endif %}
-  </div>
 
-  <div class="past-tenures">
-    {% if past_tenures %}
+  <div class="quondams">
+    {% if quondams %}
       <hr/>
       <dl>
-        <dt>Past Tenures</dt>
+        <dt>Quondam</dt>
         <dd><ul>
-        {% for tenure in past_tenures %}
-            <li>{{ macros::render_office(id=tenure.office.id, name=tenure.office.name) }}, <em>{{ tenure.start }} to {{ tenure.end }}</em></li>
+        {% for q in quondams %}
+            <li>{{ q.person.name }}, <em>{{ q.start }} to {{ q.end }}</em></li>
         {% endfor %}
         </ul></dd>
       </dl>

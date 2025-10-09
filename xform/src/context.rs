@@ -79,6 +79,26 @@ pub struct PersonContext {
 }
 
 #[derive(Serialize, Debug)]
+pub struct OfficeContext {
+    pub office: Office,
+    pub photo: Option<data::Photo>,
+    pub contacts: Option<BTreeMap<data::ContactType, String>>,
+    pub incumbent: Option<Person>,
+    pub quondams: Option<Vec<Quondam>>,
+
+    pub config: Config,
+    pub page: Page,
+    pub metadata: Metadata,
+}
+
+#[derive(Serialize, Debug)]
+pub struct Quondam {
+    pub person: Person,
+    pub start: String,
+    pub end: String,
+}
+
+#[derive(Serialize, Debug)]
 pub struct TenureDetails {
     pub office: Office,
     pub start: String,

@@ -5,7 +5,11 @@ use std::path::Path;
 use tera;
 use tera::Tera;
 
-use crate::{ENTITY_SCHEMA_SQL, OutputFormat, context::PersonContext};
+use crate::{
+    ENTITY_SCHEMA_SQL, OutputFormat,
+    context::{OfficeContext, PersonContext},
+    dto, graph,
+};
 
 use super::{from_toml_file, repo};
 use crate::context::{self, Maintenance, Page, Person};
@@ -14,14 +18,17 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
     let context_fetcher = ContextFetcher::new(db, templates)
         .with_context(|| format!("could not create context fetcher"))?;
 
-    fs::create_dir(output)
-        .with_context(|| format!("could not create output dir {:?}", output))?;
+    fs::create_dir(output).with_context(|| format!("could not create output dir {:?}", output))?;
 
     let renderer = Renderer::new(templates, output_format)?;
 
     // persons
     render_persons(&context_fetcher, &renderer, output, output_format)
         .with_context(|| format!("could not render persons"))?;
+    
+    // offices
+    render_offices(&context_fetcher, &renderer, output, output_format)
+        .with_context(|| format!("could not render offices"))?;
 
     // render index
     let context = context_fetcher
@@ -71,7 +78,7 @@ impl ContextFetcher {
 
         let offices_for_person = self
             .repo
-            .list_person_office_incumbent(&id)
+            .list_person_office_incumbent_office(&id)
             .with_context(|| format!("could not query offices"))?;
 
         // office, official_contacts, supervisors, subordinates
@@ -135,6 +142,44 @@ impl ContextFetcher {
             contacts: person.contacts,
             offices: Some(offices).filter(|v| !v.is_empty()),
             past_tenures: Some(past_tenures).filter(|v| !v.is_empty()),
+            config: self.config.clone(),
+            page,
+            metadata,
+        })
+    }
+
+    pub fn fetch_office(&self, id: &str) -> Result<context::OfficeContext> {
+        let name = self.repo.get_office_name(id)?;
+        let photo = self.repo.get_entity_photo(graph::EntityType::Office, id)?;
+        let contacts = self
+            .repo
+            .get_entity_contacts(&dto::EntityType::Office, id)?;
+        let incumbent = self.repo.get_person_office_incumbent_person(id)?;
+        let quondams = self.repo.list_person_office_quondam(id)?;
+        let commit_date = self
+            .repo
+            .get_entity_commit_date(graph::EntityType::Office, id)?;
+
+        // page
+        let page = context::Page {
+            base: "../".to_string(),
+        };
+
+        // metadata
+        let metadata = context::Metadata {
+            maintenance: Maintenance { incomplete: true },
+            commit_date,
+        };
+
+        Ok(context::OfficeContext {
+            office: context::Office {
+                id: id.to_string(),
+                name,
+            },
+            photo,
+            contacts: Some(contacts).filter(|v| !v.is_empty()),
+            incumbent,
+            quondams: Some(quondams).filter(|v| !v.is_empty()),
             config: self.config.clone(),
             page,
             metadata,
@@ -207,6 +252,10 @@ impl Renderer {
         self.render(context, "person.html")
     }
 
+    pub fn render_office(&self, context: &OfficeContext) -> Result<String> {
+        self.render(context, "office.html")
+    }
+
     fn render<T: serde::Serialize>(&self, context: &T, template_name: &str) -> Result<String> {
         match self.output_format {
             OutputFormat::Json => {
@@ -217,9 +266,9 @@ impl Renderer {
             OutputFormat::Html => {
                 let context = tera::Context::from_serialize(context)
                     .with_context(|| format!("could not create convert person to context"))?;
-                self.tera
-                    .render(template_name, &context)
-                    .with_context(|| format!("could not render template {} with context", template_name))
+                self.tera.render(template_name, &context).with_context(|| {
+                    format!("could not render template {} with context", template_name)
+                })
             }
         }
     }
@@ -238,7 +287,7 @@ fn render_persons(
 
     let person_ids = context_fetcher
         .repo
-        .query_all_persons()
+        .list_all_person_ids()
         .with_context(|| "could not query all persons")?;
 
     for id in person_ids {
@@ -254,8 +303,47 @@ fn render_persons(
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;
             }
             OutputFormat::Html => {
-                // add to search index
                 let output_path = person_path.join(format!("{}.html", person_context.person.id));
+
+                fs::write(output_path.as_path(), str)
+                    .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn render_offices(
+    context_fetcher: &ContextFetcher,
+    renderer: &Renderer,
+    output: &Path,
+    output_format: OutputFormat,
+) -> Result<()> {
+    // persons
+    let office_path = output.join("office");
+    fs::create_dir(office_path.as_path())
+        .with_context(|| format!("could not create office dir {:?}", office_path))?;
+
+    let ids = context_fetcher
+        .repo
+        .list_all_office_id()
+        .with_context(|| "could not query all offices")?;
+
+    for id in ids {
+        let office_context = context_fetcher
+            .fetch_office(&id)
+            .with_context(|| format!("could not fetch context for office {}", id))?;
+        let str = renderer.render_office(&office_context)?;
+
+        match output_format {
+            OutputFormat::Json => {
+                let output_path = office_path.join(format!("{}.json", office_context.office.id));
+                fs::write(output_path.as_path(), str)
+                    .with_context(|| format!("could not write rendered file {:?}", output_path))?;
+            }
+            OutputFormat::Html => {
+                let output_path = office_path.join(format!("{}.html", office_context.office.id));
 
                 fs::write(output_path.as_path(), str)
                     .with_context(|| format!("could not write rendered file {:?}", output_path))?;

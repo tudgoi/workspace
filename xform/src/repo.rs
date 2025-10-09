@@ -8,9 +8,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde_variant::to_variant_name;
 
 use crate::{
-    context,
-    data::{self},
-    dto::{self, EntityType}, ENTITY_SCHEMA_SQL, PROPERTY_SCHEMA_SQL,
+    context::{self}, data::{self}, dto::{self, EntityType}, graph, ENTITY_SCHEMA_SQL, PROPERTY_SCHEMA_SQL
 };
 
 pub struct Repository {
@@ -156,7 +154,7 @@ impl Repository {
         Ok(())
     }
 
-    pub fn save_office(&mut self, id: &str, office: &data::Office) -> Result<()> {
+    pub fn insert_office_data(&mut self, id: &str, office: &data::Office, commit_date: Option<&str>) -> Result<()> {
         let tx = self.conn.transaction()?;
 
         // Insert into the base 'entity' table
@@ -187,6 +185,10 @@ impl Repository {
             }
         }
 
+        if let Some(date) = commit_date {
+            tx.execute("INSERT INTO entity_commit (entity_type, entity_id, date) VALUES ('office', ?1, ?2)", params![id, date])?;
+        }
+
         tx.commit()?;
 
         Ok(())
@@ -202,33 +204,6 @@ impl Repository {
                 .query_row("SELECT COUNT(*) FROM office", [], |row| row.get(0))?,
         })
     }
-
-    pub fn query_contacts_for_office(
-        &self,
-        id: &str,
-    ) -> Result<BTreeMap<data::ContactType, String>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT type, value
-            FROM office_contact
-            WHERE id = ?1
-        ",
-        )?;
-        let iter = stmt.query_map([id], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        let mut contacts = BTreeMap::new();
-        for result in iter {
-            let (contact_type, value): (String, String) = result?;
-            let contact_type = self
-                .all_contact_type_variants
-                .get(&contact_type)
-                .with_context(|| format!("could not get string for enum {:?}", contact_type))?
-                .clone();
-            contacts.insert(contact_type, value);
-        }
-
-        Ok(contacts)
-    }
-
 
     pub fn list_person_office_tenure(&self, person_id: &str) -> Result<Vec<data::Tenure>> {
         let mut stmt = self.conn.prepare(
@@ -278,7 +253,7 @@ impl Repository {
         Ok(iter.collect::<Result<Vec<_>, _>>()?)
     }
 
-    pub fn query_all_persons(&self) -> Result<Vec<String>> {
+    pub fn list_all_person_ids(&self) -> Result<Vec<String>> {
         let mut stmt = self.conn.prepare("SELECT id FROM person ORDER BY id")?;
 
         let persons = stmt
@@ -288,7 +263,7 @@ impl Repository {
         Ok(persons)
     }
 
-    pub fn list_all_office(&self) -> Result<HashMap<String, data::Office>> {
+    pub fn list_all_office_data(&self) -> Result<HashMap<String, data::Office>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT e.id, e.name, p.url, p.attribution
@@ -318,12 +293,23 @@ impl Repository {
             let (id, name, photo) = result?;
             let contacts = self.get_entity_contacts(&EntityType::Office, &id)?;
             let supervisors = self.query_supervisors_for_office_flat(&id)?;
-            offices.insert(id, data::Office {
-                name,
-                photo,
-                contacts: if contacts.is_empty() { None } else { Some(contacts) },
-                supervisors: if supervisors.is_empty() { None } else { Some(supervisors) },
-            });
+            offices.insert(
+                id,
+                data::Office {
+                    name,
+                    photo,
+                    contacts: if contacts.is_empty() {
+                        None
+                    } else {
+                        Some(contacts)
+                    },
+                    supervisors: if supervisors.is_empty() {
+                        None
+                    } else {
+                        Some(supervisors)
+                    },
+                },
+            );
         }
         Ok(offices)
     }
@@ -668,7 +654,43 @@ impl Repository {
         Ok(entities)
     }
 
-    /// # entity_contact
+    /// # office
+    pub fn list_all_office_id(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare("SELECT id FROM office")?;
+
+        let ids = stmt
+            .query_map([], |row| Ok(row.get(0)?))?
+            .collect::<Result<Vec<String>, _>>()?;
+
+        Ok(ids)
+    }
+
+    pub fn get_office_name(&self, id: &str) -> Result<String> {
+        let name = self
+            .conn
+            .query_row("SELECT name FROM office WHERE id=?1", [id], |row| {
+                row.get(0)
+            })
+            .with_context(|| format!("could not get office name for {}", id))?;
+        Ok(name)
+    }
+
+    /// # entity_photo
+    
+    pub fn get_entity_photo(&self, entity_type: graph::EntityType, id: &str) -> Result<Option<data::Photo>> {
+        let entity_type_str: &str = to_variant_name(&entity_type)?;
+        self.conn
+            .query_row(
+                "SELECT url, attribution FROM entity_photo WHERE entity_type = ?1 AND entity_id = ?2",
+                params![entity_type_str, id],
+                |row| Ok(data::Photo {
+                    url: row.get(0)?,
+                    attribution: row.get(1)?,
+                }),
+            )
+            .optional()
+            .with_context(|| format!("could not get photo for {} {}", entity_type_str, id))
+    }
 
     pub fn insert_entity_photo(
         &mut self,
@@ -755,6 +777,18 @@ impl Repository {
     }
 
     /// # entity_commit
+    
+    pub fn get_entity_commit_date(&self, entity_type: graph::EntityType, id: &str) -> Result<Option<String>> {
+        let entity_type_str: &str = to_variant_name(&entity_type)?;
+        self.conn
+            .query_row(
+                "SELECT date FROM entity_commit WHERE entity_type = ?1 AND entity_id = ?2",
+                params![entity_type_str, id],
+                |row| row.get(0),
+            )
+            .optional()
+            .with_context(|| format!("could not get commit date for {} {}", entity_type_str, id))
+    }
 
     pub fn list_entity_uncommitted(&self) -> Result<Vec<dto::Entity>> {
         let mut stmt = self
@@ -779,7 +813,7 @@ impl Repository {
 
         Ok(entities)
     }
-    
+
     /// # person
     pub fn get_person(&self, id: &str) -> Result<Option<dto::Person>> {
         self.conn
@@ -818,9 +852,9 @@ impl Repository {
             .optional()
             .with_context(|| format!("could not get person {}", id))
     }
-    
+
     /// # person_office_incumbent
-    pub fn list_person_office_incumbent(&self, person_id: &str) -> Result<Vec<dto::Office>> {
+    pub fn list_person_office_incumbent_office(&self, person_id: &str) -> Result<Vec<dto::Office>> {
         let mut stmt = self.conn.prepare(
             "
             SELECT i.office_id, e.name, p.url, p.attribution
@@ -831,9 +865,58 @@ impl Repository {
             ",
         )?;
         stmt.query_map([person_id], |row| {
-            let contacts = self.get_entity_contacts(&EntityType::Office, &row.get::<_, String>(0)?).ok();
-            Ok(dto::Office { id: row.get(0)?, name: row.get(1)?, photo: if let Some(url) = row.get(2)? { Some(data::Photo { url, attribution: row.get(3)? }) } else { None }, contacts })
-        })?.collect::<Result<Vec<_>,_>>().with_context(|| format!("could not list incumbent offices for person {}", person_id))
+            let contacts = self
+                .get_entity_contacts(&EntityType::Office, &row.get::<_, String>(0)?)
+                .ok();
+            Ok(dto::Office {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                photo: if let Some(url) = row.get(2)? {
+                    Some(data::Photo {
+                        url,
+                        attribution: row.get(3)?,
+                    })
+                } else {
+                    None
+                },
+                contacts,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        .with_context(|| format!("could not list incumbent offices for person {}", person_id))
+    }
+    
+    pub fn get_person_office_incumbent_person(&self, office_id: &str) -> Result<Option<context::Person>> {
+        self.conn
+            .query_row(
+                "SELECT p.id, p.name FROM person_office_incumbent AS i
+                 JOIN person AS p ON i.person_id = p.id
+                 WHERE i.office_id = ?1",
+                [office_id],
+                |row| Ok(context::Person {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                }),
+            )
+            .optional()
+            .with_context(|| format!("could not get incumbent for office {}", office_id))
+    } 
+    
+    /// # person_office_quondam
+    pub fn list_person_office_quondam(&self, office_id: &str) -> Result<Vec<context::Quondam>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT q.person_id, p.name, q.start, q.end FROM person_office_quondam AS q
+             JOIN person AS p ON q.person_id = p.id
+             WHERE q.office_id = ?1 ORDER BY q.end DESC",
+        )?;
+        stmt.query_map([office_id], |row| Ok(context::Quondam {
+            person: context::Person{
+                id: row.get(0)?,
+                name: row.get(1)?,
+            },
+            start: row.get(2)?,
+            end: row.get(3)?,
+        }))?.collect::<Result<Vec<_>, _>>().with_context(|| format!("could not list quondams for office {}", office_id))
     }
 
     // [office_supervisor]

@@ -23,7 +23,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
 
     // Export persons
     let persons = repo
-        .query_all_persons()
+        .list_all_person_ids()
         .with_context(|| "could not query all persons")?;
     for id in persons {
         let person_dto = repo
@@ -54,7 +54,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
 
     // Export offices
     let offices = repo
-        .list_all_office()
+        .list_all_office_data()
         .with_context(|| "could not query all offices")?;
 
     for (id, office_data) in offices {

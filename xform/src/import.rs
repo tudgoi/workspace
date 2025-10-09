@@ -86,9 +86,13 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             file_stem
         ))?;
 
+        let commit_date = get_commit_date(file_entry.path().as_path()).with_context(|| {
+            format!("could not get last commit date for {:?}", file_entry.path())
+        })?;
+
         let office: data::Office = from_toml_file(file_entry.path())
-            .with_context(|| format!("failed to parse template"))?;
-        repo.save_office(id, &office)?;
+            .with_context(|| format!("could not load office"))?;
+        repo.insert_office_data(id, &office, commit_date.as_deref())?;
     }
 
     // process person
@@ -110,10 +114,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         ))?;
 
         let commit_date = get_commit_date(file_entry.path().as_path()).with_context(|| {
-            format!(
-                "could not get last commit date for {:?}",
-                file_entry.path()
-            )
+            format!("could not get last commit date for {:?}", file_entry.path())
         })?;
 
         let person: data::Person =
