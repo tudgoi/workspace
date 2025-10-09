@@ -21,7 +21,7 @@
     grid-area: contacts;
   }
 
-  div.subordinates {
+  div.quondams {
     grid-area: quondams;
   }
 
@@ -144,7 +144,7 @@
         <dt>Quondam</dt>
         <dd><ul>
         {% for q in quondams %}
-            <li>{{ q.person.name }}, <em>{{ q.start }} to {{ q.end }}</em></li>
+            <li>{{ macros::render_person(person=q.person) }}, <em>{{ q.start }} to {{ q.end }}</em></li>
         {% endfor %}
         </ul></dd>
       </dl>
