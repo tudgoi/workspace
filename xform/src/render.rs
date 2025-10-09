@@ -204,7 +204,7 @@ impl Renderer {
     }
 
     pub fn render_person(&self, context: &PersonContext) -> Result<String> {
-        self.render(context, "page.html")
+        self.render(context, "person.html")
     }
 
     fn render<T: serde::Serialize>(&self, context: &T, template_name: &str) -> Result<String> {
@@ -219,7 +219,7 @@ impl Renderer {
                     .with_context(|| format!("could not create convert person to context"))?;
                 self.tera
                     .render(template_name, &context)
-                    .with_context(|| format!("could not render template page.html with context"))
+                    .with_context(|| format!("could not render template {} with context", template_name))
             }
         }
     }
