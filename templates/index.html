@@ -45,7 +45,7 @@ the <a href="https://github.com/tudgoi/workspace">project source code</a>.
     async function initializeSearch() {
         try {
             const sqlite3 = await sqlite3InitModule();
-            const response = await fetch('/static/search.db');
+            const response = await fetch('search.db');
             if (!response.ok) {
                 throw new Error(`Failed to fetch search.db: ${response.statusText}`);
             }

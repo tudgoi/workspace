@@ -1,17 +1,18 @@
-use std::{
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use axum::{
-    extract::State, http::StatusCode, response::{Html, IntoResponse, Response}, routing::get, Router
+    Router,
+    extract::State,
+    http::StatusCode,
+    response::{Html, IntoResponse, Response},
+    routing::get,
 };
 use tower_http::services::ServeDir;
 
 use crate::{
-    render::{ContextFetcher, Renderer},
     OutputFormat,
+    render::{self, ContextFetcher, Renderer},
 };
 
 struct AppError(anyhow::Error);
@@ -36,13 +37,19 @@ where
 }
 
 #[tokio::main]
-pub async fn run(db: PathBuf, templates: PathBuf, static_files: PathBuf, port: Option<&str>) -> Result<()> {
+pub async fn run(
+    db: PathBuf,
+    templates: PathBuf,
+    static_files: PathBuf,
+    port: Option<&str>,
+) -> Result<()> {
     let state = AppState::new(db, templates)?;
 
     let app = Router::new()
         .route("/", get(root))
         .route("/person/{id}", get(person_page))
         .route("/office/{id}", get(office_page))
+        .route("/search.db", get(search_db))
         .route("/changes", get(changes))
         .with_state(Arc::new(state))
         .nest_service("/static", ServeDir::new(static_files));
@@ -128,6 +135,18 @@ async fn office_page(
 
     Ok(Html(body))
 }
+
+#[axum::debug_handler]
+async fn search_db(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    match render::create_search_database_in_memory(&state.db) {
+        Ok(db_bytes) => (StatusCode::OK, db_bytes),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("could not build search.db: {}", error.to_string()).into(),
+        ),
+    }
+}
+
 #[axum::debug_handler]
 async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
     let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
