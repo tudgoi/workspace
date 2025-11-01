@@ -91,12 +91,8 @@
 {% macro render_photo(photo, alt) %}
     {% set url = photo.url %}
     {% set attribution = photo.attribution %}
-    <style>
-    </style>
-    <figure >
-        <div class="photo-bg">
+    <figure>
             <img src="{{ url }}" alt="{{ alt }}" />
-        </div>
         {% if attribution %}
             <figcaption title="{{ attribution }}">
                 Image by {{ attribution }}
