@@ -1,3 +1,22 @@
+{% macro ext_link(key, value) %}
+    {% if key == "wikidata" %}
+        {{- "https://www.wikidata.org/wiki/" ~ value -}}
+    {% elif key == "wikipedia" %}
+        {{- "https://en.wikipedia.org/wiki/" ~ value -}}
+    {% endif %}
+{% endmacro ext_link %}
+
+{% macro render_ext_links(links) %}
+    {% for key, value in links %}
+        {% if value %}
+            {% set link = macros::ext_link(key=key, value=value) %}
+            {% if link | trim | length > 0 %}
+                <a href="{{ macros::ext_link(key=key, value=value) }}"><span class="icon">{{ config.icons[key] | safe }}</span></a>
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+{% endmacro render_ext_links %}
+
 {% macro render_contact(key, value) %}
     {% if key == "address" %}
         {{ value }}
@@ -9,8 +28,6 @@
         <a href="mailto:{{ value }}">{{ value }}</a>
     {% elif key == "website" %}
         {{ macros::render_url(url=value) }}
-    {% elif key == "wikipedia" %}
-        <a href="https://en.wikipedia.org/wiki/{{ value }}">{{ value }}</a>
     {% elif key == "x" %}
         <a href="https://x.com/{{ value }}">@{{ value }}</a>
     {% elif key == "facebook" %}
@@ -19,8 +36,6 @@
         <a href="https://www.instagram.com/{{ value }}">{{ value }}
     {% elif key == "youtube" %}
         <a href="https://www.youtube.com/{{ value }}">{{ value }}</a>
-    {% elif key == "wikidata" %}
-        <a href="https://www.wikidata.org/wiki/{{ value }}">{{ value }}</a>
     {% endif %}
 {% endmacro render_contact %}
 
@@ -28,10 +43,13 @@
     <dl class="contact-list">
       {% for key, value in contacts %}
         {% if value %}
-        <div class="dl-single-line">
-          <dt>{{ config.icons[key] | safe }}</dt>
-          <dd>{{ macros::render_contact(key=key, value=value) }}</dd>
-        </div>
+            {% set link = macros::render_contact(key=key, value=value) %}
+            {% if link | trim | length > 0 %}
+                <div class="dl-single-line">
+                  <dt><span class="icon">{{ config.icons[key] | safe }}</span></dt>
+                  <dd>{{ link | safe }}</dd>
+                </div>
+            {% endif %}
         {% endif %}
       {% endfor %}
     </dl>
@@ -81,11 +99,11 @@
 {% endmacro render_officer %}
 
 {%- macro render_person(person) -%}
-    <a href="{{ macros::render_link_id(type='person', id=person.id) }}">{{ person.name }}</a>
+    <a href="{{ macros::page_link_id(type='person', id=person.id) }}">{{ person.name }}</a>
 {%- endmacro render_person -%}
 
 {%- macro render_office(id, name) -%}
-    <a href="{{ macros::render_link_id(type='office', id=id) }}">{{ name }}</a>
+    <a href="{{ macros::page_link_id(type='office', id=id) }}">{{ name }}</a>
 {%- endmacro render_office -%}
 
 {% macro render_photo(photo, alt) %}
@@ -101,24 +119,6 @@
     </figure>
 {% endmacro photo %}
 
-{% macro link_page(page) %}
-    <a href="{{ page.permalink }}">{{ page.title }}</a>
-    {%- set term_name = page.path | trim_start_matches(pat="/") %}
-    {%- if term_name is starting_with("person/") -%}
-    <span>, {{ page.description }}</span>
-    {% else %}
-        {% if page.description %}
-            ({{ page.description }})
-        {% endif %}
-    {% endif %}
-{% endmacro link_page %}
-
-{% macro link_office(id, name) %}
-    {% set page_path = term ~ '.md' %}
-    {% set page = get_page(path = page_path) %}
-    {{ macros::link_page(page=page) }}
-{% endmacro link_office %}
-
-{% macro render_link_id(type, id) %}
+{% macro page_link_id(type, id) %}
     {{- page.base ~ type ~ "/" ~ id ~ ".html" -}}
-{% endmacro render_link_id %}
+{% endmacro page_link_id %}
