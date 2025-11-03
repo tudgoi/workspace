@@ -57,4 +57,5 @@ pub enum SupervisingRelation {
     DuringThePleasureOf,
     ResponsibleTo,
     MemberOf,
+    Minister,
 }

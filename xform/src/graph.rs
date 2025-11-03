@@ -47,6 +47,7 @@ pub enum Key {
     Head,
     Adviser,
     ResponsibleTo,
+    Minister,
 }
 
 impl Property {
@@ -76,6 +77,7 @@ impl Property {
                 data::SupervisingRelation::Adviser => Key::Adviser,
                 data::SupervisingRelation::DuringThePleasureOf => Key::DuringThePleasureOf,
                 data::SupervisingRelation::ResponsibleTo => Key::ResponsibleTo,
+                &data::SupervisingRelation::Minister => Key::Minister,
             },
         }
     }

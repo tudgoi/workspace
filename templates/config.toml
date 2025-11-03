@@ -29,6 +29,7 @@ head = "Head"
 member_of = "Member of"
 responsible_to = "Responsible to"
 elected_by = "Elected by"
+minister = "Minister"
 
 [labels.subordinates]
 adviser = "Advises"
@@ -37,3 +38,4 @@ head = "Heads"
 member_of = "Members"
 responsible_to = "Under their responsibility"
 elected_by = "Elected by them"
+minister = "Under their Ministry"

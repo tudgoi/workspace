@@ -48,6 +48,7 @@ pub struct SupervisorsLabels {
     pub member_of: String,
     pub responsible_to: String,
     pub elected_by: String,
+    pub minister: String,
 }
 
 #[derive(Serialize, Debug)]

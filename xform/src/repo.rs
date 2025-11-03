@@ -32,12 +32,13 @@ impl Repository {
     }
 
     fn build_supervising_relation_variants() -> Result<HashMap<String, data::SupervisingRelation>> {
-        const ALL_VARIANTS: [data::SupervisingRelation; 5] = [
+        const ALL_VARIANTS: [data::SupervisingRelation; 6] = [
             data::SupervisingRelation::Adviser,
             data::SupervisingRelation::DuringThePleasureOf,
             data::SupervisingRelation::Head,
             data::SupervisingRelation::ResponsibleTo,
             data::SupervisingRelation::MemberOf,
+            data::SupervisingRelation::Minister,
         ];
         let mut map: HashMap<String, data::SupervisingRelation> = HashMap::new();
         for variant in ALL_VARIANTS {
