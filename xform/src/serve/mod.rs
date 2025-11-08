@@ -48,6 +48,7 @@ pub async fn run(
     let app = Router::new()
         .route("/", get(root))
         .route("/person/{id}", get(person_page))
+        .route("/person/edit/{id}", get(person_edit))
         .route("/office/{id}", get(office_page))
         .route("/search.db", get(search_db))
         .route("/changes", get(changes))
@@ -106,7 +107,7 @@ async fn person_page(
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
-    let person_context = context_fetcher.fetch_person(id)?;
+    let person_context = context_fetcher.fetch_person(true, id)?;
 
     let body = renderer
         .render_person(&person_context)
@@ -159,6 +160,24 @@ async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, App
     let body = renderer
         .render_changes(&context)
         .with_context(|| "could not render index")?;
+
+    Ok(Html(body))
+}
+
+#[axum::debug_handler]
+async fn person_edit(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Html<String>, AppError> {
+    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+        .with_context(|| format!("could not create context fetcher"))?;
+    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
+
+    let edit_context = context_fetcher.fetch_person_edit(true, &id)?;
+
+    let body = renderer
+         .render_person_edit(&edit_context)
+         .with_context(|| "could not render person page")?;
 
     Ok(Html(body))
 }

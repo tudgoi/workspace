@@ -2,8 +2,8 @@
 {% import "macros.html" as macros %}
 {% block content %}
 <style>
-  div.maintenance {
-    grid-area: maintenance;
+  div.toolbar {
+    grid-area: toolbar;
   }
   div.photo {
     grid-area: photo;
@@ -38,6 +38,7 @@
     column-gap: 1em;
     row-gap: 0.5em;
     grid-template-areas:
+      "toolbar"
       "title"
       "photo"
       "offices"
@@ -52,6 +53,7 @@
       grid-template-columns: 1fr 3fr;
       grid-template-rows: min-content min-content min-content 1fr auto auto;
       grid-template-areas:
+        "toolbar toolbar"
         "photo title"
         "photo offices"
         "photo contacts"
@@ -102,8 +104,17 @@
     fill: white;
   }
 }
+div.toolbar {
+    text-align: right;
+    font-size: small
+}
 </style>
 <main>
+  <div class="toolbar">
+    {% if page.dynamic %}
+      <a href="edit/{{person.id}}">Edit</a>
+    {% endif %}
+  </div>
   <div class="photo">
     {% if photo %}
       {{ macros::render_photo(photo=photo, alt=person.name) }}

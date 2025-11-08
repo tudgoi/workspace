@@ -6,9 +6,7 @@ use tera;
 use tera::Tera;
 
 use crate::{
-    ENTITY_SCHEMA_SQL, OutputFormat,
-    context::{OfficeContext, PersonContext},
-    dto, graph,
+    ENTITY_SCHEMA_SQL, OutputFormat, context::{OfficeContext, PersonContext, PersonEditContext}, data, dto, graph
 };
 
 use super::{from_toml_file, repo};
@@ -25,7 +23,7 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
     // persons
     render_persons(&context_fetcher, &renderer, output, output_format)
         .with_context(|| format!("could not render persons"))?;
-    
+
     // offices
     render_offices(&context_fetcher, &renderer, output, output_format)
         .with_context(|| format!("could not render offices"))?;
@@ -69,7 +67,39 @@ impl ContextFetcher {
         Ok(ContextFetcher { config, repo })
     }
 
-    pub fn fetch_person(&self, id: &str) -> Result<context::PersonContext> {
+    pub fn fetch_person_edit(&self, dynamic: bool, id: &str) -> Result<PersonEditContext> {
+        let person_dto = self.repo
+            .get_person(&id)?
+            .with_context(|| format!("person {} not found", id))?;
+
+        let tenures = self.repo.list_person_office_tenure(&id)?;
+
+        let person_data = data::Person {
+            name: person_dto.name,
+            photo: person_dto.photo,
+            contacts: person_dto.contacts.filter(|c| !c.is_empty()),
+            tenures: if tenures.is_empty() {
+                None
+            } else {
+                Some(tenures)
+            },
+        };
+
+        Ok(PersonEditContext {
+            person: person_data,
+            config: self.config.clone(),
+            page: context::Page {
+                base: "../".to_string(),
+                dynamic,
+            },
+            metadata: context::Metadata {
+                maintenance: Maintenance { incomplete: false },
+                commit_date: Some(String::from("")),
+            },
+        })
+    }
+
+    pub fn fetch_person(&self, dynamic: bool, id: &str) -> Result<context::PersonContext> {
         let person = self
             .repo
             .get_person(id)
@@ -125,6 +155,7 @@ impl ContextFetcher {
         // page
         let page = context::Page {
             base: "../".to_string(),
+            dynamic,
         };
 
         // metadata
@@ -163,6 +194,7 @@ impl ContextFetcher {
         // page
         let page = context::Page {
             base: "../".to_string(),
+            dynamic: false,
         };
 
         // metadata
@@ -194,6 +226,7 @@ impl ContextFetcher {
             offices: counts.offices,
             page: Page {
                 base: "./".to_string(),
+                dynamic: false,
             },
             config: self.config.clone(),
         })
@@ -214,6 +247,7 @@ impl ContextFetcher {
             changes: persons,
             page: Page {
                 base: "./".to_string(),
+                dynamic: false,
             },
             config: self.config.clone(),
         })
@@ -250,6 +284,10 @@ impl Renderer {
 
     pub fn render_person(&self, context: &PersonContext) -> Result<String> {
         self.render(context, "person.html")
+    }
+    
+    pub fn render_person_edit(&self, context: &PersonEditContext) -> Result<String> {
+        self.render(context, "person_edit.html")
     }
 
     pub fn render_office(&self, context: &OfficeContext) -> Result<String> {
@@ -292,7 +330,7 @@ fn render_persons(
 
     for id in person_ids {
         let person_context = context_fetcher
-            .fetch_person(&id)
+            .fetch_person(false, &id)
             .with_context(|| format!("could not fetch context for person {}", id))?;
         let str = renderer.render_person(&person_context)?;
 
@@ -373,9 +411,10 @@ pub fn create_search_database_in_memory(db_path: &Path) -> Result<Vec<u8>> {
         .with_context(|| format!("could not create search database"))?;
     let conn = populate_search_database(conn, db_path)
         .with_context(|| format!("could not populate search database"))?;
-    let db_bytes = conn.serialize("main")
+    let db_bytes = conn
+        .serialize("main")
         .with_context(|| format!("could not serialize search database"))?;
-    
+
     Ok(db_bytes.to_vec())
 }
 
@@ -392,6 +431,6 @@ fn populate_search_database(conn: Connection, db_path: &Path) -> Result<Connecti
 
     conn.execute_batch("DETACH DATABASE db")
         .with_context(|| format!("could not detach search database"))?;
-    
+
     Ok(conn)
 }
