@@ -5,6 +5,7 @@
   div.toolbar {
     grid-area: toolbar;
   }
+
   div.photo {
     grid-area: photo;
   }
@@ -48,6 +49,7 @@
       "sources";
     margin-bottom: 1em;
   }
+
   @media (min-width: 40em) {
     main {
       grid-template-columns: 1fr 3fr;
@@ -62,21 +64,24 @@
         "sources sources";
     }
   }
+
   .dl-single-line {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      column-gap: 0.5em;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 0.5em;
   }
-  
+
   .photo {
     display: grid;
     grid-template-columns: 1fr;
   }
+
   .photo figure img {
-      width: 12em;
-      margin: 0em;
-      border: 10px solid lightgray;
+    width: 12em;
+    margin: 0em;
+    border: 10px solid lightgray;
   }
+
   .photo figure figcaption {
     width: 20em;
     padding-inline: 1em;
@@ -85,43 +90,54 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
   dl.contact-list {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
+
   dl.office-list dt {
     margin-bottom: 0.3em;
   }
-  .icon svg {
-      width: 1.2em;
-      height: 1.2em;
-      vertical-align: -0.3em;
-      margin-left: 0.25em;
-      margin-right: 0.25em;
+
+  span.ext-links {
+    margin-left: 1em;
   }
-@media (prefers-color-scheme: dark) {
-  .icon svg path {
+
+  .icon svg {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.15em;
+  }
+
+  button .icon svg path {
     fill: white;
   }
-}
-div.toolbar {
+
+  @media (prefers-color-scheme: dark) {
+    .icon svg path {
+      fill: white;
+    }
+  }
+
+  div.toolbar {
     text-align: right;
     font-size: small
-}
+  }
 </style>
 <main>
   <div class="toolbar">
     {% if page.dynamic %}
-      <a href="edit/{{person.id}}">Edit</a>
+    <a href="edit/{{person.id}}">Edit</a>
     {% endif %}
   </div>
   <div class="photo">
     {% if photo %}
-      {{ macros::render_photo(photo=photo, alt=person.name) }}
+    {{ macros::render_photo(photo=photo, alt=person.name) }}
     {% elif offices and (offices | length > 0) and offices[0].photo %}
-      {{ macros::render_photo(photo=offices[0].photo, alt=person.name) }}
+    {{ macros::render_photo(photo=offices[0].photo, alt=person.name) }}
     {% else %}
-      {{ macros::render_photo(photo=config.defaults.photo, alt=person.name) }}
+    {{ macros::render_photo(photo=config.defaults.photo, alt=person.name) }}
     {% endif %}
   </div>
   <div class="title">
@@ -129,60 +145,63 @@ div.toolbar {
       {{ person.name }}
       {{ macros::render_ext_links(links=contacts) }}
     </h2>
-    <hr/>
+    <hr />
   </div>
   <div class="offices">
     {% if offices %}
-      <dl class="office-list">
-        {% for office in offices %}
-          <dt>
-            {{ macros::render_office(id=office.office.id, name=office.office.name) }}
-            {{ macros::render_ext_links(links=office.contacts) }}
-          </dt>
-          <dd>
-          {% if office.contacts %}
-            {{ macros::render_contacts(contacts=office.contacts) }}
-          {% endif %}
-          {% if office.supervisors %}
-            {{ macros::render_supervisors(officers=office.supervisors) }}
-          {% endif %}
+    <dl class="office-list">
+      {% for office in offices %}
+      <dt>
+        {{ macros::render_office(id=office.office.id, name=office.office.name) }}
+        {{ macros::render_ext_links(links=office.contacts) }}
+      </dt>
+      <dd>
+        {% if office.contacts %}
+        {{ macros::render_contacts(contacts=office.contacts) }}
+        {% endif %}
+        {% if office.supervisors %}
+        {{ macros::render_supervisors(officers=office.supervisors) }}
+        {% endif %}
         {% endfor %}
-      </dl>
+    </dl>
     {% endif %}
   </div>
   <div class="contacts">
     {% if contacts %}
-      <hr/>
-      {{ macros::render_contacts(contacts=contacts) }}
+    <hr />
+    {{ macros::render_contacts(contacts=contacts) }}
     {% endif %}
   </div>
   <div class="subordinates">
     {% if offices %}
-      <hr/>
-      <dl>
-        {% for office in offices %}
-          {% if office.subordinates %}
-            <dt>{{ office.office.name }}</dt>
-            <dd>
-              {{ macros::render_subordinates(officers=office.subordinates) }}
-            </dd>
-          {% endif %}
-        {% endfor %}
-      </dl>
+    <hr />
+    <dl>
+      {% for office in offices %}
+      {% if office.subordinates %}
+      <dt>{{ office.office.name }}</dt>
+      <dd>
+        {{ macros::render_subordinates(officers=office.subordinates) }}
+      </dd>
+      {% endif %}
+      {% endfor %}
+    </dl>
     {% endif %}
   </div>
 
   <div class="past-tenures">
     {% if past_tenures %}
-      <hr/>
-      <dl>
-        <dt>Past Tenures</dt>
-        <dd><ul>
-        {% for tenure in past_tenures %}
-            <li>{{ macros::render_office(id=tenure.office.id, name=tenure.office.name) }}, <em>{{ tenure.start }} to {{ tenure.end }}</em></li>
-        {% endfor %}
-        </ul></dd>
-      </dl>
+    <hr />
+    <dl>
+      <dt>Past Tenures</dt>
+      <dd>
+        <ul>
+          {% for tenure in past_tenures %}
+          <li>{{ macros::render_office(id=tenure.office.id, name=tenure.office.name) }}, <em>{{ tenure.start }} to {{
+              tenure.end }}</em></li>
+          {% endfor %}
+        </ul>
+      </dd>
+    </dl>
     {% endif %}
   </div>
   <div class="sources">
@@ -192,7 +211,7 @@ div.toolbar {
       <summary>Sources</summary>
       <ul>
         {% for url in page.extra.sources %}
-          <li><a href="{{ url }}">{{ url }}</a></li>
+        <li><a href="{{ url }}">{{ url }}</a></li>
         {% endfor %}
       </ul>
     </details>
@@ -202,9 +221,9 @@ div.toolbar {
 {% endblock content %}
 
 {% block updated %}
-  {% if metadata.updated %}
-  Last updated on {{ metadata.commit_date | date(format="%d %B, %Y")}}
-  {% else %}
-  Local version
-  {% endif %}
+{% if metadata.updated %}
+Last updated on {{ metadata.commit_date | date(format="%d %B, %Y")}}
+{% else %}
+Local version
+{% endif %}
 {% endblock updated %}

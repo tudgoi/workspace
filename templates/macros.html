@@ -7,14 +7,16 @@
 {% endmacro ext_link %}
 
 {% macro render_ext_links(links) %}
+    <span class="ext-links">
     {% for key, value in links %}
         {% if value %}
             {% set link = macros::ext_link(key=key, value=value) %}
             {% if link | trim | length > 0 %}
-                <a href="{{ macros::ext_link(key=key, value=value) }}"><span class="icon">{{ config.icons[key] | safe }}</span></a>
+                <a href="{{ macros::ext_link(key=key, value=value) }}"><button><span class="icon">{{ config.icons[key] | safe }}</span></button></a>
             {% endif %}
         {% endif %}
     {% endfor %}
+    </span>
 {% endmacro render_ext_links %}
 
 {% macro render_contact(key, value) %}
