@@ -6,7 +6,9 @@ use tera;
 use tera::Tera;
 
 use crate::{
-    ENTITY_SCHEMA_SQL, OutputFormat, context::{OfficeContext, PersonContext, PersonEditContext}, data, dto, graph, serve::AppState
+    ENTITY_SCHEMA_SQL, OutputFormat,
+    context::{OfficeContext, PersonContext}, dto, graph,
+    serve::AppState,
 };
 
 use super::repo;
@@ -14,7 +16,8 @@ use crate::context::{self, Maintenance, Page, Person};
 
 pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputFormat) -> Result<()> {
     let state = AppState::new(db.to_path_buf(), templates.to_path_buf())?;
-    let context_fetcher = ContextFetcher::new(db, &state.config)
+    let mut pooled_conn = state.db_pool.get()?;
+    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
 
     fs::create_dir(output).with_context(|| format!("could not create output dir {:?}", output))?;
@@ -53,49 +56,16 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
 }
 
 pub struct ContextFetcher<'a> {
-    config: &'a context::Config,
-    repo: repo::Repository,
+    config: context::Config,
+    repo: repo::Repository<'a>,
 }
 
 impl<'a> ContextFetcher<'a> {
-    pub fn new(db: &Path, config: &'a context::Config) -> Result<Self> {
+    pub fn new(conn: &'a mut Connection, config: context::Config) -> Result<Self> {
         // read config
-        let repo = repo::Repository::new(db)
-            .with_context(|| format!("could not open repository at {:?}", db))?;
+        let repo = repo::Repository::new(conn)?;
 
         Ok(ContextFetcher { config, repo })
-    }
-
-    pub fn fetch_person_edit(&self, dynamic: bool, id: &str) -> Result<PersonEditContext> {
-        let person_dto = self.repo
-            .get_person(&id)?
-            .with_context(|| format!("person {} not found", id))?;
-
-        let tenures = self.repo.list_person_office_tenure(&id)?;
-
-        let person_data = data::Person {
-            name: person_dto.name,
-            photo: person_dto.photo,
-            contacts: person_dto.contacts.filter(|c| !c.is_empty()),
-            tenures: if tenures.is_empty() {
-                None
-            } else {
-                Some(tenures)
-            },
-        };
-
-        Ok(PersonEditContext {
-            person: person_data,
-            config: self.config.clone(),
-            page: context::Page {
-                base: "../".to_string(),
-                dynamic,
-            },
-            metadata: context::Metadata {
-                maintenance: Maintenance { incomplete: false },
-                commit_date: Some(String::from("")),
-            },
-        })
     }
 
     pub fn fetch_person(&self, dynamic: bool, id: &str) -> Result<context::PersonContext> {
@@ -274,23 +244,19 @@ impl Renderer {
     }
 
     pub fn render_index(&self, context: &context::IndexContext) -> Result<String> {
-        self.render(context, "index.html")
+        self.render(&context, "index.html")
     }
 
     pub fn render_changes(&self, context: &context::ChangesContext) -> Result<String> {
-        self.render(context, "changes.html")
+        self.render(&context, "changes.html")
     }
 
     pub fn render_person(&self, context: &PersonContext) -> Result<String> {
-        self.render(context, "person.html")
-    }
-    
-    pub fn render_person_edit(&self, context: &PersonEditContext) -> Result<String> {
-        self.render(context, "person_edit.html")
+        self.render(&context, "person.html")
     }
 
     pub fn render_office(&self, context: &OfficeContext) -> Result<String> {
-        self.render(context, "office.html")
+        self.render(&context, "office.html")
     }
 
     fn render<T: serde::Serialize>(&self, context: &T, template_name: &str) -> Result<String> {

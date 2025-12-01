@@ -1,16 +1,16 @@
+mod handler;
+
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
-use askama::Template;
-use askama_web::WebTemplate;
 use axum::{
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::{Html, IntoResponse, Response},
-    routing::get,
+    Router, error_handling, extract::State, http::StatusCode, response::{Html, IntoResponse, Response}, routing::get
 };
+use r2d2::{Pool, PooledConnection};
+use r2d2_sqlite::SqliteConnectionManager;
+
 use tower_http::services::ServeDir;
+use r2d2::Error as R2D2Error;
 
 use crate::{
     OutputFormat, context, from_toml_file,
@@ -25,6 +25,10 @@ enum AppError {
     Askama(#[from] askama::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    R2D2(#[from] R2D2Error),
+    #[error(transparent)]
+    Rusqlite(#[from] rusqlite::Error),
 }
 
 impl IntoResponse for AppError {
@@ -51,7 +55,7 @@ pub async fn run(
     let app = Router::new()
         .route("/", get(root))
         .route("/person/{id}", get(person_page))
-        .route("/person/edit/{id}", get(person_edit))
+        .route("/{typ}/edit/{id}", get(handler::edit))
         .route("/office/{id}", get(office_page))
         .route("/search.db", get(search_db))
         .route("/changes", get(changes))
@@ -73,8 +77,9 @@ pub async fn run(
 
 pub struct AppState {
     pub db: PathBuf,
+    pub db_pool: Pool<SqliteConnectionManager>,
     pub templates: PathBuf,
-    pub config: context::Config,
+    pub config: Arc<context::Config>,
 }
 
 impl AppState {
@@ -82,17 +87,28 @@ impl AppState {
         let config: context::Config = from_toml_file(templates.join("config.toml"))
             .with_context(|| format!("could not parse config"))?;
 
+        let manager = SqliteConnectionManager::file(&db);
+        let db_pool = r2d2::Pool::builder()
+            .max_size(15) // Max connections to keep open
+            .build(manager)?;
+
         Ok(AppState {
             db,
+            db_pool,
             templates,
-            config,
+            config: Arc::new(config),
         })
+    }
+    
+    pub fn get_conn(&self) -> Result<PooledConnection<SqliteConnectionManager>, R2D2Error> {
+        self.db_pool.get()
     }
 }
 
 #[axum::debug_handler]
 async fn root(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
-    let context_fetcher = ContextFetcher::new(&state.db, &state.config)
+    let mut pooled_conn = state.get_conn()?;
+    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
@@ -113,8 +129,8 @@ async fn person_page(
 ) -> Result<Html<String>, AppError> {
     println!("Request called for {}", id_with_ext);
     let id = id_with_ext.trim_end_matches(".html");
-
-    let context_fetcher = ContextFetcher::new(&state.db, &state.config)
+    let mut pooled_conn = state.get_conn()?;
+    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
@@ -134,8 +150,9 @@ async fn office_page(
 ) -> Result<Html<String>, AppError> {
     println!("Request called for {}", id_with_ext);
     let id = id_with_ext.trim_end_matches(".html");
+    let mut pooled_conn = state.get_conn()?;
 
-    let context_fetcher = ContextFetcher::new(&state.db, &state.config)
+    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
@@ -161,7 +178,8 @@ async fn search_db(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
 #[axum::debug_handler]
 async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
-    let context_fetcher = ContextFetcher::new(&state.db, &state.config)
+    let mut pooled_conn = state.get_conn()?;
+    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
@@ -173,22 +191,4 @@ async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, App
         .with_context(|| "could not render index")?;
 
     Ok(Html(body))
-}
-
-#[derive(Template, WebTemplate)]
-#[template(path = "person_edit.html")]
-struct EditTemplate {
-    config: context::Config,
-    name: String,
-}
-
-#[axum::debug_handler]
-async fn person_edit(
-    State(state): State<Arc<AppState>>,
-    axum::extract::Path(id): axum::extract::Path<String>,
-) -> Result<EditTemplate, AppError> {
-    Ok(EditTemplate {
-        name: id,
-        config: state.config.clone(),
-    })
 }

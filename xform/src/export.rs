@@ -18,7 +18,9 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
         .with_context(|| format!("could not create office directory at {:?}", office_dir))?;
 
     // Open repository
-    let repo = repo::Repository::new(db)
+    let mut conn = rusqlite::Connection::open(db)
+        .with_context(|| format!("could not open database at {:?}", db))?;
+    let repo = repo::Repository::new(&mut conn)
         .with_context(|| format!("could not open repository at {:?}", db))?;
 
     // Export persons

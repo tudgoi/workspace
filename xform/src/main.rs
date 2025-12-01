@@ -3,19 +3,21 @@ use clap::{Parser, Subcommand, ValueEnum};
 use serde::de::DeserializeOwned;
 use std::fs;
 use std::path::PathBuf;
+use include_sqlite_sql::{include_sql, impl_sql};
 
 mod augment;
 mod context;
 mod data;
 mod dto;
-mod graph;
 mod export;
+mod graph;
 mod import;
-mod render;
 mod ingest;
+mod render;
 mod repo;
 mod serve;
 
+include_sql!("sql/library.sql");
 const ENTITY_SCHEMA_SQL: &str = include_str!("../schema/entity.sql");
 const PROPERTY_SCHEMA_SQL: &str = include_str!("../schema/property.sql");
 
@@ -98,6 +100,7 @@ enum Source {
     Old,
 }
 
+
 fn main() -> Result<()> {
     let args = Cli::parse();
 
@@ -106,8 +109,7 @@ fn main() -> Result<()> {
             .with_context(|| "could not run `import`"),
 
         Commands::Export { db, output } => {
-            export::run(db.as_path(), output.as_path())
-                .with_context(|| "could not run `export`")
+            export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
         }
 
         Commands::Render {
@@ -141,9 +143,8 @@ fn main() -> Result<()> {
             templates,
             static_files,
             port,
-        } => {
-            serve::run(db, templates, static_files, port.as_deref()).with_context(|| "failed to run `serve`")
-        }
+        } => serve::run(db, templates, static_files, port.as_deref())
+            .with_context(|| "failed to run `serve`"),
     }
 }
 

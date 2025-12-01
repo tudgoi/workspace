@@ -80,15 +80,6 @@ pub struct PersonContext {
 }
 
 #[derive(Serialize, Debug)]
-pub struct PersonEditContext {
-    pub person: data::Person,
-
-    pub config: Config,
-    pub page: Page,
-    pub metadata: Metadata,
-}
-
-#[derive(Serialize, Debug)]
 pub struct OfficeContext {
     pub office: Office,
     pub photo: Option<data::Photo>,

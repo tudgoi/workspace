@@ -28,3 +28,6 @@ askama = "0.14.0"
 askama_web = { version = "0.14.6", features = ["axum-0.8"] }
 thiserror = "2.0.17"
 displaydoc = "0.2.5"
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.31.0"
+include-sqlite-sql = "0.2.2"

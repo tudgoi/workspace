@@ -1,3 +1,4 @@
+use rusqlite::Connection;
 use anyhow::{Context, Result, ensure};
 use std::path::Path;
 
@@ -14,54 +15,54 @@ pub async fn run(db_path: &Path, source: Source, dir_path: Option<&Path>) -> Res
 }
 
 struct Ingestor {
-    repo: repo::Repository,
+    conn: Connection,
 }
 
 impl Ingestor {
     fn new(db_path: &Path) -> Result<Self> {
-        let repo = repo::Repository::new(db_path)
-            .with_context(|| "could not open repository for ingestion")?;
-        
-        Ok(Self {
-            repo,
-        })
+        let conn = Connection::open(db_path)?;
+        Ok(Self { conn })
     }
     
     async fn ingest(&mut self, source: Source, dir_path: Option<&Path>) -> Result<()> {
-    match source {
-        Source::Wikidata => unimplemented!("wikidata source not yet implemented"),
-        Source::Gemini => {
-            unimplemented!("Gemini ingestor not supported")
-        }
-        Source::Json => {
-            unimplemented!("Json ingestor not supported")
-        }
-        Source::Old => {
-            let dir_path =
-                dir_path.unwrap_or_else(|| unimplemented!("Reading from input not supported"));
+        let mut repo = repo::Repository::new(&mut self.conn)
+            .with_context(|| "could not open repository for ingestion")?;
+        match source {
+            Source::Wikidata => unimplemented!("wikidata source not yet implemented"),
+            Source::Gemini => {
+                unimplemented!("Gemini ingestor not supported")
+            }
+            Source::Json => {
+                unimplemented!("Json ingestor not supported")
+            }
+            Source::Old => {
+                let dir_path =
+                    dir_path.unwrap_or_else(|| unimplemented!("Reading from input not supported"));
 
-            let ingestor = OldIngestor::new(dir_path)?;
-            for result in ingestor {
-                let entities =
-                    result.with_context(|| format!("could not query from {:?}", source))?;
-                for entity in entities {
-                    let entity: graph::Entity = entity.into();
-                    if let Err(e) = self.ingest_entity(entity).await {
-                        println!("ingestion failed: {}", e)
+                let ingestor = OldIngestor::new(dir_path)?;
+                for result in ingestor {
+                    let entities =
+                        result.with_context(|| format!("could not query from {:?}", source))?;
+                    for entity in entities {
+                        let entity: graph::Entity = entity.into();
+                        if let Err(e) = ingest_entity(&mut repo, entity).await {
+                            println!("ingestion failed: {}", e)
+                        }
                     }
                 }
             }
         }
-    }
-    Ok(())
+        Ok(())
     }
 
-async fn ingest_entity(&mut self, entity: graph::Entity) -> Result<()> {
+}
+
+async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entity) -> Result<()> {
     let entity_type = entity
         .get_type()
         .with_context(|| format!("entity should have a type"))?;
     let entity_type: dto::EntityType = entity_type.clone().into();
-    let id = self.ingest_entity_id_or_name(&entity_type, entity.get_id(), entity.get_name()).await?;
+    let id = ingest_entity_id_or_name(repo, &entity_type, entity.get_id(), entity.get_name()).await?;
 
     for property in entity.0.values() {
         match property {
@@ -75,22 +76,23 @@ async fn ingest_entity(&mut self, entity: graph::Entity) -> Result<()> {
                     "Tenure is only allowed for a Person"
                 );
                 let office: graph::Entity = items.to_vec().into();
-                let office_id = self.ingest_entity_id_or_name(
+                let office_id = ingest_entity_id_or_name(
+                    repo,
                     &dto::EntityType::Office,
                     office.get_id(),
                     office.get_name(),
                 ).await?;
-                self.repo.insert_person_office_tenure(&id, &office_id)?;
+                repo.insert_person_office_tenure(&id, &office_id)?;
             }
             graph::Property::Photo { url, attribution } => {
-                if !self.repo.entity_photo_exists(&entity_type, &id)? {
-                    self.repo.insert_entity_photo(&entity_type, &id, url, attribution.as_deref())
+                if !repo.entity_photo_exists(&entity_type, &id)? {
+                    repo.insert_entity_photo(&entity_type, &id, url, attribution.as_deref())
                         .with_context(|| format!("Failed to ingest photo"))?;
                 }
             }
             graph::Property::Contact(contact_type, value) => {
-                if !self.repo.exists_entity_contact(&entity_type, &id, contact_type)? {
-                    self.repo.insert_entity_contact(&entity_type, &id, contact_type, value)
+                if !repo.exists_entity_contact(&entity_type, &id, contact_type)? {
+                    repo.insert_entity_contact(&entity_type, &id, contact_type, value)
                         .with_context(|| format!("failed to ingest contact"))?;
                 }
             }
@@ -103,14 +105,15 @@ async fn ingest_entity(&mut self, entity: graph::Entity) -> Result<()> {
                 );
                 let supervising_office: graph::Entity = supervising_office.to_vec().into();
 
-                if !self.repo.exists_office_supervisor(&id, relation)? {
-                    let supervising_office_id = self.ingest_entity_id_or_name(
+                if !repo.exists_office_supervisor(&id, relation)? {
+                    let supervising_office_id = ingest_entity_id_or_name(
+                        repo,
                         &dto::EntityType::Office,
                         supervising_office.get_id(),
                         supervising_office.get_name(),
                     ).await?;
 
-                    self.repo.insert_office_supervisor(&id, relation, &supervising_office_id)?;
+                    repo.insert_office_supervisor(&id, relation, &supervising_office_id)?;
                 }
             }
         }
@@ -119,20 +122,20 @@ async fn ingest_entity(&mut self, entity: graph::Entity) -> Result<()> {
     Ok(())
 }
 
-async fn ingest_entity_id_or_name(
-    &mut self,
+async fn ingest_entity_id_or_name<'a>(
+    repo: &mut repo::Repository<'a>,
     entity_type: &dto::EntityType,
     id: Option<&str>,
     name: Option<&str>,
 ) -> Result<String> {
     if let Some(id) = id {
         // id provided. insert if it doesn't already exist
-        if !self.repo.exists_entity(entity_type, id)? {
+        if !repo.exists_entity(entity_type, id)? {
             // The entity doesn't exist. So we lets insert.
             let name = name
                 .with_context(|| format!("entity {:?}:{} doesn't have a name", entity_type, id))?;
 
-            self.repo.insert_entity(entity_type, &id, name)?;
+            repo.insert_entity(entity_type, &id, name)?;
         }
 
         Ok(id.to_string())
@@ -141,7 +144,7 @@ async fn ingest_entity_id_or_name(
         let name =
             name.with_context(|| format!("entity should have a name if id is not provided"))?;
 
-        let entity = self.repo
+        let entity = repo
             .search_entity(name, Some(&entity_type))
             .with_context(|| format!("could not search for `{}`", name))?
             .into_iter()
@@ -150,11 +153,10 @@ async fn ingest_entity_id_or_name(
             Ok(entity.id)
         } else {
             let id = derive_id(entity_type, name);
-            self.repo.insert_entity(entity_type, &id, name)
+            repo.insert_entity(entity_type, &id, name)
                 .with_context(|| format!("could not insert entity {:?}:{}", entity_type, id))?;
 
             Ok(id)
         }
     }
-}
 }

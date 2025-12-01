@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    path::Path,
-};
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -11,17 +8,14 @@ use crate::{
     context::{self}, data::{self}, dto::{self, EntityType}, graph, ENTITY_SCHEMA_SQL, PROPERTY_SCHEMA_SQL
 };
 
-pub struct Repository {
-    conn: Connection,
+pub struct Repository<'a> {
+    conn: &'a mut Connection,
     all_supervising_relation_variants: HashMap<String, data::SupervisingRelation>,
     all_contact_type_variants: HashMap<String, data::ContactType>,
 }
 
-impl Repository {
-    pub fn new(db_path: &Path) -> Result<Repository> {
-        // get string for querying contact
-        let conn = Connection::open(db_path)?;
-
+impl<'a> Repository<'a> {
+    pub fn new(conn: &'a mut Connection) -> Result<Repository<'a>> {
         Ok(Repository {
             conn,
             all_supervising_relation_variants: Self::build_supervising_relation_variants()

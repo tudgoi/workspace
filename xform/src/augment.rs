@@ -1,21 +1,23 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::{data, dto, repo, Field, Source};
-use anyhow::{bail, Context, Result};
+use crate::{Field, Source, data, dto, repo};
+use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
+use rusqlite::Connection;
 use wikibase::mediawiki::api::Api;
 
 #[tokio::main]
 pub async fn run(db_path: &Path, source: Source, fields: Vec<Field>) -> Result<()> {
-    let mut repo =
-        repo::Repository::new(db_path).with_context(|| "could not open repository for ingestion")?;
+    let mut conn = Connection::open(db_path)?;
+    let mut repo = repo::Repository::new(&mut conn)
+        .with_context(|| "could not open repository for ingestion")?;
 
     let source: Box<dyn Augmentor> = match source {
         Source::Wikidata => Box::new(WikidataAugmentor::new().await),
         Source::Gemini => bail!("gemini augmentor not yet implemented"),
         Source::Json => bail!("json augmentor not yet implemented"),
-        Source::Old => unimplemented!("old augmentor not yet implemented")
+        Source::Old => unimplemented!("old augmentor not yet implemented"),
     };
 
     for field in &fields {
@@ -241,7 +243,7 @@ impl WikidataAugmentor {
     }
 }
 
-async fn augment_photo(repo: &mut repo::Repository, source: &dyn Augmentor) -> Result<()> {
+async fn augment_photo(repo: &mut repo::Repository<'_>, source: &dyn Augmentor) -> Result<()> {
     let map = repo.query_external_persons_without_photo(data::ContactType::Wikidata)?;
 
     for (wikidata_id, person_id) in map {
@@ -262,7 +264,7 @@ async fn augment_photo(repo: &mut repo::Repository, source: &dyn Augmentor) -> R
     Ok(())
 }
 
-async fn augment_wikidata_id(repo: &mut repo::Repository, source: &dyn Augmentor) -> Result<()> {
+async fn augment_wikidata_id(repo: &mut repo::Repository<'_>, source: &dyn Augmentor) -> Result<()> {
     let persons_to_augment = repo.query_persons_without_contact(data::ContactType::Wikidata)?;
 
     for person in persons_to_augment {
@@ -281,17 +283,14 @@ async fn augment_wikidata_id(repo: &mut repo::Repository, source: &dyn Augmentor
     Ok(())
 }
 
-async fn augment_wikipedia(repo: &mut repo::Repository, source: &dyn Augmentor) -> Result<()> {
+async fn augment_wikipedia(repo: &mut repo::Repository<'_>, source: &dyn Augmentor) -> Result<()> {
     let map = repo.query_persons_with_contact_without_contact(
         data::ContactType::Wikidata,
         data::ContactType::Wikipedia,
     )?;
 
     for (wikidata_id, person_id) in map {
-        println!(
-            "augmenting wikipedia for {}:{}...",
-            wikidata_id, person_id
-        );
+        println!("augmenting wikipedia for {}:{}...", wikidata_id, person_id);
         let wikipedia_url = source.query_wikipedia(&wikidata_id).await?;
         if let Some(wikipedia_url) = wikipedia_url {
             println!("- found {}", wikipedia_url);
