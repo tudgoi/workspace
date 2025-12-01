@@ -2,9 +2,6 @@
 {% import "macros.html" as macros %}
 {% block content %}
 <style>
-  div.maintenance {
-    grid-area: maintenance;
-  }
   div.photo {
     grid-area: photo;
   }
@@ -34,7 +31,6 @@
     column-gap: 1em;
     row-gap: 0.5em;
     grid-template-areas:
-      "maintenance"
       "title"
       "photo"
       "contacts"
@@ -47,7 +43,6 @@
       grid-template-columns: 1fr 3fr;
       grid-template-rows: min-content min-content min-content 1fr auto auto;
       grid-template-areas:
-        "maintenance maintenance"
         "photo title"
         "photo contacts"
         "quondams quondams"
@@ -92,27 +87,6 @@
   }
 </style>
 <main>
-  <div class="maintenance">
-    {% if metadata.maintenance %}
-    {% set maintenance = metadata.maintenance %}
-    <blockquote>
-      <dl class="dl-single-line">
-        <dt>🚧</dt>
-        <dd>
-          <p>
-            {% if maintenance.incomplete %}
-                This page is incomplete.
-            {% endif %}
-          </p>
-          <p>
-            Please consider sending a <a href="https://en.wikipedia.org/wiki/Fork_and_pull_model">PR</a> at
-            <a href="{{ config.source_url }}">{{ config.source_url | trim_start_matches(pat="https://") }}</a>
-          </p>
-        </dd>
-      </dl>
-    </blockquote>
-    {% endif %}
-  </div>
   <div class="photo">
     {% if photo %}
       {{ macros::render_photo(photo=photo, alt=office.name) }}
