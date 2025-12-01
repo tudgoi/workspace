@@ -6,14 +6,15 @@ use tera;
 use tera::Tera;
 
 use crate::{
-    ENTITY_SCHEMA_SQL, OutputFormat, context::{OfficeContext, PersonContext, PersonEditContext}, data, dto, graph
+    ENTITY_SCHEMA_SQL, OutputFormat, context::{OfficeContext, PersonContext, PersonEditContext}, data, dto, graph, serve::AppState
 };
 
-use super::{from_toml_file, repo};
+use super::repo;
 use crate::context::{self, Maintenance, Page, Person};
 
 pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputFormat) -> Result<()> {
-    let context_fetcher = ContextFetcher::new(db, templates)
+    let state = AppState::new(db.to_path_buf(), templates.to_path_buf())?;
+    let context_fetcher = ContextFetcher::new(db, &state.config)
         .with_context(|| format!("could not create context fetcher"))?;
 
     fs::create_dir(output).with_context(|| format!("could not create output dir {:?}", output))?;
@@ -51,16 +52,14 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
     Ok(())
 }
 
-pub struct ContextFetcher {
-    config: context::Config,
+pub struct ContextFetcher<'a> {
+    config: &'a context::Config,
     repo: repo::Repository,
 }
 
-impl ContextFetcher {
-    pub fn new(db: &Path, templates: &Path) -> Result<Self> {
+impl<'a> ContextFetcher<'a> {
+    pub fn new(db: &Path, config: &'a context::Config) -> Result<Self> {
         // read config
-        let config: context::Config = from_toml_file(templates.join("config.toml"))
-            .with_context(|| format!("could not parse config"))?;
         let repo = repo::Repository::new(db)
             .with_context(|| format!("could not open repository at {:?}", db))?;
 

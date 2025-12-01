@@ -1,6 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
+use askama::Template;
+use askama_web::WebTemplate;
 use axum::{
     Router,
     extract::State,
@@ -11,28 +13,29 @@ use axum::{
 use tower_http::services::ServeDir;
 
 use crate::{
-    OutputFormat,
+    OutputFormat, context, from_toml_file,
     render::{self, ContextFetcher, Renderer},
 };
 
-struct AppError(anyhow::Error);
+#[derive(Debug, thiserror::Error)]
+enum AppError {
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
+    #[error(transparent)]
+    Askama(#[from] askama::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
-    }
-}
+        #[cfg(debug_assertions)]
+        let message = format!("Error: {:?}", self);
 
-impl<E> From<E> for AppError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
+        #[cfg(not(debug_assertions))]
+        let message = "Internal Server Error".to_string();
+
+        (StatusCode::INTERNAL_SERVER_ERROR, message).into_response()
     }
 }
 
@@ -68,20 +71,28 @@ pub async fn run(
     Ok(())
 }
 
-struct AppState {
-    db: PathBuf,
-    templates: PathBuf,
+pub struct AppState {
+    pub db: PathBuf,
+    pub templates: PathBuf,
+    pub config: context::Config,
 }
 
 impl AppState {
     pub fn new(db: PathBuf, templates: PathBuf) -> Result<Self> {
-        Ok(AppState { db, templates })
+        let config: context::Config = from_toml_file(templates.join("config.toml"))
+            .with_context(|| format!("could not parse config"))?;
+
+        Ok(AppState {
+            db,
+            templates,
+            config,
+        })
     }
 }
 
 #[axum::debug_handler]
 async fn root(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
-    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+    let context_fetcher = ContextFetcher::new(&state.db, &state.config)
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
@@ -103,7 +114,7 @@ async fn person_page(
     println!("Request called for {}", id_with_ext);
     let id = id_with_ext.trim_end_matches(".html");
 
-    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+    let context_fetcher = ContextFetcher::new(&state.db, &state.config)
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
@@ -124,7 +135,7 @@ async fn office_page(
     println!("Request called for {}", id_with_ext);
     let id = id_with_ext.trim_end_matches(".html");
 
-    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+    let context_fetcher = ContextFetcher::new(&state.db, &state.config)
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
@@ -150,7 +161,7 @@ async fn search_db(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
 #[axum::debug_handler]
 async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
-    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
+    let context_fetcher = ContextFetcher::new(&state.db, &state.config)
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
@@ -164,20 +175,20 @@ async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, App
     Ok(Html(body))
 }
 
+#[derive(Template, WebTemplate)]
+#[template(path = "person_edit.html")]
+struct EditTemplate {
+    config: context::Config,
+    name: String,
+}
+
 #[axum::debug_handler]
 async fn person_edit(
     State(state): State<Arc<AppState>>,
     axum::extract::Path(id): axum::extract::Path<String>,
-) -> Result<Html<String>, AppError> {
-    let context_fetcher = ContextFetcher::new(&state.db, &state.templates)
-        .with_context(|| format!("could not create context fetcher"))?;
-    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
-
-    let edit_context = context_fetcher.fetch_person_edit(true, &id)?;
-
-    let body = renderer
-         .render_person_edit(&edit_context)
-         .with_context(|| "could not render person page")?;
-
-    Ok(Html(body))
+) -> Result<EditTemplate, AppError> {
+    Ok(EditTemplate {
+        name: id,
+        config: state.config.clone(),
+    })
 }

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.title }}</title>
+    <link rel="stylesheet" href="https://fonts.xz.style/serve/inter.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@exampledev/new.css@1.1.2/new.min.css">
+  </head>
+  <body>
+    <style>
+      body {
+        max-width: 900px;
+      }
+      footer .attribution {
+        text-align: center;
+      }
+      footer .updated {
+        font-size: small;
+      }
+      dd::before {
+          content: '';
+      }
+      dd {
+        padding-left: 1em;
+      }
+    </style>
+    <header>
+        <b><a href="{{ config.base_url }}">{{ config.title }}</a></b>
+    </header>
+    {% block content %}{% endblock content %}
+    <footer>
+      <hr/>
+      <div class="updated">
+        {% block updated %}{% endblock updated %}.
+      </div>
+      <div class="attribution">
+        Made with <span aria-label="Love" style="color: #f43f5e">&hearts;</span>
+        in Chennai by
+        <a href="https://arunkd13.github.io" target="_blank">arunkd13</a><br>
+      </div>
+    </footer>
+  </body>
+</html>
