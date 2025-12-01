@@ -822,7 +822,7 @@ impl Repository {
                 "
                 SELECT
                     e.name,
-                    p.url,
+                    p.thumbnail_url,
                     p.attribution,
                     c.date
                 FROM entity AS e
