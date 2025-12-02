@@ -1,0 +1,7 @@
+<form hx-put="/{{ typ }}/{{ id }}/name" hx-target="this" hx-swap="outerHTML">
+  <div>
+    <input type="text" name="name" value="{{ name }}">
+  </div>
+  <button type="submit">Save</button>
+  <button hx-get="/{{ typ }}/{{ id }}/name">Cancel</button>
+</form>

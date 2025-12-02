@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js" crossorigin="anonymous"></script>
+
+<dl>
+    <dt>
+        Name
+    </dt>
+    <dd>
+        {% block name %}
+        <div hx-target="this" hx-swap="outerHTML">
+            <div>
+                {{ name }}
+            </div>
+            <button hx-get="/{{ typ }}/{{ id }}/name/edit">
+                Edit
+            </button>
+        </div>
+        {% endblock %}
+    </dd>
+</dl>
+{% endblock content %}

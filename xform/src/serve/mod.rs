@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use axum::{
-    Router, error_handling, extract::State, http::StatusCode, response::{Html, IntoResponse, Response}, routing::get
+    Router, extract::State, http::StatusCode, response::{Html, IntoResponse, Response}, routing::{get, put}
 };
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
@@ -55,7 +55,10 @@ pub async fn run(
     let app = Router::new()
         .route("/", get(root))
         .route("/person/{id}", get(person_page))
-        .route("/{typ}/edit/{id}", get(handler::edit))
+        .route("/{typ}/{id}/edit", get(handler::edit_entity))
+        .route("/{typ}/{id}/name/edit", get(handler::edit_entity_name))
+        .route("/{typ}/{id}/name", get(handler::view_entity_name))
+        .route("/{typ}/{id}/name", put(handler::put_entity_name))
         .route("/office/{id}", get(office_page))
         .route("/search.db", get(search_db))
         .route("/changes", get(changes))
