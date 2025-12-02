@@ -111,6 +111,7 @@
 {% macro render_photo(photo, alt) %}
     {%
         if photo.url is starting_with("https://upload.wikimedia.org/wikipedia/commons/")
+            and not photo.url is containing("/thumb/")
             and not photo.url is ending_with(".svg")
     %}
         {% set thumbnail_url_prefix = (photo.url | replace(from="/commons/", to="/commons/thumb/")) %}
