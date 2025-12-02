@@ -34,16 +34,5 @@ CREATE TABLE entity_photo (
   entity_id TEXT NOT NULL,
   url TEXT NOT NULL,
   attribution TEXT,
-  thumbnail_url TEXT AS (
-    CASE
-      WHEN url LIKE 'https://upload.wikimedia.org/wikipedia/commons/%' AND url NOT LIKE '%.svg' THEN
-      REPLACE(url, '/commons/', '/commons/thumb/') || '/' || '320px-'
-      -- Extract the Filename. 
-      -- We skip '/commons/' (9 chars) + the hash folders 'a/bc/' (5 chars)
-      -- Total offset = 14 characters from the start of '/commons/'
-      || SUBSTR(url, INSTR(url, '/commons/') + 14)
-      ELSE url
-    END
-  ),
   PRIMARY KEY(entity_type, entity_id) FOREIGN KEY(entity_type, entity_id) REFERENCES entity(type, id)
 );

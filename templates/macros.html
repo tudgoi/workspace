@@ -109,7 +109,17 @@
 {%- endmacro render_office -%}
 
 {% macro render_photo(photo, alt) %}
-    {% set url = photo.url %}
+    {%
+        if photo.url is starting_with("https://upload.wikimedia.org/wikipedia/commons/")
+            and not photo.url is ending_with(".svg")
+    %}
+        {% set thumbnail_url_prefix = (photo.url | replace(from="/commons/", to="/commons/thumb/")) %}
+        {% set url_filename = photo.url | trim_start_matches(pat="https://upload.wikimedia.org/wikipedia/commons/") | split(pat="") | slice(start=6) | join(sep="") %}
+        {% set url = thumbnail_url_prefix ~ "/320px-" ~ url_filename %}
+        
+    {% else %}
+        {% set url = photo.url %}
+    {% endif %}
     {% set attribution = photo.attribution %}
     <figure>
             <img src="{{ url }}" alt="{{ alt }}" />

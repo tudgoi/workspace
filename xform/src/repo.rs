@@ -816,7 +816,7 @@ impl<'a> Repository<'a> {
                 "
                 SELECT
                     e.name,
-                    p.thumbnail_url,
+                    p.url,
                     p.attribution,
                     c.date
                 FROM entity AS e
