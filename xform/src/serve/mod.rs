@@ -4,18 +4,23 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use axum::{
-    Router, extract::State, http::StatusCode, response::{Html, IntoResponse, Response}, routing::{get, put}
+    Router,
+    extract::State,
+    http::StatusCode,
+    response::{Html, IntoResponse, Response},
+    routing::{get, put},
 };
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 
-use tower_http::services::ServeDir;
 use r2d2::Error as R2D2Error;
+use tower_http::services::ServeDir;
 
 use crate::{
     OutputFormat, context, from_toml_file,
     render::{self, ContextFetcher, Renderer},
 };
+use tower_livereload::LiveReloadLayer;
 
 #[derive(Debug, thiserror::Error)]
 enum AppError {
@@ -65,6 +70,7 @@ pub async fn run(
         .route("/{typ}/{id}/photo/edit", get(handler::entity::photo::edit))
         .route("/{typ}/{id}/photo", get(handler::entity::photo::view))
         .route("/{typ}/{id}/photo", put(handler::entity::photo::save))
+        .layer(LiveReloadLayer::new())
         .with_state(Arc::new(state))
         .nest_service("/static", ServeDir::new(static_files));
 
@@ -105,7 +111,7 @@ impl AppState {
             config: Arc::new(config),
         })
     }
-    
+
     pub fn get_conn(&self) -> Result<PooledConnection<SqliteConnectionManager>, R2D2Error> {
         self.db_pool.get()
     }
