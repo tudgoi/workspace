@@ -168,7 +168,7 @@ async fn office_page(
         .with_context(|| format!("could not create context fetcher"))?;
     let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
 
-    let office_context = context_fetcher.fetch_office(id)?;
+    let office_context = context_fetcher.fetch_office(true, id)?;
 
     let body = renderer
         .render_office(&office_context)

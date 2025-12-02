@@ -1,15 +1,19 @@
+{% let url = "" %}
+{% let attribution = "" %}
+{% if let Some(photo) = photo %}
+  {% set url = photo.url %}
+  {% if let Some(attribution) = photo.attribution %}
+    {% set attribution = attribution %}
+  {% endif %}
+{% endif %}
 <form hx-put="/{{ typ }}/{{ id }}/photo" hx-target="this" hx-swap="outerHTML">
   <div>
     <label>URL</label>
-    <input type="text" name="url" value="{{ photo.url }}">
+    <input type="text" name="url" value="{{ url }}">
   </div>
   <div>
     <label>Attribution</label>
-    <input type="text" name="attribution"
-      {% if let Some(attribution)=photo.attribution %}
-        value="{{ attribution }}"
-      {% endif %}
-    >
+    <input type="text" name="attribution" value="{{ attribution }}">
   </div>
   <button type="submit">Save</button>
   <button hx-get="/{{ typ }}/{{ id }}/photo">Cancel</button>

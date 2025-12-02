@@ -148,7 +148,7 @@ impl<'a> ContextFetcher<'a> {
         })
     }
 
-    pub fn fetch_office(&self, id: &str) -> Result<context::OfficeContext> {
+    pub fn fetch_office(&self, dynamic: bool, id: &str) -> Result<context::OfficeContext> {
         let name = self.repo.get_office_name(id)?;
         let photo = self.repo.get_entity_photo(graph::EntityType::Office, id)?;
         let contacts = self
@@ -163,7 +163,7 @@ impl<'a> ContextFetcher<'a> {
         // page
         let page = context::Page {
             base: "../".to_string(),
-            dynamic: false,
+            dynamic,
         };
 
         // metadata
@@ -335,7 +335,7 @@ fn render_offices(
 
     for id in ids {
         let office_context = context_fetcher
-            .fetch_office(&id)
+            .fetch_office(false, &id)
             .with_context(|| format!("could not fetch context for office {}", id))?;
         let str = renderer.render_office(&office_context)?;
 

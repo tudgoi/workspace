@@ -38,8 +38,12 @@ LIMIT 1
 -- param: id: &str - entity ID
 -- param: url: &str - url
 -- param: attribution: Option<&str> - attribution
-UPDATE entity_photo
-SET url = :url, attribution = :attribution
-WHERE entity_type = :typ
-    AND entity_id = :id
+INSERT INTO entity_photo (entity_type, entity_id, url, attribution)
+VALUES (:typ, :id, :url, :attribution)
+ON CONFLICT (entity_type, entity_id) DO UPDATE
+SET
+    url = :url,
+    attribution = :attribution
+WHERE
+    entity_type = :typ AND entity_id = :id
 /

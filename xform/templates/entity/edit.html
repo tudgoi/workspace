@@ -23,18 +23,21 @@
     <dd>
         {% block photo %}
         <div hx-target="this" hx-swap="outerHTML">
-            <div><label>URL</label>: {{ photo.url }}</div>
+            {% if let Some(photo) = photo %}
+            <div><label>URL</label>: <a href="{{ photo.url }}" target="_blank">{{ photo.url }} ↗</a></div>
             <div>
                 <label>Attribution</label>:
                 {% if let Some(attribution) = photo.attribution %}
                 {{ attribution }}
                 {% else %}
-                NULL
+                No attribution available
                 {% endif %}
             </div>
-            <button hx-get="/{{ typ }}/{{ id }}/photo/edit">
-                Edit
-            </button>
+            <button hx-get="/{{ typ }}/{{ id }}/photo/edit">Edit</button>
+            {% else %}
+            <div>No photo available.</div>
+            <button hx-get="/{{ typ }}/{{ id }}/photo/edit">Add</button>
+            {% endif %}
         </div>
         {% endblock %}
     </dd>

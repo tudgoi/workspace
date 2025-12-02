@@ -2,6 +2,9 @@
 {% import "macros.html" as macros %}
 {% block content %}
 <style>
+  div.toolbar {
+    grid-area: toolbar;
+  }
   div.photo {
     grid-area: photo;
   }
@@ -31,6 +34,7 @@
     column-gap: 1em;
     row-gap: 0.5em;
     grid-template-areas:
+      "toolbar"
       "title"
       "photo"
       "contacts"
@@ -43,6 +47,7 @@
       grid-template-columns: 1fr 3fr;
       grid-template-rows: min-content min-content min-content 1fr auto auto;
       grid-template-areas:
+        "toolbar toolbar"
         "photo title"
         "photo contacts"
         "quondams quondams"
@@ -85,8 +90,17 @@
       height: 1.3em;
       vertical-align: -0.125em;
   }
+  div.toolbar {
+    text-align: right;
+    font-size: small
+  }
 </style>
 <main>
+  <div class="toolbar">
+    {% if page.dynamic %}
+    <a href="{{office.id}}/edit">Edit</a>
+    {% endif %}
+  </div>
   <div class="photo">
     {% if photo %}
       {{ macros::render_photo(photo=photo, alt=office.name) }}

@@ -18,7 +18,7 @@ pub struct EditTemplate {
     typ: String,
     id: String,
     name: String,
-    photo: data::Photo,
+    photo: Option<data::Photo>,
 }
 
 #[axum::debug_handler]
@@ -31,12 +31,16 @@ pub async fn edit(
         let name: String = row.get(0)?;
         Ok(name)
     })?;
-    let photo = conn.get_entity_photo(&typ, &id, |row| {
+    let photo = match conn.get_entity_photo(&typ, &id, |row| {
         let url: String = row.get(0)?;
         let attribution: Option<String> = row.get(1)?;
 
         Ok(data::Photo { url, attribution })
-    })?;
+    }) {
+        Ok(photo) => Some(photo),
+        Err(rusqlite::Error::QueryReturnedNoRows) => None,
+        Err(e) => return Err(e.into()),
+    };
 
     Ok(EditTemplate {
         id,
