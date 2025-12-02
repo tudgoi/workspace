@@ -1,4 +1,5 @@
 pub mod name;
+pub mod photo;
 
 use std::sync::Arc;
 
@@ -6,7 +7,9 @@ use askama::Template;
 use askama_web::WebTemplate;
 use axum::extract::{Path, State};
 
-use crate::{LibrarySql, context, serve::{AppError, AppState}};
+use crate::{
+    LibrarySql, context, data, serve::{AppError, AppState}
+};
 
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/edit.html")]
@@ -15,6 +18,7 @@ pub struct EditTemplate {
     typ: String,
     id: String,
     name: String,
+    photo: data::Photo,
 }
 
 #[axum::debug_handler]
@@ -23,15 +27,22 @@ pub async fn edit(
     Path((typ, id)): Path<(String, String)>,
 ) -> Result<EditTemplate, AppError> {
     let conn = state.get_conn()?;
-    let name = conn.get_entity(&typ, &id, |row| {
+    let name = conn.get_entity_name(&typ, &id, |row| {
         let name: String = row.get(0)?;
         Ok(name)
+    })?;
+    let photo = conn.get_entity_photo(&typ, &id, |row| {
+        let url: String = row.get(0)?;
+        let attribution: Option<String> = row.get(1)?;
+
+        Ok(data::Photo { url, attribution })
     })?;
 
     Ok(EditTemplate {
         id,
         typ,
         name,
+        photo,
         config: state.config.clone(),
     })
 }

@@ -1,18 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js" crossorigin="anonymous"></script>
+<style>
+    label {
+        font-weight: bold;
+    }
+</style>
 
 <dl>
-    <dt>
-        Name
-    </dt>
+    <dt>Name</dt>
     <dd>
         {% block name %}
         <div hx-target="this" hx-swap="outerHTML">
-            <div>
-                {{ name }}
-            </div>
+            <div>{{ name }}</div>
             <button hx-get="/{{ typ }}/{{ id }}/name/edit">
+                Edit
+            </button>
+        </div>
+        {% endblock %}
+    </dd>
+    <dt>Photo</dt>
+    <dd>
+        {% block photo %}
+        <div hx-target="this" hx-swap="outerHTML">
+            <div><label>URL</label>: {{ photo.url }}</div>
+            <div>
+                <label>Attribution</label>:
+                {% if let Some(attribution) = photo.attribution %}
+                {{ attribution }}
+                {% else %}
+                NULL
+                {% endif %}
+            </div>
+            <button hx-get="/{{ typ }}/{{ id }}/photo/edit">
                 Edit
             </button>
         </div>

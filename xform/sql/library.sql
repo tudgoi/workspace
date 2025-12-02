@@ -1,14 +1,3 @@
--- name: get_entity->
--- Returns the entity of the given type with the given id
--- # Parameters
--- param: typ: &str - entity type
--- param: id: &str - entity ID
-SELECT name
-FROM entity
-WHERE type = :typ
-    AND id = :id
-LIMIT 1
-/
 -- name: get_entity_name->
 -- Returns the name of the entity of the given type with the given id
 -- # Parameters
@@ -30,4 +19,27 @@ UPDATE entity
 SET name = :name
 WHERE type = :typ
     AND id = :id
+/
+-- name: get_entity_photo->
+-- Returns the photo of the entity of the given type with the given id
+-- # Parameters
+-- param: typ: &str - entity type
+-- param: id: &str - entity ID
+SELECT url, attribution
+FROM entity_photo
+WHERE entity_type = :typ
+    AND entity_id = :id
+LIMIT 1
+/
+-- name: save_entity_photo!
+-- Save the photo for the given type with the given id
+-- # Parameters
+-- param: typ: &str - entity type
+-- param: id: &str - entity ID
+-- param: url: &str - url
+-- param: attribution: Option<&str> - attribution
+UPDATE entity_photo
+SET url = :url, attribution = :attribution
+WHERE entity_type = :typ
+    AND entity_id = :id
 /

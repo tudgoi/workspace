@@ -1,0 +1,16 @@
+<form hx-put="/{{ typ }}/{{ id }}/photo" hx-target="this" hx-swap="outerHTML">
+  <div>
+    <label>URL</label>
+    <input type="text" name="url" value="{{ photo.url }}">
+  </div>
+  <div>
+    <label>Attribution</label>
+    <input type="text" name="attribution"
+      {% if let Some(attribution)=photo.attribution %}
+        value="{{ attribution }}"
+      {% endif %}
+    >
+  </div>
+  <button type="submit">Save</button>
+  <button hx-get="/{{ typ }}/{{ id }}/photo">Cancel</button>
+</form>
