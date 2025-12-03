@@ -1,0 +1,126 @@
+body {
+    max-width: 900px;
+}
+
+footer .attribution {
+    text-align: center;
+}
+
+footer .updated {
+    font-size: small;
+}
+
+dd::before {
+    content: '';
+}
+
+dd {
+    padding-left: 1em;
+}
+
+div.site-metric {
+    text-align: center;
+}
+
+div.search {
+    margin: 2em;
+    display: grid;
+    place-items: center;
+}
+
+div.toolbar {
+    grid-area: toolbar;
+}
+
+div.photo {
+    grid-area: photo;
+}
+
+div.title {
+    grid-area: title;
+}
+
+div.offices {
+    grid-area: offices;
+}
+
+div.contacts {
+    grid-area: contacts;
+}
+
+div.past-tenures {
+    grid-area: past-tenures;
+}
+
+div.subordinates {
+    grid-area: subordinates;
+}
+
+div.quondams {
+    grid-area: quondams;
+}
+
+div.sources {
+    grid-area: sources;
+}
+
+
+.dl-single-line {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 0.5em;
+}
+
+.photo {
+    display: grid;
+    grid-template-columns: 1fr;
+}
+
+.photo figure img {
+    width: 12em;
+    margin: 0em;
+    border: 10px solid lightgray;
+}
+
+.photo figure figcaption {
+    width: 20em;
+    padding-inline: 1em;
+    font-size: x-small;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+dl.contact-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+dl.office-list dt {
+    margin-bottom: 0.3em;
+}
+
+span.ext-links {
+    margin-left: 1em;
+}
+
+.icon svg {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.15em;
+}
+
+button .icon svg path {
+    fill: white;
+}
+
+@media (prefers-color-scheme: dark) {
+    .icon svg path {
+        fill: white;
+    }
+}
+
+div.toolbar {
+    text-align: right;
+    font-size: small
+}

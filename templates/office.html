@@ -2,33 +2,6 @@
 {% import "macros.html" as macros %}
 {% block content %}
 <style>
-  div.toolbar {
-    grid-area: toolbar;
-  }
-  div.photo {
-    grid-area: photo;
-  }
-
-  div.title {
-    grid-area: title;
-  }
-
-  div.offices {
-    grid-area: incumbent;
-  }
-
-  div.contacts {
-    grid-area: contacts;
-  }
-
-  div.quondams {
-    grid-area: quondams;
-  }
-
-  div.sources {
-    grid-area: sources;
-  }
-
   main {
     display: grid;
     column-gap: 1em;
@@ -45,7 +18,7 @@
   @media (min-width: 40em) {
     main {
       grid-template-columns: 1fr 3fr;
-      grid-template-rows: min-content min-content min-content 1fr auto auto;
+      grid-template-rows: min-content min-content 1fr 1fr auto auto;
       grid-template-areas:
         "toolbar toolbar"
         "photo title"
@@ -53,46 +26,6 @@
         "quondams quondams"
         "sources sources";
     }
-  }
-  .dl-single-line {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      column-gap: 0.5em;
-  }
-  
-  .photo figure div.photo-bg {
-      background-color: lightgray;
-      padding: 0.75em;
-      display: inline-block;
-  }
-  .photo figure {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-  .photo figure div.photo-bg img {
-      width: 12em;
-      margin: 0em;
-  }
-  .photo figure figcaption {
-    padding-inline: 1em;
-    font-size: x-small;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  dl.contact-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 0.5em;
-  }
-  dl.contact-list .dl-single-line dt svg {
-      width: 1.3em;
-      height: 1.3em;
-      vertical-align: -0.125em;
-  }
-  div.toolbar {
-    text-align: right;
-    font-size: small
   }
 </style>
 <main>
