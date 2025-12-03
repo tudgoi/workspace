@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form hx-post="./{{ typ }}">
+    <div></div>
+        <label>ID</label>:
+        <input type="text" name="id" value="">
+    </div>
+    <div>
+        <label>Name</label>:
+        <input type="text" name="name" value="">
+    </div>
+    <button type="submit">Save</button>
+</form>
+{% endblock content %}

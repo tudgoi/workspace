@@ -5,11 +5,48 @@ use std::sync::Arc;
 
 use askama::Template;
 use askama_web::WebTemplate;
-use axum::extract::{Path, State};
+use axum::{Form, extract::{Path, State}, response::Response};
+use serde::Deserialize;
 
 use crate::{
-    LibrarySql, context, data, serve::{AppError, AppState}
+    LibrarySql, context, data, serve::{AppError, AppState, hx_redirect}
 };
+
+#[derive(Template, WebTemplate)]
+#[template(path = "entity/new.html")]
+pub struct NewTemplate {
+    config: Arc<context::Config>,
+    typ: String,
+}
+
+#[axum::debug_handler]
+pub async fn new_form(
+    State(state): State<Arc<AppState>>,
+    Path(typ): Path<String>,
+) -> Result<NewTemplate, AppError> {
+    Ok(NewTemplate {
+        typ,
+        config: state.config.clone(),
+    })
+}
+
+#[derive(Deserialize)]
+pub struct NewForm {
+    pub id: String,
+    pub name: String,
+}
+
+#[axum::debug_handler]
+pub async fn new(
+    State(state): State<Arc<AppState>>,
+    Path(typ): Path<String>,
+    Form(form): Form<NewForm>,
+) -> Result<Response, AppError> {
+    let conn = state.get_conn()?;
+    conn.new_entity(&typ, &form.id, &form.name)?;
+
+    Ok(hx_redirect(&format!("/{}/{}/edit", &typ, &form.id))?)
+}
 
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/edit.html")]

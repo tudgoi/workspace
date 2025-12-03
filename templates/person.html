@@ -1,5 +1,9 @@
-{% extends "base.html" %}
-{% import "macros.html" as macros %}
+{% extends "entity.html" %}
+{% block toolbar %}
+  {{ super() }}
+  <a href="{{person.id}}/edit">Edit</a>
+{% endblock toolbar %}
+
 {% block content %}
 <style>
   main {
@@ -34,11 +38,6 @@
   }
 </style>
 <main>
-  <div class="toolbar">
-    {% if page.dynamic %}
-    <a href="{{person.id}}/edit">Edit</a>
-    {% endif %}
-  </div>
   <div class="photo">
     {% if photo %}
     {{ macros::render_photo(photo=photo, alt=person.name) }}
@@ -127,11 +126,3 @@
   </div>
 </main>
 {% endblock content %}
-
-{% block updated %}
-{% if metadata.updated %}
-Last updated on {{ metadata.commit_date | date(format="%d %B, %Y")}}
-{% else %}
-Local version
-{% endif %}
-{% endblock updated %}

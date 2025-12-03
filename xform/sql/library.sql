@@ -1,3 +1,11 @@
+-- name: new_entity!
+-- Adds a new entity of the given type
+-- param: typ: &str - entity type
+-- param: id: &str - entity ID
+-- param: name: &str - name
+INSERT INTO entity (type, id, name)
+VALUES (:typ, :id, :name);
+
 -- name: get_entity_name->
 -- Returns the name of the entity of the given type with the given id
 -- # Parameters

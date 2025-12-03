@@ -6,9 +6,9 @@ use anyhow::{Context, Result};
 use axum::{
     Router,
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header::InvalidHeaderValue},
     response::{Html, IntoResponse, Response},
-    routing::{get, put},
+    routing::{get, post, put},
 };
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
@@ -23,7 +23,7 @@ use crate::{
 use tower_livereload::LiveReloadLayer;
 
 #[derive(Debug, thiserror::Error)]
-enum AppError {
+pub enum AppError {
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
     #[error(transparent)]
@@ -34,6 +34,8 @@ enum AppError {
     R2D2(#[from] R2D2Error),
     #[error(transparent)]
     Rusqlite(#[from] rusqlite::Error),
+    #[error(transparent)]
+    Internal(#[from] InvalidHeaderValue),
 }
 
 impl IntoResponse for AppError {
@@ -63,6 +65,8 @@ pub async fn run(
         .route("/office/{id}", get(office_page))
         .route("/search.db", get(search_db))
         .route("/changes", get(changes))
+        .route("/new/{typ}", get(handler::entity::new_form))
+        .route("/new/{typ}", post(handler::entity::new))
         .route("/{typ}/{id}/edit", get(handler::entity::edit))
         .route("/{typ}/{id}/name/edit", get(handler::entity::name::edit))
         .route("/{typ}/{id}/name", get(handler::entity::name::view))
@@ -203,4 +207,15 @@ async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, App
         .with_context(|| "could not render index")?;
 
     Ok(Html(body))
+}
+
+
+pub fn hx_redirect(url: &str) -> Result<Response, AppError> {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("hx-redirect"),
+        HeaderValue::from_str(url)?,
+    );
+    
+    Ok((StatusCode::OK, headers).into_response())
 }

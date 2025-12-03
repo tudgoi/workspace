@@ -122,6 +122,8 @@ button .icon svg path {
 }
 
 div.toolbar {
-    text-align: right;
-    font-size: small
+    display: flex;
+    gap: 0.75em;
+    justify-content: flex-end;
+    font-size: small;
 }

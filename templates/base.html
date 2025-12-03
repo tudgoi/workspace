@@ -10,7 +10,15 @@
   </head>
   <body>
     <header>
+      <div class="logo">
         <b><a href="{{ config.base_url }}">{{ config.title }}</a></b>
+      </div>
+      <div class="toolbar">
+        {% block toolbar %}
+        <a href="/new/person">New Person</a>
+        <a href="/new/office">New Office</a>
+        {% endblock toolbar %}
+      </div>
     </header>
     {% block content %}{% endblock content %}
     <footer>
