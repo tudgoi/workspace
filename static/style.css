@@ -80,6 +80,7 @@ div.sources {
     width: 12em;
     margin: 0em;
     border: 10px solid lightgray;
+    background-color: seashell;
 }
 
 .photo figure figcaption {
