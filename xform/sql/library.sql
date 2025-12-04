@@ -71,3 +71,17 @@ SET
 WHERE
     entity_type = :typ AND entity_id = :id
 /
+-- name: attach_db!
+-- Attaches the given DB as 'db'
+-- # Parameters
+-- param: path: &str
+ATTACH DATABASE :path AS db;
+/
+-- name: copy_entity_from_db!
+-- Copies all the rows from entity table from the previously attached DB
+INSERT INTO entity SELECT * FROM db.entity;
+/
+-- name: detach_db!
+-- Detaches the previously attached db
+DETACH DATABASE db;
+/

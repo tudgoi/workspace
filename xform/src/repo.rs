@@ -5,7 +5,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde_variant::to_variant_name;
 
 use crate::{
-    context::{self}, data::{self}, dto::{self, EntityType}, graph, ENTITY_SCHEMA_SQL, PROPERTY_SCHEMA_SQL
+    PROPERTY_SCHEMA_SQL, SchemaSql, context::{self}, data::{self}, dto::{self, EntityType}, graph
 };
 
 pub struct Repository<'a> {
@@ -64,8 +64,7 @@ impl<'a> Repository<'a> {
     }
 
     pub fn setup_database(&self) -> Result<()> {
-        self.conn
-            .execute_batch(ENTITY_SCHEMA_SQL)
+        self.conn.create_entity_tables()
             .with_context(|| format!("could not create entity schema"))?;
 
         self.conn

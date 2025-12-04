@@ -18,12 +18,14 @@ use tower_http::services::ServeDir;
 
 use crate::{
     context, from_toml_file,
-    render::{self, ContextFetcher, Renderer},
+    render::{ContextFetcher, Renderer},
 };
 use tower_livereload::LiveReloadLayer;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
+    #[error("Unexpected: {0}")]
+    Unexpected(String),
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
     #[error(transparent)]
@@ -63,7 +65,7 @@ pub async fn run(
         .route("/", get(handler::index))
         .route("/person/{id}", get(person_page))
         .route("/office/{id}", get(office_page))
-        .route("/search.db", get(search_db))
+        .route("/search.db", get(handler::search_db))
         .route("/uncommitted", get(handler::uncommitted))
         .route("/new/{typ}", get(handler::entity::new_form))
         .route("/new/{typ}", post(handler::entity::new))
@@ -164,17 +166,6 @@ async fn office_page(
         .with_context(|| "could not render office page")?;
 
     Ok(Html(body))
-}
-
-#[axum::debug_handler]
-async fn search_db(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    match render::create_search_database_in_memory(&state.db) {
-        Ok(db_bytes) => (StatusCode::OK, db_bytes),
-        Err(error) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("could not build search.db: {}", error.to_string()).into(),
-        ),
-    }
 }
 
 pub fn hx_redirect(url: &str) -> Result<Response, AppError> {

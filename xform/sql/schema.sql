@@ -1,3 +1,6 @@
+-- name: create_entity_tables &
+-- Create tables for storing entity.
+BEGIN;
 -- [entity]
 CREATE TABLE entity (
   type TEXT NOT NULL,
@@ -27,12 +30,6 @@ VALUES('delete', old.rowid, old.id, old.name);
 INSERT INTO entity_idx(rowid, id, name)
 VALUES (new.rowid, new.id, new.name);
 END;
--- TODO Shouldn't this be in property.sql?
--- [entity_photo]
-CREATE TABLE entity_photo (
-  entity_type TEXT NOT NULL,
-  entity_id TEXT NOT NULL,
-  url TEXT NOT NULL,
-  attribution TEXT,
-  PRIMARY KEY(entity_type, entity_id) FOREIGN KEY(entity_type, entity_id) REFERENCES entity(type, id)
-);
+--
+COMMIT;
+/

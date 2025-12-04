@@ -7,8 +7,8 @@ use std::{fs, sync::Arc};
 use tera;
 use tera::Tera;
 
+use crate::{LibrarySql, SchemaSql};
 use crate::{
-    ENTITY_SCHEMA_SQL,
     context::{OfficeContext, PersonContext},
     dto, graph,
     serve::{self, AppState},
@@ -278,42 +278,18 @@ fn render_offices(
 pub fn create_search_database(search_db_path: &Path, db_path: &Path) -> Result<()> {
     let conn = Connection::open(search_db_path)
         .with_context(|| format!("could not create search database"))?;
-    let conn = populate_search_database(conn, db_path)
-        .with_context(|| format!("could not populate search database"))?;
-    //
+    conn.create_entity_tables()?;
+    let db_path_str= db_path
+        .to_str()
+        .with_context(|| format!("could not convert path {:?}", db_path))?;
+    conn.attach_db(db_path_str)?;
+    conn.copy_entity_from_db()?;
+    conn.detach_db()?;
+    
     // The error from `close` is `(Connection, Error)`, so we map it to just the error.
     conn.close()
         .map_err(|(_, err)| err)
         .with_context(|| format!("could not close search database"))?;
 
     Ok(())
-}
-
-pub fn create_search_database_in_memory(db_path: &Path) -> Result<Vec<u8>> {
-    let conn = Connection::open_in_memory()
-        .with_context(|| format!("could not create search database"))?;
-    let conn = populate_search_database(conn, db_path)
-        .with_context(|| format!("could not populate search database"))?;
-    let db_bytes = conn
-        .serialize("main")
-        .with_context(|| format!("could not serialize search database"))?;
-
-    Ok(db_bytes.to_vec())
-}
-
-fn populate_search_database(conn: Connection, db_path: &Path) -> Result<Connection> {
-    let db_path_str = db_path
-        .to_str()
-        .with_context(|| format!("could not convert {:?} to str", db_path))?;
-    conn.execute_batch(ENTITY_SCHEMA_SQL)
-        .with_context(|| format!("could not setup search database"))?;
-    conn.execute("ATTACH DATABASE ?1 AS db", [db_path_str])
-        .with_context(|| format!("could not attach search database"))?;
-    conn.execute_batch("INSERT INTO entity SELECT * FROM db.entity")
-        .with_context(|| format!("could not copy data to search DB"))?;
-
-    conn.execute_batch("DETACH DATABASE db")
-        .with_context(|| format!("could not detach search database"))?;
-
-    Ok(conn)
 }

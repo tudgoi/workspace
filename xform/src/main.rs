@@ -18,7 +18,7 @@ mod repo;
 mod serve;
 
 include_sql!("sql/library.sql");
-const ENTITY_SCHEMA_SQL: &str = include_str!("../schema/entity.sql");
+include_sql!("sql/schema.sql");
 const PROPERTY_SCHEMA_SQL: &str = include_str!("../schema/property.sql");
 
 #[derive(Parser)]
