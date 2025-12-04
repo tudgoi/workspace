@@ -1,3 +1,9 @@
+-- name: get_entity_counts->
+-- Returns the number of person and office entities present
+SELECT 
+    COUNT(CASE WHEN type = 'person' THEN 1 END) AS persons,
+    COUNT(CASE WHEN type = 'office' THEN 1 END) AS offices
+FROM entity;
 -- name: new_entity!
 -- Adds a new entity of the given type
 -- param: typ: &str - entity type
@@ -5,7 +11,7 @@
 -- param: name: &str - name
 INSERT INTO entity (type, id, name)
 VALUES (:typ, :id, :name);
-
+/
 -- name: get_entity_name->
 -- Returns the name of the entity of the given type with the given id
 -- # Parameters

@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
+use askama::Template;
+use axum::extract::State;
 use rusqlite::Connection;
-use std::fs;
+use std::{fs, sync::Arc};
 use std::path::Path;
 use tera;
 use tera::Tera;
@@ -8,14 +10,15 @@ use tera::Tera;
 use crate::{
     ENTITY_SCHEMA_SQL, OutputFormat,
     context::{OfficeContext, PersonContext}, dto, graph,
-    serve::AppState,
+    serve::{self, AppState},
 };
 
 use super::repo;
 use crate::context::{self, Maintenance, Page, Person};
 
-pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputFormat) -> Result<()> {
-    let state = AppState::new(db.to_path_buf(), templates.to_path_buf())?;
+#[tokio::main]
+pub async fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputFormat) -> Result<()> {
+    let state = AppState::new(db.to_path_buf(), templates.to_path_buf(), false)?;
     let mut pooled_conn = state.db_pool.get()?;
     let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
@@ -33,12 +36,8 @@ pub fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputForm
         .with_context(|| format!("could not render offices"))?;
 
     // render index
-    let context = context_fetcher
-        .fetch_index()
-        .with_context(|| format!("could not fetch context for index"))?;
-    let str = renderer
-        .render_index(&context)
-        .with_context(|| format!("could not render index"))?;
+    let template = serve::handler::index(State(Arc::new(state))).await?;
+    let str = template.render()?;
     let extension = match output_format {
         OutputFormat::Html => ".html",
         OutputFormat::Json => ".json",

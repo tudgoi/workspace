@@ -1,4 +1,4 @@
-mod handler;
+pub mod handler;
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -57,10 +57,10 @@ pub async fn run(
     static_files: PathBuf,
     port: Option<&str>,
 ) -> Result<()> {
-    let state = AppState::new(db, templates)?;
+    let state = AppState::new(db, templates, true)?;
 
     let app = Router::new()
-        .route("/", get(root))
+        .route("/", get(handler::index))
         .route("/person/{id}", get(person_page))
         .route("/office/{id}", get(office_page))
         .route("/search.db", get(search_db))
@@ -92,6 +92,7 @@ pub async fn run(
 }
 
 pub struct AppState {
+    pub dynamic: bool,
     pub db: PathBuf,
     pub db_pool: Pool<SqliteConnectionManager>,
     pub templates: PathBuf,
@@ -99,7 +100,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(db: PathBuf, templates: PathBuf) -> Result<Self> {
+    pub fn new(db: PathBuf, templates: PathBuf, dynamic: bool) -> Result<Self> {
         let config: context::Config = from_toml_file(templates.join("config.toml"))
             .with_context(|| format!("could not parse config"))?;
 
@@ -109,6 +110,7 @@ impl AppState {
             .build(manager)?;
 
         Ok(AppState {
+            dynamic,
             db,
             db_pool,
             templates,
@@ -119,23 +121,6 @@ impl AppState {
     pub fn get_conn(&self) -> Result<PooledConnection<SqliteConnectionManager>, R2D2Error> {
         self.db_pool.get()
     }
-}
-
-#[axum::debug_handler]
-async fn root(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
-    let mut pooled_conn = state.get_conn()?;
-    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
-        .with_context(|| format!("could not create context fetcher"))?;
-    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
-
-    let context = context_fetcher
-        .fetch_index()
-        .with_context(|| format!("could not fetch index context"))?;
-    let body = renderer
-        .render_index(&context)
-        .with_context(|| format!("could not render index"))?;
-
-    Ok(Html(body))
 }
 
 #[axum::debug_handler]

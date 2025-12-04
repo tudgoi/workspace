@@ -16,6 +16,7 @@ use crate::{
 #[template(path = "entity/new.html")]
 pub struct NewTemplate {
     config: Arc<context::Config>,
+    page: context::Page,
     typ: String,
 }
 
@@ -27,6 +28,10 @@ pub async fn new_form(
     Ok(NewTemplate {
         typ,
         config: state.config.clone(),
+        page: context::Page {
+            dynamic: state.dynamic,
+            base: String::from("../")
+        }
     })
 }
 
@@ -52,6 +57,7 @@ pub async fn new(
 #[template(path = "entity/edit.html")]
 pub struct EditTemplate {
     config: Arc<context::Config>,
+    page: context::Page,
     typ: String,
     id: String,
     name: String,
@@ -85,5 +91,9 @@ pub async fn edit(
         name,
         photo,
         config: state.config.clone(),
+        page: context::Page {
+            dynamic: state.dynamic,
+            base: String::from("../../")
+        }
     })
 }

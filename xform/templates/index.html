@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+This is an attempt at collating the contact information and power structure of
+the people who serve and govern India.
+
+We are just starting out and this site will likely be under development for a long time,
+before it becomes practically usable. If you are interested in joining, checkout
+the <a href="https://github.com/tudgoi/workspace">project source code</a>.
+
+  <hr/>
+
+  <div class="site-metric">
+	  Tracking <b>{{ persons }}</b> persons across <b>{{ offices }}</b> offices.
+  </div>
+  <div class="search">
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="e.g. 'president'" />
+    </div>
+    <div id="status" class="status">Loading search engine...</div>
+    <div id="results" class="results"></div>
+  </div>
+
+  <script type="module">
+    let db;
+    const statusDiv = document.getElementById('status');
+    const searchInput = document.getElementById('searchInput');
+    const resultsDiv = document.getElementById('results');
+
+    async function initializeSearch() {
+        try {
+            const sqlite3 = await sqlite3InitModule();
+            const response = await fetch('search.db');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch search.db: ${response.statusText}`);
+            }
+            const dbBuffer = await response.arrayBuffer();
+            db = new sqlite3.oo1.DB();
+            const p = sqlite3.wasm.allocFromTypedArray(dbBuffer);
+            db.onclose = { after: () => sqlite3.wasm.dealloc(p) };
+            let rc = sqlite3.capi.sqlite3_deserialize(
+                db.pointer, 'main', p, dbBuffer.byteLength, dbBuffer.byteLength,
+                sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE |
+                sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE
+            );
+            db.checkRc(rc);
+
+            searchInput.disabled = false;
+            statusDiv.textContent = 'Search engine loaded. Ready to search.';
+            searchInput.focus();
+        } catch (error) {
+            console.error('Initialization error:', error);
+            statusDiv.innerHTML = `<div class="error">Failed to load search engine: ${error.message}</div>`;
+        }
+    }
+
+    function performSearch(query) {
+        if (!db) {
+            statusDiv.innerHTML = '<div class="error">Search engine not initialized</div>';
+            return;
+        }
+
+        if (!query) {
+            resultsDiv.innerHTML = '';
+            statusDiv.textContent = 'Enter a search query to see results.';
+            return;
+        }
+
+        try {
+            const startTime = performance.now();
+
+            const results = [];
+            const sql = `
+                SELECT e.type, e.id, e.name 
+                FROM entity_idx(?1) AS fts
+                JOIN entity AS e ON fts.rowid = e.rowid
+                ORDER BY rank
+            `;
+            db.exec({
+                sql: sql,
+                bind: [`"${query.replace(/"/g, '""')}"`],
+                rowMode: 'object',
+                callback: function (row) {
+                    results.push(row);
+                }
+            });
+
+            const endTime = performance.now();
+            const searchTime = (endTime - startTime).toFixed(3);
+
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
+            } else {
+                const resultHTML = results.map(result => {
+                    const url = `{{ page.base }}${result.type}/${result.id}.html`;
+                    return `
+                        <div class="result-item">
+                            <a href="${url}" class="result-title">${result.name}</a>
+                        </div>
+                    `;
+                }).join('');
+
+                resultsDiv.innerHTML = resultHTML;
+                statusDiv.textContent = `Found ${results.length} result${results.length !== 1 ? 's' : ''} for "${query}" (${searchTime}ms)`;
+            }
+
+        } catch (error) {
+            console.error('Search error:', error);
+            resultsDiv.innerHTML = '<div class="error">Search failed. Check console for details.</div>';
+            statusDiv.innerHTML = `<div class="error">Search failed: ${error.message}</div>`;
+        }
+    }
+
+    // Load sqlite3.js and initialize
+    const script = document.createElement('script');
+    script.src = '/static/jswasm/sqlite3.js';
+    script.onload = () => {
+        self.sqlite3InitModule = self.sqlite3InitModule;
+        initializeSearch();
+    };
+    document.head.appendChild(script);
+
+    // Event Listeners
+    searchInput.addEventListener('keypress', function (event) {
+        // Enter key support
+        if (event.key === 'Enter') {
+            const query = searchInput.value.trim();
+            performSearch(query);
+        }
+    });
+
+    searchInput.addEventListener('input', function (event) {
+        // Instant search support
+        const query = event.target.value.trim();
+        performSearch(query);
+    });
+
+    // Disable input until ready
+    searchInput.disabled = true;
+  </script>
+
+{% endblock content %}
