@@ -21,13 +21,6 @@ pub struct Office {
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
 }
 
-
-#[derive(Debug)]
-pub struct Counts {
-    pub persons: u32,
-    pub offices: u32,
-}
-
 #[derive(Debug)]
 pub struct Entity {
     pub entity_type: EntityType,

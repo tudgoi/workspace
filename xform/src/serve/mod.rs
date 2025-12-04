@@ -17,7 +17,7 @@ use r2d2::Error as R2D2Error;
 use tower_http::services::ServeDir;
 
 use crate::{
-    OutputFormat, context, from_toml_file,
+    context, from_toml_file,
     render::{self, ContextFetcher, Renderer},
 };
 use tower_livereload::LiveReloadLayer;
@@ -133,7 +133,7 @@ async fn person_page(
     let mut pooled_conn = state.get_conn()?;
     let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
-    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
+    let renderer = Renderer::new(&state.templates)?;
 
     let person_context = context_fetcher.fetch_person(true, id)?;
 
@@ -155,7 +155,7 @@ async fn office_page(
 
     let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
-    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
+    let renderer = Renderer::new(&state.templates)?;
 
     let office_context = context_fetcher.fetch_office(true, id)?;
 
@@ -182,7 +182,7 @@ async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, App
     let mut pooled_conn = state.get_conn()?;
     let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
-    let renderer = Renderer::new(&state.templates, OutputFormat::Html)?;
+    let renderer = Renderer::new(&state.templates)?;
 
     let context = context_fetcher
         .fetch_changes()

@@ -2,14 +2,15 @@ use anyhow::{Context, Result};
 use askama::Template;
 use axum::extract::State;
 use rusqlite::Connection;
-use std::{fs, sync::Arc};
 use std::path::Path;
+use std::{fs, sync::Arc};
 use tera;
 use tera::Tera;
 
 use crate::{
-    ENTITY_SCHEMA_SQL, OutputFormat,
-    context::{OfficeContext, PersonContext}, dto, graph,
+    ENTITY_SCHEMA_SQL,
+    context::{OfficeContext, PersonContext},
+    dto, graph,
     serve::{self, AppState},
 };
 
@@ -17,7 +18,7 @@ use super::repo;
 use crate::context::{self, Maintenance, Page, Person};
 
 #[tokio::main]
-pub async fn run(db: &Path, templates: &Path, output: &Path, output_format: OutputFormat) -> Result<()> {
+pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
     let state = AppState::new(db.to_path_buf(), templates.to_path_buf(), false)?;
     let mut pooled_conn = state.db_pool.get()?;
     let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
@@ -25,31 +26,25 @@ pub async fn run(db: &Path, templates: &Path, output: &Path, output_format: Outp
 
     fs::create_dir(output).with_context(|| format!("could not create output dir {:?}", output))?;
 
-    let renderer = Renderer::new(templates, output_format)?;
+    let renderer = Renderer::new(templates)?;
 
     // persons
-    render_persons(&context_fetcher, &renderer, output, output_format)
+    render_persons(&context_fetcher, &renderer, output)
         .with_context(|| format!("could not render persons"))?;
 
     // offices
-    render_offices(&context_fetcher, &renderer, output, output_format)
+    render_offices(&context_fetcher, &renderer, output)
         .with_context(|| format!("could not render offices"))?;
 
     // render index
     let template = serve::handler::index(State(Arc::new(state))).await?;
     let str = template.render()?;
-    let extension = match output_format {
-        OutputFormat::Html => ".html",
-        OutputFormat::Json => ".json",
-    };
-    let output_path = output.join(format!("index{}", extension));
+    let output_path = output.join("index.html");
     fs::write(output_path.as_path(), str)
         .with_context(|| format!("could not write rendered file {:?}", output_path))?;
 
-    if output_format == OutputFormat::Html {
-        let search_db_path = output.join("search.db");
-        create_search_database(&search_db_path, db)?;
-    }
+    let search_db_path = output.join("search.db");
+    create_search_database(&search_db_path, db)?;
 
     Ok(())
 }
@@ -186,20 +181,6 @@ impl<'a> ContextFetcher<'a> {
         })
     }
 
-    pub fn fetch_index(&self) -> Result<context::IndexContext> {
-        let counts = self.repo.query_counts()?;
-
-        Ok(context::IndexContext {
-            persons: counts.persons,
-            offices: counts.offices,
-            page: Page {
-                base: "./".to_string(),
-                dynamic: false,
-            },
-            config: self.config.clone(),
-        })
-    }
-
     pub fn fetch_changes(&self) -> Result<context::ChangesContext> {
         let persons = self
             .repo
@@ -224,11 +205,10 @@ impl<'a> ContextFetcher<'a> {
 
 pub struct Renderer {
     tera: Tera,
-    output_format: OutputFormat,
 }
 
 impl Renderer {
-    pub fn new(templates: &Path, output_format: OutputFormat) -> Result<Self> {
+    pub fn new(templates: &Path) -> Result<Self> {
         let templates_glob = templates.join("**").join("*.html");
         let templates_glob_str = templates_glob
             .to_str()
@@ -236,14 +216,7 @@ impl Renderer {
         let tera = Tera::new(templates_glob_str)
             .with_context(|| format!("could not create Tera instance"))?;
 
-        Ok(Renderer {
-            tera,
-            output_format,
-        })
-    }
-
-    pub fn render_index(&self, context: &context::IndexContext) -> Result<String> {
-        self.render(&context, "index.html")
+        Ok(Renderer { tera })
     }
 
     pub fn render_changes(&self, context: &context::ChangesContext) -> Result<String> {
@@ -259,20 +232,11 @@ impl Renderer {
     }
 
     fn render<T: serde::Serialize>(&self, context: &T, template_name: &str) -> Result<String> {
-        match self.output_format {
-            OutputFormat::Json => {
-                let str = serde_json::to_string(&context)?;
-
-                Ok(str)
-            }
-            OutputFormat::Html => {
-                let context = tera::Context::from_serialize(context)
-                    .with_context(|| format!("could not create convert person to context"))?;
-                self.tera.render(template_name, &context).with_context(|| {
-                    format!("could not render template {} with context", template_name)
-                })
-            }
-        }
+        let context = tera::Context::from_serialize(context)
+            .with_context(|| format!("could not create convert person to context"))?;
+        self.tera
+            .render(template_name, &context)
+            .with_context(|| format!("could not render template {} with context", template_name))
     }
 }
 
@@ -280,7 +244,6 @@ fn render_persons(
     context_fetcher: &ContextFetcher,
     renderer: &Renderer,
     output: &Path,
-    output_format: OutputFormat,
 ) -> Result<()> {
     // persons
     let person_path = output.join("person");
@@ -298,19 +261,10 @@ fn render_persons(
             .with_context(|| format!("could not fetch context for person {}", id))?;
         let str = renderer.render_person(&person_context)?;
 
-        match output_format {
-            OutputFormat::Json => {
-                let output_path = person_path.join(format!("{}.json", person_context.person.id));
-                fs::write(output_path.as_path(), str)
-                    .with_context(|| format!("could not write rendered file {:?}", output_path))?;
-            }
-            OutputFormat::Html => {
-                let output_path = person_path.join(format!("{}.html", person_context.person.id));
+        let output_path = person_path.join(format!("{}.html", person_context.person.id));
 
-                fs::write(output_path.as_path(), str)
-                    .with_context(|| format!("could not write rendered file {:?}", output_path))?;
-            }
-        }
+        fs::write(output_path.as_path(), str)
+            .with_context(|| format!("could not write rendered file {:?}", output_path))?;
     }
 
     Ok(())
@@ -320,7 +274,6 @@ fn render_offices(
     context_fetcher: &ContextFetcher,
     renderer: &Renderer,
     output: &Path,
-    output_format: OutputFormat,
 ) -> Result<()> {
     // persons
     let office_path = output.join("office");
@@ -338,19 +291,10 @@ fn render_offices(
             .with_context(|| format!("could not fetch context for office {}", id))?;
         let str = renderer.render_office(&office_context)?;
 
-        match output_format {
-            OutputFormat::Json => {
-                let output_path = office_path.join(format!("{}.json", office_context.office.id));
-                fs::write(output_path.as_path(), str)
-                    .with_context(|| format!("could not write rendered file {:?}", output_path))?;
-            }
-            OutputFormat::Html => {
-                let output_path = office_path.join(format!("{}.html", office_context.office.id));
+        let output_path = office_path.join(format!("{}.html", office_context.office.id));
 
-                fs::write(output_path.as_path(), str)
-                    .with_context(|| format!("could not write rendered file {:?}", output_path))?;
-            }
-        }
+        fs::write(output_path.as_path(), str)
+            .with_context(|| format!("could not write rendered file {:?}", output_path))?;
     }
 
     Ok(())

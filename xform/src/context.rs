@@ -52,14 +52,6 @@ pub struct SupervisorsLabels {
 }
 
 #[derive(Serialize, Debug)]
-pub struct IndexContext {
-    pub persons: u32,
-    pub offices: u32,
-    pub config: Config,
-    pub page: Page,   
-}
-
-#[derive(Serialize, Debug)]
 pub struct ChangesContext {
     pub changes: Vec<Person>,
     pub config: Config,

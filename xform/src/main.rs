@@ -44,9 +44,6 @@ enum Commands {
         db: PathBuf,
         templates: PathBuf,
         output: PathBuf,
-
-        #[arg(short='o', long, value_enum, default_value_t = OutputFormat::Html)]
-        output_format: OutputFormat,
     },
 
     Augment {
@@ -86,12 +83,6 @@ enum Field {
     Wikipedia,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-enum OutputFormat {
-    Json,
-    Html,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Source {
     Wikidata,
@@ -116,12 +107,10 @@ fn main() -> Result<()> {
             db,
             templates,
             output,
-            output_format,
         } => render::run(
             db.as_path(),
             templates.as_path(),
             output.as_path(),
-            output_format,
         )
         .with_context(|| "could not run `render`"),
         Commands::Augment {

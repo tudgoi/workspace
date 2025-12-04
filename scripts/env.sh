@@ -34,11 +34,6 @@ serve () {
     )
 }
 
-render-json() {
-    rm -rf output/json &&
-    cargo run --manifest-path xform/Cargo.toml render output/directory.db templates output/json -o=json
-}
-
 all () {
     import && render 
 }

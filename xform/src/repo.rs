@@ -189,17 +189,6 @@ impl<'a> Repository<'a> {
         Ok(())
     }
 
-    pub fn query_counts(&self) -> Result<dto::Counts> {
-        Ok(dto::Counts {
-            persons: self
-                .conn
-                .query_row("SELECT COUNT(*) FROM person", [], |row| row.get(0))?,
-            offices: self
-                .conn
-                .query_row("SELECT COUNT(*) FROM office", [], |row| row.get(0))?,
-        })
-    }
-
     pub fn list_person_office_tenure(&self, person_id: &str) -> Result<Vec<data::Tenure>> {
         let mut stmt = self.conn.prepare(
             "
