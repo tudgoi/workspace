@@ -1,4 +1,10 @@
 {% extends "dynamic.html" %}
+
+{% block toolbar %}
+{% call super() %}
+<a href="../{{ id }}.html">View</a>
+{% endblock toolbar %}
+
 {% block content %}
 <dl>
     <dt>Name</dt>
