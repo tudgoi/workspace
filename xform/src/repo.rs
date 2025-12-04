@@ -774,30 +774,6 @@ impl<'a> Repository<'a> {
             .with_context(|| format!("could not get commit date for {} {}", entity_type_str, id))
     }
 
-    pub fn list_entity_uncommitted(&self) -> Result<Vec<dto::Entity>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT e.type, e.id, e.name FROM entity AS e LEFT JOIN entity_commit AS c ON e.id=c.entity_id WHERE e.type = 'person' AND c.date IS NULL ORDER BY e.id")?;
-
-        let entities = stmt
-            .query_map([], |row| {
-                let entity_type_str: String = row.get(0)?;
-                let entity_type = if entity_type_str == "person" {
-                    EntityType::Person
-                } else {
-                    EntityType::Office
-                };
-                Ok(dto::Entity {
-                    entity_type,
-                    id: row.get(1)?,
-                    name: row.get(2)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(entities)
-    }
-
     /// # person
     pub fn get_person(&self, id: &str) -> Result<Option<dto::Person>> {
         self.conn

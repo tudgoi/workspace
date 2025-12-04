@@ -1,0 +1,10 @@
+{% extends "dynamic.html" %}
+
+{% block content %}
+<h2>Uncommitted</h2>
+<ul>
+    {% for entity in entities %}
+    <li><a href="{{ entity.typ }}/{{ entity.id }}.html">{{ entity.name }}</a></li>
+    {% endfor %}
+</ul>
+{% endblock content %}

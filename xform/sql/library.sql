@@ -4,6 +4,16 @@ SELECT
     COUNT(CASE WHEN type = 'person' THEN 1 END) AS persons,
     COUNT(CASE WHEN type = 'office' THEN 1 END) AS offices
 FROM entity;
+/
+-- name: get_entity_uncommitted?
+-- Returns the entities that are local to the DB and not yet committed to git
+SELECT e.type, e.id, e.name
+FROM entity AS e
+LEFT JOIN entity_commit AS c
+ON e.id=c.entity_id AND e.type = c.entity_type
+WHERE c.date IS NULL
+ORDER BY e.name;
+/
 -- name: new_entity!
 -- Adds a new entity of the given type
 -- param: typ: &str - entity type

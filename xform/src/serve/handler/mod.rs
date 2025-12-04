@@ -4,8 +4,11 @@ use askama::Template;
 use askama_web::WebTemplate;
 use axum::extract::State;
 
-use crate::{context::{self, Page}, serve::{AppError, AppState}};
 use crate::LibrarySql;
+use crate::{
+    context::{self, Page},
+    serve::{AppError, AppState},
+};
 
 pub mod entity;
 
@@ -15,7 +18,7 @@ pub struct IndexTemplate {
     pub persons: u32,
     pub offices: u32,
     pub config: Arc<context::Config>,
-    pub page: context::Page,   
+    pub page: context::Page,
 }
 
 pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, AppError> {
@@ -24,7 +27,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
     let (persons, offices) = conn.get_entity_counts(|row| {
         let persons: u32 = row.get(0)?;
         let offices: u32 = row.get(1)?;
-        
+
         Ok((persons, offices))
     })?;
 
@@ -35,6 +38,47 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
         page: Page {
             dynamic: state.dynamic,
             base: String::from("./"),
+        },
+    })
+}
+
+pub struct Entity {
+    pub typ: String,
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "uncommitted.html")]
+pub struct UncommittedTemplate {
+    pub entities: Vec<Entity>,
+    pub config: Arc<context::Config>,
+    pub page: context::Page,
+}
+
+#[axum::debug_handler]
+pub async fn uncommitted(
+    State(state): State<Arc<AppState>>,
+) -> Result<UncommittedTemplate, AppError> {
+    let conn = state.get_conn()?;
+    let mut entities = Vec::new();
+    conn.get_entity_uncommitted(|row| {
+        let entity = Entity {
+            typ: row.get(0)?,
+            id: row.get(1)?,
+            name: row.get(2)?,
+        };
+        entities.push(entity);
+        
+        Ok(())
+    })?;
+
+    Ok(UncommittedTemplate {
+        entities,
+        config: state.config.clone(),
+        page: Page {
+            base: String::from("./"),
+            dynamic: true,
         },
     })
 }

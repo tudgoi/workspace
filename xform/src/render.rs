@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::repo;
-use crate::context::{self, Maintenance, Page, Person};
+use crate::context::{self, Maintenance};
 
 #[tokio::main]
 pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
@@ -180,27 +180,6 @@ impl<'a> ContextFetcher<'a> {
             metadata,
         })
     }
-
-    pub fn fetch_changes(&self) -> Result<context::ChangesContext> {
-        let persons = self
-            .repo
-            .list_entity_uncommitted()?
-            .into_iter()
-            .map(|v| Person {
-                id: v.id,
-                name: v.name,
-            })
-            .collect();
-
-        Ok(context::ChangesContext {
-            changes: persons,
-            page: Page {
-                base: "./".to_string(),
-                dynamic: false,
-            },
-            config: self.config.clone(),
-        })
-    }
 }
 
 pub struct Renderer {
@@ -217,10 +196,6 @@ impl Renderer {
             .with_context(|| format!("could not create Tera instance"))?;
 
         Ok(Renderer { tera })
-    }
-
-    pub fn render_changes(&self, context: &context::ChangesContext) -> Result<String> {
-        self.render(&context, "changes.html")
     }
 
     pub fn render_person(&self, context: &PersonContext) -> Result<String> {

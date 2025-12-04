@@ -64,7 +64,7 @@ pub async fn run(
         .route("/person/{id}", get(person_page))
         .route("/office/{id}", get(office_page))
         .route("/search.db", get(search_db))
-        .route("/changes", get(changes))
+        .route("/uncommitted", get(handler::uncommitted))
         .route("/new/{typ}", get(handler::entity::new_form))
         .route("/new/{typ}", post(handler::entity::new))
         .route("/{typ}/{id}/edit", get(handler::entity::edit))
@@ -176,24 +176,6 @@ async fn search_db(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         ),
     }
 }
-
-#[axum::debug_handler]
-async fn changes(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
-    let mut pooled_conn = state.get_conn()?;
-    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
-        .with_context(|| format!("could not create context fetcher"))?;
-    let renderer = Renderer::new(&state.templates)?;
-
-    let context = context_fetcher
-        .fetch_changes()
-        .with_context(|| "could not fetch changes context")?;
-    let body = renderer
-        .render_changes(&context)
-        .with_context(|| "could not render index")?;
-
-    Ok(Html(body))
-}
-
 
 pub fn hx_redirect(url: &str) -> Result<Response, AppError> {
     let mut headers = HeaderMap::new();

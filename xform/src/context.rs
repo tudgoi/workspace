@@ -52,13 +52,6 @@ pub struct SupervisorsLabels {
 }
 
 #[derive(Serialize, Debug)]
-pub struct ChangesContext {
-    pub changes: Vec<Person>,
-    pub config: Config,
-    pub page: Page,   
-}
-
-#[derive(Serialize, Debug)]
 pub struct PersonContext {
     pub person: Person,
     pub photo: Option<data::Photo>,
