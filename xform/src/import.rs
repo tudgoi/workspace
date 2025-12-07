@@ -3,6 +3,8 @@ use anyhow::{Context, Result, ensure};
 use std::path::Path;
 use std::process::Command;
 
+use crate::SchemaSql;
+
 use super::from_toml_file;
 use super::{data, repo};
 
@@ -64,11 +66,15 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
     // setup sqlite DB
     let mut conn = rusqlite::Connection::open(output)
         .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
+
+    conn.create_entity_tables()
+        .with_context(|| format!("could not create entity schema"))?;
+
+    conn.create_property_tables()
+        .with_context(|| format!("could not create property schema"))?;
+
     let mut repo = repo::Repository::new(&mut conn)
         .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
-
-    repo.setup_database()
-        .with_context(|| format!("could not setup database tables"))?;
 
     // process office
     let data_dir = source.join("office");
@@ -92,8 +98,8 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             format!("could not get last commit date for {:?}", file_entry.path())
         })?;
 
-        let office: data::Office = from_toml_file(file_entry.path())
-            .with_context(|| format!("could not load office"))?;
+        let office: data::Office =
+            from_toml_file(file_entry.path()).with_context(|| format!("could not load office"))?;
         repo.insert_office_data(id, &office, commit_date.as_deref())?;
     }
 

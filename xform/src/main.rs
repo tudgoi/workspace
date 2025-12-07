@@ -19,7 +19,6 @@ mod serve;
 
 include_sql!("sql/library.sql");
 include_sql!("sql/schema.sql");
-const PROPERTY_SCHEMA_SQL: &str = include_str!("../schema/property.sql");
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

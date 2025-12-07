@@ -5,7 +5,11 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde_variant::to_variant_name;
 
 use crate::{
-    PROPERTY_SCHEMA_SQL, SchemaSql, context::{self}, data::{self}, dto::{self, EntityType}, graph
+    SchemaSql,
+    context::{self},
+    data::{self},
+    dto::{self, EntityType},
+    graph,
 };
 
 pub struct Repository<'a> {
@@ -61,16 +65,6 @@ impl<'a> Repository<'a> {
         }
 
         Ok(map)
-    }
-
-    pub fn setup_database(&self) -> Result<()> {
-        self.conn.create_entity_tables()
-            .with_context(|| format!("could not create entity schema"))?;
-
-        self.conn
-            .execute_batch(PROPERTY_SCHEMA_SQL)
-            .with_context(|| format!("could not create property schema"))?;
-        Ok(())
     }
 
     pub fn insert_entity(
@@ -148,7 +142,12 @@ impl<'a> Repository<'a> {
         Ok(())
     }
 
-    pub fn insert_office_data(&mut self, id: &str, office: &data::Office, commit_date: Option<&str>) -> Result<()> {
+    pub fn insert_office_data(
+        &mut self,
+        id: &str,
+        office: &data::Office,
+        commit_date: Option<&str>,
+    ) -> Result<()> {
         let tx = self.conn.transaction()?;
 
         // Insert into the base 'entity' table
@@ -659,8 +658,12 @@ impl<'a> Repository<'a> {
     }
 
     /// # entity_photo
-    
-    pub fn get_entity_photo(&self, entity_type: graph::EntityType, id: &str) -> Result<Option<data::Photo>> {
+
+    pub fn get_entity_photo(
+        &self,
+        entity_type: graph::EntityType,
+        id: &str,
+    ) -> Result<Option<data::Photo>> {
         let entity_type_str: &str = to_variant_name(&entity_type)?;
         self.conn
             .query_row(
@@ -760,8 +763,12 @@ impl<'a> Repository<'a> {
     }
 
     /// # entity_commit
-    
-    pub fn get_entity_commit_date(&self, entity_type: graph::EntityType, id: &str) -> Result<Option<String>> {
+
+    pub fn get_entity_commit_date(
+        &self,
+        entity_type: graph::EntityType,
+        id: &str,
+    ) -> Result<Option<String>> {
         let entity_type_str: &str = to_variant_name(&entity_type)?;
         self.conn
             .query_row(
@@ -844,23 +851,28 @@ impl<'a> Repository<'a> {
         .collect::<Result<Vec<_>, _>>()
         .with_context(|| format!("could not list incumbent offices for person {}", person_id))
     }
-    
-    pub fn get_person_office_incumbent_person(&self, office_id: &str) -> Result<Option<context::Person>> {
+
+    pub fn get_person_office_incumbent_person(
+        &self,
+        office_id: &str,
+    ) -> Result<Option<context::Person>> {
         self.conn
             .query_row(
                 "SELECT p.id, p.name FROM person_office_incumbent AS i
                  JOIN person AS p ON i.person_id = p.id
                  WHERE i.office_id = ?1",
                 [office_id],
-                |row| Ok(context::Person {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                }),
+                |row| {
+                    Ok(context::Person {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                    })
+                },
             )
             .optional()
             .with_context(|| format!("could not get incumbent for office {}", office_id))
-    } 
-    
+    }
+
     /// # person_office_quondam
     pub fn list_person_office_quondam(&self, office_id: &str) -> Result<Vec<context::Quondam>> {
         let mut stmt = self.conn.prepare(
@@ -868,14 +880,18 @@ impl<'a> Repository<'a> {
              JOIN person AS p ON q.person_id = p.id
              WHERE q.office_id = ?1 ORDER BY q.end DESC",
         )?;
-        stmt.query_map([office_id], |row| Ok(context::Quondam {
-            person: context::Person{
-                id: row.get(0)?,
-                name: row.get(1)?,
-            },
-            start: row.get(2)?,
-            end: row.get(3)?,
-        }))?.collect::<Result<Vec<_>, _>>().with_context(|| format!("could not list quondams for office {}", office_id))
+        stmt.query_map([office_id], |row| {
+            Ok(context::Quondam {
+                person: context::Person {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                },
+                start: row.get(2)?,
+                end: row.get(3)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        .with_context(|| format!("could not list quondams for office {}", office_id))
     }
 
     // [office_supervisor]
