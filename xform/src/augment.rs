@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::{Field, Source, data, dto, repo};
+use crate::{Field, LibrarySql, Source, data, dto, repo};
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use rusqlite::Connection;
@@ -251,7 +251,7 @@ async fn augment_photo(repo: &mut repo::Repository<'_>, source: &dyn Augmentor) 
         let photo = source.query_photo(&wikidata_id).await?;
         if let Some(photo) = photo {
             println!("- found {}", photo.url);
-            repo.insert_entity_photo(
+            repo.conn.save_entity_photo(
                 &dto::EntityType::Person,
                 &person_id,
                 &photo.url,
@@ -264,7 +264,10 @@ async fn augment_photo(repo: &mut repo::Repository<'_>, source: &dyn Augmentor) 
     Ok(())
 }
 
-async fn augment_wikidata_id(repo: &mut repo::Repository<'_>, source: &dyn Augmentor) -> Result<()> {
+async fn augment_wikidata_id(
+    repo: &mut repo::Repository<'_>,
+    source: &dyn Augmentor,
+) -> Result<()> {
     let persons_to_augment = repo.query_persons_without_contact(data::ContactType::Wikidata)?;
 
     for person in persons_to_augment {

@@ -44,6 +44,17 @@ SET name = :name
 WHERE type = :typ
     AND id = :id
 /
+-- name: exists_entity_photo->
+-- Returns if an entity has a photo
+-- # Parameters
+-- param: typ: &dto::EntityType - entity type
+-- param: id: &str - entity ID
+SELECT EXISTS(
+    SELECT 1
+    FROM entity_photo
+    WHERE entity_type = :typ AND entity_id = :id
+)
+/
 -- name: get_entity_photo->
 -- Returns the photo of the entity of the given type with the given id
 -- # Parameters

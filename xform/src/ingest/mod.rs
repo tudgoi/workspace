@@ -1,11 +1,15 @@
-use rusqlite::Connection;
 use anyhow::{Context, Result, ensure};
+use rusqlite::Connection;
 use std::path::Path;
 
-use crate::{dto, graph, ingest::{derive::derive_id, old::OldIngestor}, repo, Source};
+use crate::{
+    LibrarySql, Source, dto, graph,
+    ingest::{derive::derive_id, old::OldIngestor},
+    repo,
+};
 
-mod old;
 mod derive;
+mod old;
 
 #[tokio::main]
 pub async fn run(db_path: &Path, source: Source, dir_path: Option<&Path>) -> Result<()> {
@@ -23,7 +27,7 @@ impl Ingestor {
         let conn = Connection::open(db_path)?;
         Ok(Self { conn })
     }
-    
+
     async fn ingest(&mut self, source: Source, dir_path: Option<&Path>) -> Result<()> {
         let mut repo = repo::Repository::new(&mut self.conn)
             .with_context(|| "could not open repository for ingestion")?;
@@ -54,7 +58,6 @@ impl Ingestor {
         }
         Ok(())
     }
-
 }
 
 async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entity) -> Result<()> {
@@ -62,7 +65,8 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
         .get_type()
         .with_context(|| format!("entity should have a type"))?;
     let entity_type: dto::EntityType = entity_type.clone().into();
-    let id = ingest_entity_id_or_name(repo, &entity_type, entity.get_id(), entity.get_name()).await?;
+    let id =
+        ingest_entity_id_or_name(repo, &entity_type, entity.get_id(), entity.get_name()).await?;
 
     for property in entity.0.values() {
         match property {
@@ -81,12 +85,17 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                     &dto::EntityType::Office,
                     office.get_id(),
                     office.get_name(),
-                ).await?;
+                )
+                .await?;
                 repo.insert_person_office_tenure(&id, &office_id)?;
             }
             graph::Property::Photo { url, attribution } => {
-                if !repo.entity_photo_exists(&entity_type, &id)? {
-                    repo.insert_entity_photo(&entity_type, &id, url, attribution.as_deref())
+                if !repo
+                    .conn
+                    .exists_entity_photo(&entity_type, &id, |row| Ok(row.get::<_, i32>(0)? == 1))?
+                {
+                    repo.conn
+                        .save_entity_photo(&entity_type, &id, url, attribution.as_deref())
                         .with_context(|| format!("Failed to ingest photo"))?;
                 }
             }
@@ -111,7 +120,8 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                         &dto::EntityType::Office,
                         supervising_office.get_id(),
                         supervising_office.get_name(),
-                    ).await?;
+                    )
+                    .await?;
 
                     repo.insert_office_supervisor(&id, relation, &supervising_office_id)?;
                 }
@@ -135,7 +145,7 @@ async fn ingest_entity_id_or_name<'a>(
             let name = name
                 .with_context(|| format!("entity {:?}:{} doesn't have a name", entity_type, id))?;
 
-            repo.insert_entity(entity_type, &id, name)?;
+            repo.conn.save_entity_name(entity_type, id, name)?;
         }
 
         Ok(id.to_string())
@@ -153,7 +163,8 @@ async fn ingest_entity_id_or_name<'a>(
             Ok(entity.id)
         } else {
             let id = derive_id(entity_type, name);
-            repo.insert_entity(entity_type, &id, name)
+            repo.conn
+                .save_entity_name(entity_type, &id, name)
                 .with_context(|| format!("could not insert entity {:?}:{}", entity_type, id))?;
 
             Ok(id)

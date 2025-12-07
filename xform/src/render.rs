@@ -7,7 +7,7 @@ use std::{fs, sync::Arc};
 use tera;
 use tera::Tera;
 
-use crate::{LibrarySql, SchemaSql};
+use crate::{LibrarySql, SchemaSql, data};
 use crate::{
     context::{OfficeContext, PersonContext},
     dto, graph,
@@ -144,7 +144,19 @@ impl<'a> ContextFetcher<'a> {
 
     pub fn fetch_office(&self, dynamic: bool, id: &str) -> Result<context::OfficeContext> {
         let name = self.repo.get_office_name(id)?;
-        let photo = self.repo.get_entity_photo(graph::EntityType::Office, id)?;
+        let photo = self
+            .repo
+            .conn
+            .get_entity_photo(&dto::EntityType::Office, id, |row| {
+                Ok(Some(data::Photo {
+                    url: row.get(0)?,
+                    attribution: row.get(1)?,
+                }))
+            })
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other),
+            })?;
         let contacts = self
             .repo
             .get_entity_contacts(&dto::EntityType::Office, id)?;
@@ -279,13 +291,13 @@ pub fn create_search_database(search_db_path: &Path, db_path: &Path) -> Result<(
     let conn = Connection::open(search_db_path)
         .with_context(|| format!("could not create search database"))?;
     conn.create_entity_tables()?;
-    let db_path_str= db_path
+    let db_path_str = db_path
         .to_str()
         .with_context(|| format!("could not convert path {:?}", db_path))?;
     conn.attach_db(db_path_str)?;
     conn.copy_entity_from_db()?;
     conn.detach_db()?;
-    
+
     // The error from `close` is `(Connection, Error)`, so we map it to just the error.
     conn.close()
         .map_err(|(_, err)| err)

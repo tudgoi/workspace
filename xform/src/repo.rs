@@ -5,6 +5,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde_variant::to_variant_name;
 
 use crate::{
+    LibrarySql,
     context::{self},
     data::{self},
     dto::{self, EntityType},
@@ -12,7 +13,7 @@ use crate::{
 };
 
 pub struct Repository<'a> {
-    conn: &'a mut Connection,
+    pub conn: &'a mut Connection,
     all_supervising_relation_variants: HashMap<String, data::SupervisingRelation>,
     all_contact_type_variants: HashMap<String, data::ContactType>,
 }
@@ -66,42 +67,24 @@ impl<'a> Repository<'a> {
         Ok(map)
     }
 
-    pub fn insert_entity(
-        &mut self,
-        entity_type: &dto::EntityType,
-        id: &str,
-        name: &str,
-    ) -> Result<()> {
-        let entity_type_str = to_variant_name(entity_type)
-            .with_context(|| format!("could not convert {:?} to string", entity_type))?;
-        self.conn.execute(
-            "INSERT INTO entity (type, id, name) VALUES (?1, ?2, ?3)",
-            params![entity_type_str, id, name],
-        )?;
-        Ok(())
-    }
-
     pub fn insert_person_data(
         &mut self,
         id: &str,
         person: &data::Person,
         commit_date: Option<&str>,
     ) -> Result<()> {
-        let tx = self.conn.transaction()?;
+        self.conn
+            .save_entity_name(&dto::EntityType::Person, id, &person.name)?;
 
-        // Insert into the base 'entity' table
-        tx.execute(
-            "INSERT INTO entity (type, id, name) VALUES ('person', ?1, ?2)",
-            params![id, &person.name],
-        )?;
-
-        // Insert photo if it exists
-        if let Some(photo) = &person.photo {
-            tx.execute(
-                "INSERT INTO entity_photo (entity_type, entity_id, url, attribution) VALUES ('person', ?1, ?2, ?3)",
-                params![id, &photo.url, &photo.attribution],
+        if let Some(data::Photo { url, attribution }) = &person.photo {
+            self.conn.save_entity_photo(
+                &dto::EntityType::Person,
+                id,
+                url,
+                attribution.as_ref().map(String::as_str),
             )?;
         }
+        let tx = self.conn.transaction()?;
 
         // Insert contacts if they exist
         if let Some(contacts) = &person.contacts {
@@ -147,21 +130,19 @@ impl<'a> Repository<'a> {
         office: &data::Office,
         commit_date: Option<&str>,
     ) -> Result<()> {
-        let tx = self.conn.transaction()?;
+        self.conn
+            .save_entity_name(&dto::EntityType::Office, id, &office.name)?;
 
-        // Insert into the base 'entity' table
-        tx.execute(
-            "INSERT INTO entity (type, id, name) VALUES ('office', ?1, ?2)",
-            params![id, &office.name],
-        )?;
-
-        // Insert photo if it exists
-        if let Some(photo) = &office.photo {
-            tx.execute(
-                "INSERT INTO entity_photo (entity_type, entity_id, url, attribution) VALUES ('office', ?1, ?2, ?3)",
-                params![id, &photo.url, &photo.attribution],
-            ).with_context(|| format!("could not insert photo for office"))?;
+        if let Some(data::Photo { url, attribution }) = &office.photo {
+            self.conn.save_entity_photo(
+                &dto::EntityType::Office,
+                id,
+                url,
+                attribution.as_ref().map(String::as_str),
+            )?;
         }
+
+        let tx = self.conn.transaction()?;
 
         // Insert supervisors if they exist
         if let Some(supervisors) = &office.supervisors {
@@ -536,18 +517,6 @@ impl<'a> Repository<'a> {
         Ok(())
     }
 
-    pub fn entity_photo_exists(&self, entity_type: &dto::EntityType, id: &str) -> Result<bool> {
-        let entity_type_str = to_variant_name(entity_type)
-            .with_context(|| format!("could not convert {:?} to string", entity_type))?;
-        let mut stmt = self.conn.prepare(
-            "SELECT EXISTS(
-                 SELECT 1 FROM entity_photo WHERE entity_type = ?1 AND entity_id = ?2
-             )",
-        )?;
-        let exists: i32 = stmt.query_row((entity_type_str, id), |row| row.get(0))?;
-        Ok(exists != 0)
-    }
-
     fn escape_for_fts(input: &str) -> String {
         let mut s = String::from("\"");
         for c in input.chars() {
@@ -654,44 +623,6 @@ impl<'a> Repository<'a> {
             })
             .with_context(|| format!("could not get office name for {}", id))?;
         Ok(name)
-    }
-
-    /// # entity_photo
-
-    pub fn get_entity_photo(
-        &self,
-        entity_type: graph::EntityType,
-        id: &str,
-    ) -> Result<Option<data::Photo>> {
-        let entity_type_str: &str = to_variant_name(&entity_type)?;
-        self.conn
-            .query_row(
-                "SELECT url, attribution FROM entity_photo WHERE entity_type = ?1 AND entity_id = ?2",
-                params![entity_type_str, id],
-                |row| Ok(data::Photo {
-                    url: row.get(0)?,
-                    attribution: row.get(1)?,
-                }),
-            )
-            .optional()
-            .with_context(|| format!("could not get photo for {} {}", entity_type_str, id))
-    }
-
-    pub fn insert_entity_photo(
-        &mut self,
-        entity_type: &dto::EntityType,
-        id: &str,
-        url: &str,
-        attribution: Option<&str>,
-    ) -> Result<()> {
-        let entity_type_str = to_variant_name(entity_type)
-            .with_context(|| format!("could not convert {:?} to string", entity_type))?;
-        self.conn.execute(
-            "INSERT INTO entity_photo (entity_type, entity_id, url, attribution)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![entity_type_str, id, url, attribution],
-        )?;
-        Ok(())
     }
 
     /// # entity_contact
