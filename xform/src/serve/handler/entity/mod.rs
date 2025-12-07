@@ -9,7 +9,7 @@ use axum::{Form, extract::{Path, State}, response::Response};
 use serde::Deserialize;
 
 use crate::{
-    LibrarySql, context, data, serve::{AppError, AppState, hx_redirect}
+    LibrarySql, context, data, dto, serve::{AppError, AppState, hx_redirect}
 };
 
 #[derive(Template, WebTemplate)]
@@ -17,13 +17,13 @@ use crate::{
 pub struct NewTemplate {
     config: Arc<context::Config>,
     page: context::Page,
-    typ: String,
+    typ: dto::EntityType,
 }
 
 #[axum::debug_handler]
 pub async fn new_form(
     State(state): State<Arc<AppState>>,
-    Path(typ): Path<String>,
+    Path(typ): Path<dto::EntityType>,
 ) -> Result<NewTemplate, AppError> {
     Ok(NewTemplate {
         typ,
@@ -44,13 +44,13 @@ pub struct NewForm {
 #[axum::debug_handler]
 pub async fn new(
     State(state): State<Arc<AppState>>,
-    Path(typ): Path<String>,
+    Path(typ): Path<dto::EntityType>,
     Form(form): Form<NewForm>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    conn.new_entity(&typ, &form.id, &form.name)?;
+    conn.new_entity(&typ.as_str(), &form.id, &form.name)?;
 
-    Ok(hx_redirect(&format!("/{}/{}/edit", &typ, &form.id))?)
+    Ok(hx_redirect(&format!("/{}/{}/edit", typ, &form.id))?)
 }
 
 #[derive(Template, WebTemplate)]
@@ -58,7 +58,7 @@ pub async fn new(
 pub struct EditTemplate {
     config: Arc<context::Config>,
     page: context::Page,
-    typ: String,
+    typ: dto::EntityType,
     id: String,
     name: String,
     photo: Option<data::Photo>,
@@ -67,7 +67,7 @@ pub struct EditTemplate {
 #[axum::debug_handler]
 pub async fn edit(
     State(state): State<Arc<AppState>>,
-    Path((typ, id)): Path<(String, String)>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<EditTemplate, AppError> {
     let conn = state.get_conn()?;
     let name = conn.get_entity_name(&typ, &id, |row| {

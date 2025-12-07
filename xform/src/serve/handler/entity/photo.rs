@@ -7,7 +7,7 @@ use axum::{
     extract::{Path, State},
 };
 
-use crate::LibrarySql;
+use crate::{LibrarySql, dto};
 use crate::{
     data,
     serve::{AppError, AppState},
@@ -16,7 +16,7 @@ use crate::{
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/photo/edit_partial.html")]
 pub struct EditPhotoPartial {
-    typ: String,
+    typ: dto::EntityType,
     id: String,
     photo: Option<data::Photo>,
 }
@@ -24,7 +24,7 @@ pub struct EditPhotoPartial {
 #[axum::debug_handler]
 pub async fn edit(
     State(state): State<Arc<AppState>>,
-    Path((typ, id)): Path<(String, String)>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<EditPhotoPartial, AppError> {
     let conn = state.get_conn()?;
     let photo = match conn.get_entity_photo(&typ, &id, |row| {
@@ -43,7 +43,7 @@ pub async fn edit(
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/edit.html", block = "photo")]
 pub struct ViewPhotoPartial {
-    typ: String,
+    typ: dto::EntityType,
     id: String,
     photo: Option<data::Photo>,
 }
@@ -51,7 +51,7 @@ pub struct ViewPhotoPartial {
 #[axum::debug_handler]
 pub async fn view(
     State(state): State<Arc<AppState>>,
-    Path((typ, id)): Path<(String, String)>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<ViewPhotoPartial, AppError> {
     let conn = state.get_conn()?;
     let photo = match conn.get_entity_photo(&typ, &id, |row| {
@@ -64,13 +64,13 @@ pub async fn view(
         Err(rusqlite::Error::QueryReturnedNoRows) => None,
         Err(e) => return Err(e.into()),
     };
-    Ok(ViewPhotoPartial { id, typ, photo })
+    Ok(ViewPhotoPartial { id, typ: typ, photo })
 }
 
 #[axum::debug_handler]
 pub async fn save(
     State(state): State<Arc<AppState>>,
-    Path((typ, id)): Path<(String, String)>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
     Form(photo_form): Form<data::Photo>, // Renamed to avoid conflict with `photo` variable below
 ) -> Result<ViewPhotoPartial, AppError> {
     let conn = state.get_conn()?;
@@ -87,5 +87,5 @@ pub async fn save(
         Err(e) => return Err(e.into()),
     };
 
-    Ok(ViewPhotoPartial { id, typ, photo })
+    Ok(ViewPhotoPartial { id, typ: typ, photo })
 }

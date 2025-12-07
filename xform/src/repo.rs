@@ -5,7 +5,6 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde_variant::to_variant_name;
 
 use crate::{
-    SchemaSql,
     context::{self},
     data::{self},
     dto::{self, EntityType},

@@ -25,7 +25,7 @@ VALUES (:typ, :id, :name);
 -- name: get_entity_name->
 -- Returns the name of the entity of the given type with the given id
 -- # Parameters
--- param: typ: &str - entity type
+-- param: typ: &crate::dto::EntityType - entity type
 -- param: id: &str - entity ID
 SELECT name
 FROM entity
@@ -36,7 +36,7 @@ LIMIT 1
 -- name: save_entity_name!
 -- Save the entity of the given type with the given id
 -- # Parameters
--- param: typ: &str - entity type
+-- param: typ: &crate::dto::EntityType - entity type
 -- param: id: &str - entity ID
 -- param: name: &str - name
 UPDATE entity
@@ -47,7 +47,7 @@ WHERE type = :typ
 -- name: get_entity_photo->
 -- Returns the photo of the entity of the given type with the given id
 -- # Parameters
--- param: typ: &str - entity type
+-- param: typ: &dto::EntityType - entity type
 -- param: id: &str - entity ID
 SELECT url, attribution
 FROM entity_photo
@@ -58,7 +58,7 @@ LIMIT 1
 -- name: save_entity_photo!
 -- Save the photo for the given type with the given id
 -- # Parameters
--- param: typ: &str - entity type
+-- param: typ: &dto::EntityType - entity type
 -- param: id: &str - entity ID
 -- param: url: &str - url
 -- param: attribution: Option<&str> - attribution

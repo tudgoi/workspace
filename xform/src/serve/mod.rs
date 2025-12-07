@@ -40,6 +40,12 @@ pub enum AppError {
     Internal(#[from] InvalidHeaderValue),
 }
 
+impl From<String> for AppError {
+    fn from(err: String) -> Self {
+        AppError::Unexpected(err)
+    }
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         #[cfg(debug_assertions)]

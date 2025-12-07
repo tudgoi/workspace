@@ -7,11 +7,12 @@ use serde::Deserialize;
 
 use crate::serve::{AppError, AppState};
 use crate::LibrarySql;
+use crate::dto;
 
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/name/edit_partial.html")]
 pub struct EditNamePartial {
-    typ: String,
+    typ: dto::EntityType,
     id: String,
     name: String,
 }
@@ -19,7 +20,7 @@ pub struct EditNamePartial {
 #[axum::debug_handler]
 pub async fn edit(
     State(state): State<Arc<AppState>>,
-    Path((typ, id)): Path<(String, String)>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<EditNamePartial, AppError> {
     let conn = state.get_conn()?;
     let name = conn.get_entity_name(&typ, &id, |row| {
@@ -36,7 +37,7 @@ pub async fn edit(
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/edit.html", block = "name")]
 pub struct ViewNamePartial {
-    typ: String,
+    typ: dto::EntityType,
     id: String,
     name: String,
 }
@@ -44,7 +45,7 @@ pub struct ViewNamePartial {
 #[axum::debug_handler]
 pub async fn view(
     State(state): State<Arc<AppState>>,
-    Path((typ, id)): Path<(String, String)>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<ViewNamePartial, AppError> {
     let conn = state.get_conn()?;
     let name = conn.get_entity_name(&typ, &id, |row| {
@@ -65,7 +66,7 @@ pub struct EditNameForm {
 #[axum::debug_handler]
 pub async fn save(
     State(state): State<Arc<AppState>>,
-    Path((typ, id)): Path<(String, String)>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
     Form(form): Form<EditNameForm>,
 ) -> Result<ViewNamePartial, AppError> {
     let conn = state.get_conn()?;
