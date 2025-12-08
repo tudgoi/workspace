@@ -113,7 +113,19 @@ impl<'a> ContextFetcher<'a> {
             });
         }
 
-        let past_tenures = self.repo.get_person_past_tenures(&id)?;
+        let mut past_tenures = Vec::new();
+        self.repo.conn.get_past_tenures(&id, |row| {
+            past_tenures.push(context::TenureDetails {
+                office: context::Office {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                },
+                start: row.get(2)?,
+                end: row.get(3)?,
+            });
+            
+            Ok(())
+        })?;
 
         // page
         let page = context::Page {

@@ -87,7 +87,7 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                     office.get_name(),
                 )
                 .await?;
-                repo.insert_person_office_tenure(&id, &office_id)?;
+                repo.conn.save_tenure(&id, &office_id, None, None)?;
             }
             graph::Property::Photo { url, attribution } => {
                 if !repo

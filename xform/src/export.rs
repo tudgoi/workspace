@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-use crate::{data, repo};
+use crate::{data::{self, Tenure}, repo, LibrarySql};
 
 pub fn run(db: &Path, output: &Path) -> Result<()> {
     // Create output directories
@@ -32,7 +32,16 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
             .get_person(&id)?
             .with_context(|| format!("person {} not found", id))?;
 
-        let tenures = repo.list_person_office_tenure(&id)?;
+        let mut tenures = Vec::new();
+        repo.conn.get_tenures(&id, |row| {
+            tenures.push(Tenure {
+                office_id: row.get(0)?,
+                start: row.get(1)?,
+                end: row.get(2)?,
+            });
+            
+            Ok(())
+        })?;
 
         let person_data = data::Person {
             name: person_dto.name,

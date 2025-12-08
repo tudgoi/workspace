@@ -82,6 +82,38 @@ SET
 WHERE
     entity_type = :typ AND entity_id = :id
 /
+-- name: get_tenures->
+-- Returns the tenures of the person with the given id
+-- # Parameters
+-- param: id: &str - person ID
+SELECT office_id, start, end 
+FROM person_office_tenure
+WHERE person_id = :id
+/
+-- name: get_past_tenures->
+-- Returns the past tenures of the person with the given id
+-- # Parameters
+-- param: id: &str - person ID
+SELECT
+    q.office_id,
+    o.name,
+    q.start,
+    q.end
+FROM person_office_quondam AS q
+INNER JOIN office AS o ON o.id = q.office_id
+WHERE q.person_id = :id
+ORDER BY q.end DESC
+/
+-- name: save_tenure!
+-- Save tenure of person in an office
+-- # Parameters
+-- param: person_id: &str
+-- param: office_id: &str
+-- param: start: Option<&chrono::NaiveDate>
+-- param: end: Option<&chrono::NaiveDate>
+INSERT INTO person_office_tenure (person_id, office_id, start, end)
+VALUES (:person_id, :office_id, :start, :end)
+/
 -- name: attach_db!
 -- Attaches the given DB as 'db'
 -- # Parameters

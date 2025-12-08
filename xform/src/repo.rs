@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result};
+use chrono::NaiveDate;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_variant::to_variant_name;
 
@@ -96,7 +97,22 @@ impl<'a> Repository<'a> {
         // Insert tenures if they exist
         if let Some(tenures) = &person.tenures {
             for tenure in tenures {
-                tx.execute("INSERT INTO person_office_tenure (person_id, office_id, start, end) VALUES (?1, ?2, ?3, ?4)", params![id, &tenure.office_id, &tenure.start, &tenure.end])?;
+                tx.save_tenure(
+                    id,
+                    &tenure.office_id,
+                    tenure
+                        .start
+                        .as_ref()
+                        .map(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d"))
+                        .transpose()?
+                        .as_ref(),
+                    tenure
+                        .end
+                        .as_ref()
+                        .map(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d"))
+                        .transpose()?
+                        .as_ref(),
+                )?;
             }
         }
 
@@ -165,54 +181,6 @@ impl<'a> Repository<'a> {
         tx.commit()?;
 
         Ok(())
-    }
-
-    pub fn list_person_office_tenure(&self, person_id: &str) -> Result<Vec<data::Tenure>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT office_id, start, end 
-            FROM person_office_tenure
-            WHERE person_id = ?1
-            ",
-        )?;
-
-        let tenures = stmt
-            .query_map([person_id], |row| {
-                Ok(data::Tenure {
-                    office_id: row.get(0)?,
-                    start: row.get(1)?,
-                    end: row.get(2)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(tenures)
-    }
-
-    pub fn get_person_past_tenures(&self, id: &str) -> Result<Vec<context::TenureDetails>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT
-                q.office_id,
-                o.name,
-                q.start,
-                q.end
-            FROM person_office_quondam AS q
-            INNER JOIN office AS o ON o.id = q.office_id
-            WHERE q.person_id = ?1
-            ORDER BY q.end DESC
-        ",
-        )?;
-        let iter = stmt.query_map([id], |row| {
-            Ok(context::TenureDetails {
-                office: context::Office {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                },
-                start: row.get(2)?,
-                end: row.get(3)?,
-            })
-        })?;
-        Ok(iter.collect::<Result<Vec<_>, _>>()?)
     }
 
     pub fn list_all_person_ids(&self) -> Result<Vec<String>> {
@@ -852,16 +820,6 @@ impl<'a> Repository<'a> {
             "INSERT INTO office_supervisor (office_id, relation, supervisor_office_id)
              VALUES (?1, ?2, ?3)",
             params![office_id, relation_str, supervisor_office_id],
-        )?;
-        Ok(())
-    }
-
-    // [person_office_tenure]
-
-    pub fn insert_person_office_tenure(&mut self, person_id: &str, office_id: &str) -> Result<()> {
-        self.conn.execute(
-            "INSERT INTO person_office_tenure (person_id, office_id) VALUES (?1, ?2)",
-            params![person_id, office_id],
         )?;
         Ok(())
     }
