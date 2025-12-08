@@ -1,21 +1,22 @@
 use anyhow::{Context, Result};
 use askama::Template;
 use axum::extract::State;
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
 use std::{fs, sync::Arc};
 use tera;
 use tera::Tera;
 
+use crate::dto::EntityType;
 use crate::{LibrarySql, SchemaSql, data};
 use crate::{
     context::{OfficeContext, PersonContext},
-    dto, graph,
+    dto,
     serve::{self, AppState},
 };
 
 use super::repo;
-use crate::context::{self, Maintenance};
+use crate::context::{self, Maintenance, Person, Quondam};
 
 #[tokio::main]
 pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
@@ -63,16 +64,57 @@ impl<'a> ContextFetcher<'a> {
     }
 
     pub fn fetch_person(&self, dynamic: bool, id: &str) -> Result<context::PersonContext> {
-        let person = self
+        let name = self
             .repo
-            .get_person(id)
-            .with_context(|| format!("could not fetch person"))?
-            .with_context(|| format!("no person found"))?;
+            .conn
+            .get_entity_name(&dto::EntityType::Person, id, |row| row.get(0))?;
+        let photo = self
+            .repo
+            .conn
+            .get_entity_photo(&dto::EntityType::Person, id, |row| {
+                Ok(data::Photo {
+                    url: row.get(0)?,
+                    attribution: row.get(1)?,
+                })
+            })
+            .optional()?;
+        let contacts = self.repo.get_entity_contacts(&EntityType::Person, id).ok();
+        let commit_date = self
+            .repo
+            .conn
+            .get_entity_commit_date(&dto::EntityType::Person, id, |row| row.get(0))
+            .optional()?;
+        let person = dto::Person {
+            id: id.to_string(),
+            name,
+            photo,
+            contacts,
+            commit_date,
+        };
+        let mut offices_for_person = Vec::new();
+        self.repo
+            .conn
+            .get_person_incumbent_office_details(id, |row| {
+                let contacts = self
+                    .repo
+                    .get_entity_contacts(&EntityType::Office, &row.get::<_, String>(0)?)
+                    .ok();
+                offices_for_person.push(dto::Office {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    photo: if let Some(url) = row.get(2)? {
+                        Some(data::Photo {
+                            url,
+                            attribution: row.get(3)?,
+                        })
+                    } else {
+                        None
+                    },
+                    contacts,
+                });
 
-        let offices_for_person = self
-            .repo
-            .list_person_office_incumbent_office(&id)
-            .with_context(|| format!("could not query offices"))?;
+                Ok(())
+            })?;
 
         // office, official_contacts, supervisors, subordinates
         let mut offices = Vec::new();
@@ -123,7 +165,7 @@ impl<'a> ContextFetcher<'a> {
                 start: row.get(2)?,
                 end: row.get(3)?,
             });
-            
+
             Ok(())
         })?;
 
@@ -160,23 +202,58 @@ impl<'a> ContextFetcher<'a> {
             .repo
             .conn
             .get_entity_photo(&dto::EntityType::Office, id, |row| {
-                Ok(Some(data::Photo {
+                Ok(data::Photo {
                     url: row.get(0)?,
                     attribution: row.get(1)?,
-                }))
+                })
             })
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                other => Err(other),
-            })?;
+            .optional()?;
         let contacts = self
             .repo
             .get_entity_contacts(&dto::EntityType::Office, id)?;
-        let incumbent = self.repo.get_person_office_incumbent_person(id)?;
-        let quondams = self.repo.list_person_office_quondam(id)?;
+        let incumbent = self
+            .repo
+            .conn
+            .get_office_incumbent(id, |row| {
+                Ok(context::Person {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            })
+            .optional()?;
+        let mut quondams = Vec::new();
+        self.repo.conn.get_office_quondams(id, |row| {
+            quondams.push(context::Quondam {
+                person: context::Person {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                },
+                start: row.get(2)?,
+                end: row.get(3)?,
+            });
+
+            Ok(())
+        })?;
+        let mut quondams = Vec::new();
+        self.repo.conn.get_office_quondams(id, |row| {
+            quondams.push(Quondam {
+                person: Person {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                },
+                start: row.get(2)?,
+                end: row.get(3)?,
+            });
+            Ok(())
+        })?;
         let commit_date = self
             .repo
-            .get_entity_commit_date(graph::EntityType::Office, id)?;
+            .conn
+            .get_entity_commit_date(&dto::EntityType::Office, id, |row| {
+                Ok(row.get::<_, chrono::NaiveDate>(0)?)
+            })
+            .optional()?
+            .map(|d| d.to_string());
 
         // page
         let page = context::Page {

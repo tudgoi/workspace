@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 use serde_variant::to_variant_name;
 
 use crate::{
@@ -10,7 +10,6 @@ use crate::{
     context::{self},
     data::{self},
     dto::{self, EntityType},
-    graph,
 };
 
 pub struct Repository<'a> {
@@ -656,170 +655,6 @@ impl<'a> Repository<'a> {
         self.conn.execute(
             "INSERT INTO entity_contact (entity_type, entity_id, type, value) VALUES (?1, ?2, ?3, ?4)",
             params![entity_type_str, id, contact_type_str, value],
-        )?;
-        Ok(())
-    }
-
-    /// # entity_commit
-
-    pub fn get_entity_commit_date(
-        &self,
-        entity_type: graph::EntityType,
-        id: &str,
-    ) -> Result<Option<String>> {
-        let entity_type_str: &str = to_variant_name(&entity_type)?;
-        self.conn
-            .query_row(
-                "SELECT date FROM entity_commit WHERE entity_type = ?1 AND entity_id = ?2",
-                params![entity_type_str, id],
-                |row| row.get(0),
-            )
-            .optional()
-            .with_context(|| format!("could not get commit date for {} {}", entity_type_str, id))
-    }
-
-    /// # person
-    pub fn get_person(&self, id: &str) -> Result<Option<dto::Person>> {
-        self.conn
-            .query_row(
-                "
-                SELECT
-                    e.name,
-                    p.url,
-                    p.attribution,
-                    c.date
-                FROM entity AS e
-                LEFT JOIN entity_photo AS p ON e.id = p.entity_id AND e.type = p.entity_type
-                LEFT JOIN entity_commit AS c ON e.id = c.entity_id AND e.type = c.entity_type
-                WHERE e.type = 'person' AND e.id = ?1
-                ",
-                [id],
-                |row| {
-                    let photo = if let Some(url) = row.get(1)? {
-                        Some(data::Photo {
-                            url,
-                            attribution: row.get(2)?,
-                        })
-                    } else {
-                        None
-                    };
-                    let contacts = self.get_entity_contacts(&EntityType::Person, id).ok();
-                    Ok(dto::Person {
-                        id: id.to_string(),
-                        name: row.get(0)?,
-                        photo,
-                        contacts,
-                        commit_date: row.get(3)?,
-                    })
-                },
-            )
-            .optional()
-            .with_context(|| format!("could not get person {}", id))
-    }
-
-    /// # person_office_incumbent
-    pub fn list_person_office_incumbent_office(&self, person_id: &str) -> Result<Vec<dto::Office>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT i.office_id, e.name, p.url, p.attribution
-            FROM person_office_incumbent AS i
-            JOIN entity AS e ON i.office_id = e.id AND e.type = 'office'
-            LEFT JOIN entity_photo AS p ON i.office_id = p.entity_id AND p.entity_type = 'office'
-            WHERE i.person_id = ?1
-            ",
-        )?;
-        stmt.query_map([person_id], |row| {
-            let contacts = self
-                .get_entity_contacts(&EntityType::Office, &row.get::<_, String>(0)?)
-                .ok();
-            Ok(dto::Office {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                photo: if let Some(url) = row.get(2)? {
-                    Some(data::Photo {
-                        url,
-                        attribution: row.get(3)?,
-                    })
-                } else {
-                    None
-                },
-                contacts,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()
-        .with_context(|| format!("could not list incumbent offices for person {}", person_id))
-    }
-
-    pub fn get_person_office_incumbent_person(
-        &self,
-        office_id: &str,
-    ) -> Result<Option<context::Person>> {
-        self.conn
-            .query_row(
-                "SELECT p.id, p.name FROM person_office_incumbent AS i
-                 JOIN person AS p ON i.person_id = p.id
-                 WHERE i.office_id = ?1",
-                [office_id],
-                |row| {
-                    Ok(context::Person {
-                        id: row.get(0)?,
-                        name: row.get(1)?,
-                    })
-                },
-            )
-            .optional()
-            .with_context(|| format!("could not get incumbent for office {}", office_id))
-    }
-
-    /// # person_office_quondam
-    pub fn list_person_office_quondam(&self, office_id: &str) -> Result<Vec<context::Quondam>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT q.person_id, p.name, q.start, q.end FROM person_office_quondam AS q
-             JOIN person AS p ON q.person_id = p.id
-             WHERE q.office_id = ?1 ORDER BY q.end DESC",
-        )?;
-        stmt.query_map([office_id], |row| {
-            Ok(context::Quondam {
-                person: context::Person {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                },
-                start: row.get(2)?,
-                end: row.get(3)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()
-        .with_context(|| format!("could not list quondams for office {}", office_id))
-    }
-
-    // [office_supervisor]
-
-    pub fn exists_office_supervisor(
-        &self,
-        id: &str,
-        relation: &data::SupervisingRelation,
-    ) -> Result<bool> {
-        let relation_str = to_variant_name(relation)?;
-        let mut stmt = self.conn.prepare(
-            "SELECT EXISTS(
-                SELECT 1 FROM office_supervisor WHERE office_id = ?1 AND relation = ?2
-            )",
-        )?;
-        let exists: i32 = stmt.query_row((id, relation_str), |row| row.get(0))?;
-        Ok(exists != 0)
-    }
-
-    pub fn insert_office_supervisor(
-        &mut self,
-        office_id: &str,
-        relation: &data::SupervisingRelation,
-        supervisor_office_id: &str,
-    ) -> Result<()> {
-        let relation_str = to_variant_name(relation)?;
-        self.conn.execute(
-            "INSERT INTO office_supervisor (office_id, relation, supervisor_office_id)
-             VALUES (?1, ?2, ?3)",
-            params![office_id, relation_str, supervisor_office_id],
         )?;
         Ok(())
     }

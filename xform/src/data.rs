@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use rusqlite::ToSql;
 use schemars::JsonSchema;
 use serde_derive::{Deserialize, Serialize};
 
@@ -58,4 +59,23 @@ pub enum SupervisingRelation {
     ResponsibleTo,
     MemberOf,
     Minister,
+}
+
+impl SupervisingRelation {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SupervisingRelation::Head => "head",
+            SupervisingRelation::Adviser => "adviser",
+            SupervisingRelation::DuringThePleasureOf => "during_the_pleasure_of",
+            SupervisingRelation::ResponsibleTo => "responsible_to",
+            SupervisingRelation::MemberOf => "member_of",
+            SupervisingRelation::Minister => "minister",
+        }
+    }
+}
+
+impl ToSql for SupervisingRelation {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+        Ok(self.as_str().into())
+    }
 }

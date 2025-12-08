@@ -1,11 +1,16 @@
 use anyhow::{Context, Result};
+use rusqlite::OptionalExtension;
 use std::{
     fs::{self, File},
     io::Write,
     path::Path,
 };
 
-use crate::{data::{self, Tenure}, repo, LibrarySql};
+use crate::{
+    LibrarySql,
+    data::{self, Tenure},
+    dto, repo,
+};
 
 pub fn run(db: &Path, output: &Path) -> Result<()> {
     // Create output directories
@@ -28,10 +33,18 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
         .list_all_person_ids()
         .with_context(|| "could not query all persons")?;
     for id in persons {
-        let person_dto = repo
-            .get_person(&id)?
-            .with_context(|| format!("person {} not found", id))?;
-
+        let name = repo
+            .conn
+            .get_entity_name(&dto::EntityType::Person, &id, |row| row.get(0))?;
+        let photo = repo
+            .conn
+            .get_entity_photo(&dto::EntityType::Person, &id, |row| {
+                Ok(data::Photo {
+                    url: row.get(0)?,
+                    attribution: row.get(1)?,
+                })
+            })
+            .optional()?;
         let mut tenures = Vec::new();
         repo.conn.get_tenures(&id, |row| {
             tenures.push(Tenure {
@@ -39,14 +52,16 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
                 start: row.get(1)?,
                 end: row.get(2)?,
             });
-            
+
             Ok(())
         })?;
-
+        let contacts = repo
+            .get_entity_contacts(&dto::EntityType::Person, &id)
+            .ok();
         let person_data = data::Person {
-            name: person_dto.name,
-            photo: person_dto.photo,
-            contacts: person_dto.contacts.filter(|c| !c.is_empty()),
+            name,
+            photo,
+            contacts: contacts.filter(|c| !c.is_empty()),
             tenures: if tenures.is_empty() {
                 None
             } else {
@@ -57,8 +72,8 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
             toml::to_string_pretty(&person_data).context("could not serialize person to TOML")?;
 
         let file_path = person_dir.join(format!("{}.toml", id));
-        let mut file =
-            File::create(&file_path).with_context(|| format!("could not create {:?}", file_path))?;
+        let mut file = File::create(&file_path)
+            .with_context(|| format!("could not create {:?}", file_path))?;
         file.write_all(toml_string.as_bytes())
             .with_context(|| format!("could not write to {:?}", file_path))?;
     }
@@ -73,8 +88,8 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
             toml::to_string_pretty(&office_data).context("could not serialize office to TOML")?;
 
         let file_path = office_dir.join(format!("{}.toml", id));
-        let mut file =
-            File::create(&file_path).with_context(|| format!("could not create {:?}", file_path))?;
+        let mut file = File::create(&file_path)
+            .with_context(|| format!("could not create {:?}", file_path))?;
         file.write_all(toml_string.as_bytes())
             .with_context(|| format!("could not write to {:?}", file_path))?;
     }

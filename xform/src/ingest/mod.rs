@@ -114,7 +114,10 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                 );
                 let supervising_office: graph::Entity = supervising_office.to_vec().into();
 
-                if !repo.exists_office_supervisor(&id, relation)? {
+                if !repo
+                    .conn
+                    .exists_office_supervisor(&id, relation, |row| Ok(row.get::<_, i32>(0)? == 1))?
+                {
                     let supervising_office_id = ingest_entity_id_or_name(
                         repo,
                         &dto::EntityType::Office,
@@ -123,7 +126,8 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                     )
                     .await?;
 
-                    repo.insert_office_supervisor(&id, relation, &supervising_office_id)?;
+                    repo.conn
+                        .save_office_supervisor(&id, relation, &supervising_office_id)?;
                 }
             }
         }

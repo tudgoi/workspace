@@ -6,6 +6,7 @@ use axum::{
     Form,
     extract::{Path, State},
 };
+use rusqlite::OptionalExtension;
 
 use crate::{LibrarySql, dto};
 use crate::{
@@ -27,16 +28,14 @@ pub async fn edit(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<EditPhotoPartial, AppError> {
     let conn = state.get_conn()?;
-    let photo = match conn.get_entity_photo(&typ, &id, |row| {
-        let url: String = row.get(0)?;
-        let attribution: Option<String> = Some(row.get(1)?);
-
-        Ok(data::Photo { url, attribution })
-    }) {
-        Ok(photo) => Some(photo),
-        Err(rusqlite::Error::QueryReturnedNoRows) => None,
-        Err(e) => return Err(e.into()),
-    };
+    let photo = conn
+        .get_entity_photo(&typ, &id, |row| {
+            Ok(data::Photo {
+                url: row.get(0)?,
+                attribution: Some(row.get(1)?),
+            })
+        })
+        .optional()?;
     Ok(EditPhotoPartial { id, typ, photo })
 }
 
@@ -54,17 +53,19 @@ pub async fn view(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<ViewPhotoPartial, AppError> {
     let conn = state.get_conn()?;
-    let photo = match conn.get_entity_photo(&typ, &id, |row| {
-        let url: String = row.get(0)?;
-        let attribution: Option<String> = Some(row.get(1)?);
-
-        Ok(data::Photo { url, attribution })
-    }) {
-        Ok(photo) => Some(photo),
-        Err(rusqlite::Error::QueryReturnedNoRows) => None,
-        Err(e) => return Err(e.into()),
-    };
-    Ok(ViewPhotoPartial { id, typ: typ, photo })
+    let photo = conn
+        .get_entity_photo(&typ, &id, |row| {
+            Ok(data::Photo {
+                url: row.get(0)?,
+                attribution: Some(row.get(1)?),
+            })
+        })
+        .optional()?;
+    Ok(ViewPhotoPartial {
+        id,
+        typ: typ,
+        photo,
+    })
 }
 
 #[axum::debug_handler]
@@ -74,18 +75,25 @@ pub async fn save(
     Form(photo_form): Form<data::Photo>, // Renamed to avoid conflict with `photo` variable below
 ) -> Result<ViewPhotoPartial, AppError> {
     let conn = state.get_conn()?;
-    conn.save_entity_photo(&typ, &id, &photo_form.url, photo_form.attribution.as_deref())?;
+    conn.save_entity_photo(
+        &typ,
+        &id,
+        &photo_form.url,
+        photo_form.attribution.as_deref(),
+    )?;
 
-    let photo = match conn.get_entity_photo(&typ, &id, |row| {
-        let url: String = row.get(0)?;
-        let attribution: Option<String> = Some(row.get(1)?);
+    let photo = conn
+        .get_entity_photo(&typ, &id, |row| {
+            Ok(data::Photo {
+                url: row.get(0)?,
+                attribution: Some(row.get(1)?),
+            })
+        })
+        .optional()?;
 
-        Ok(data::Photo { url, attribution })
-    }) {
-        Ok(photo) => Some(photo),
-        Err(rusqlite::Error::QueryReturnedNoRows) => None,
-        Err(e) => return Err(e.into()),
-    };
-
-    Ok(ViewPhotoPartial { id, typ: typ, photo })
+    Ok(ViewPhotoPartial {
+        id,
+        typ: typ,
+        photo,
+    })
 }

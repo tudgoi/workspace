@@ -5,11 +5,17 @@ use std::sync::Arc;
 
 use askama::Template;
 use askama_web::WebTemplate;
-use axum::{Form, extract::{Path, State}, response::Response};
+use axum::{
+    Form,
+    extract::{Path, State},
+    response::Response,
+};
+use rusqlite::OptionalExtension;
 use serde::Deserialize;
 
 use crate::{
-    LibrarySql, context, data, dto, serve::{AppError, AppState, hx_redirect}
+    LibrarySql, context, data, dto,
+    serve::{AppError, AppState, hx_redirect},
 };
 
 #[derive(Template, WebTemplate)]
@@ -30,8 +36,8 @@ pub async fn new_form(
         config: state.config.clone(),
         page: context::Page {
             dynamic: state.dynamic,
-            base: String::from("../")
-        }
+            base: String::from("../"),
+        },
     })
 }
 
@@ -74,16 +80,13 @@ pub async fn edit(
         let name: String = row.get(0)?;
         Ok(name)
     })?;
-    let photo = match conn.get_entity_photo(&typ, &id, |row| {
-        let url: String = row.get(0)?;
-        let attribution: Option<String> = row.get(1)?;
-
-        Ok(data::Photo { url, attribution })
-    }) {
-        Ok(photo) => Some(photo),
-        Err(rusqlite::Error::QueryReturnedNoRows) => None,
-        Err(e) => return Err(e.into()),
-    };
+    let photo = conn
+        .get_entity_photo(&typ, &id, |row| {
+            Ok(data::Photo {
+                url: row.get(0)?,
+                attribution: row.get(1)?,
+            })
+        }).optional()?;
 
     Ok(EditTemplate {
         id,
@@ -93,7 +96,7 @@ pub async fn edit(
         config: state.config.clone(),
         page: context::Page {
             dynamic: state.dynamic,
-            base: String::from("../../")
-        }
+            base: String::from("../../"),
+        },
     })
 }

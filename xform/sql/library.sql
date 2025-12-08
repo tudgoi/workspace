@@ -90,7 +90,7 @@ SELECT office_id, start, end
 FROM person_office_tenure
 WHERE person_id = :id
 /
--- name: get_past_tenures->
+-- name: get_past_tenures?
 -- Returns the past tenures of the person with the given id
 -- # Parameters
 -- param: id: &str - person ID
@@ -113,6 +113,59 @@ ORDER BY q.end DESC
 -- param: end: Option<&chrono::NaiveDate>
 INSERT INTO person_office_tenure (person_id, office_id, start, end)
 VALUES (:person_id, :office_id, :start, :end)
+/
+-- name: save_office_supervisor!
+-- Save tenure of person in an office
+-- # Parameters
+-- param: office_id: &str
+-- param: relation: &crate::data::SupervisingRelation
+-- param: supervisor_office_id: &str
+INSERT INTO office_supervisor (office_id, relation, supervisor_office_id)
+VALUES (:office_id, :relation, :supervisor_office_id)
+/
+-- name: exists_office_supervisor->
+-- Returns if an office has a supervisor with the given relation
+-- # Parameters
+-- param: office_id: &str - office ID
+-- param: relation: &crate::data::SupervisingRelation
+SELECT EXISTS(
+    SELECT 1 FROM office_supervisor WHERE office_id = :office_id AND relation = :relation
+)
+/
+-- name: get_office_quondams?
+-- Returns the quondams for a given office
+-- # Parameters
+-- param: office_id: &str
+SELECT q.person_id, p.name, q.start, q.end FROM person_office_quondam AS q
+JOIN person AS p ON q.person_id = p.id
+WHERE q.office_id = :office_id ORDER BY q.end DESC
+/
+-- name: get_office_incumbent->
+-- Returns the incumbent for a given office
+-- # Parameters
+-- param: office_id: &str
+SELECT p.id, p.name FROM person_office_incumbent AS i
+JOIN person AS p ON i.person_id = p.id
+WHERE i.office_id = :office_id 
+LIMIT 1
+/
+-- name: get_person_incumbent_office_details?
+-- # Parameter
+-- param: person_id: &str
+SELECT i.office_id, e.name, p.url, p.attribution
+FROM person_office_incumbent AS i
+JOIN entity AS e ON i.office_id = e.id AND e.type = 'office'
+LEFT JOIN entity_photo AS p ON i.office_id = p.entity_id AND p.entity_type = 'office'
+WHERE i.person_id = :person_id
+/
+-- name: get_entity_commit_date->
+-- # Parameter
+-- param: typ: &crate::dto::EntityType
+-- param: id: &str
+SELECT
+    date
+FROM entity_commit
+WHERE entity_type = :typ AND entity_id = :id
 /
 -- name: attach_db!
 -- Attaches the given DB as 'db'
