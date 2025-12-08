@@ -197,11 +197,12 @@ impl<'a> Repository<'a> {
         for result in office_iter {
             let (id, name, photo) = result?;
             let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-            self.conn.get_entity_contacts(&EntityType::Office, &id, |row| {
-                contacts.insert(row.get(0)?, row.get(1)?);
+            self.conn
+                .get_entity_contacts(&EntityType::Office, &id, |row| {
+                    contacts.insert(row.get(0)?, row.get(1)?);
 
-                Ok(())
-            })?;
+                    Ok(())
+                })?;
             let supervisors = self.query_supervisors_for_office_flat(&id)?;
             offices.insert(
                 id,
@@ -465,18 +466,6 @@ impl<'a> Repository<'a> {
         Ok(())
     }
 
-    fn escape_for_fts(input: &str) -> String {
-        let mut s = String::from("\"");
-        for c in input.chars() {
-            if c == '"' {
-                s.push_str("\"\""); // escape quotes by doubling
-            } else {
-                s.push(c);
-            }
-        }
-        s.push('"');
-        s
-    }
 
     /// # entity
 
@@ -492,84 +481,5 @@ impl<'a> Repository<'a> {
 
         let exists: i32 = stmt.query_row((entity_type, id), |row| row.get(0))?;
         Ok(exists != 0)
-    }
-
-    pub fn search_entity(
-        &self,
-        query: &str,
-        entity_type: Option<&EntityType>,
-    ) -> Result<Vec<dto::Entity>> {
-        let query = Self::escape_for_fts(query);
-        let mut sql = "SELECT e.type, e.id, e.name FROM entity_idx(?1) AS fts
-                       JOIN entity AS e ON fts.rowid = e.rowid
-                       WHERE "
-            .to_string();
-        if entity_type.is_some() {
-            sql.push_str("e.type = ?2");
-        }
-        sql.push_str(" ORDER BY rank");
-
-        let mut stmt = self.conn.prepare(&sql)?;
-
-        let entity_type_str = if let Some(et) = entity_type {
-            Some(to_variant_name(et)?)
-        } else {
-            None
-        };
-
-        let entities = if let Some(ref et_str) = entity_type_str {
-            stmt.query_map(params![query, et_str], |row| {
-                let entity_type_str: String = row.get(0)?;
-                let entity_type = if entity_type_str == "person" {
-                    EntityType::Person
-                } else {
-                    EntityType::Office
-                };
-                Ok(dto::Entity {
-                    entity_type,
-                    id: row.get(1)?,
-                    name: row.get(2)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?
-        } else {
-            stmt.query_map(params![query], |row| {
-                let entity_type_str: String = row.get(0)?;
-                let entity_type = if entity_type_str == "person" {
-                    EntityType::Person
-                } else {
-                    EntityType::Office
-                };
-                Ok(dto::Entity {
-                    entity_type,
-                    id: row.get(1)?,
-                    name: row.get(2)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?
-        };
-
-        Ok(entities)
-    }
-
-    /// # office
-    pub fn list_all_office_id(&self) -> Result<Vec<String>> {
-        let mut stmt = self.conn.prepare("SELECT id FROM office")?;
-
-        let ids = stmt
-            .query_map([], |row| Ok(row.get(0)?))?
-            .collect::<Result<Vec<String>, _>>()?;
-
-        Ok(ids)
-    }
-
-    pub fn get_office_name(&self, id: &str) -> Result<String> {
-        let name = self
-            .conn
-            .query_row("SELECT name FROM office WHERE id=?1", [id], |row| {
-                row.get(0)
-            })
-            .with_context(|| format!("could not get office name for {}", id))?;
-        Ok(name)
     }
 }

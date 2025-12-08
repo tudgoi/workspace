@@ -1,6 +1,6 @@
-use std::{collections::BTreeMap, str::FromStr, fmt};
+use std::{collections::BTreeMap, fmt, str::FromStr};
 
-use rusqlite::ToSql;
+use rusqlite::{ToSql, types::FromSql};
 use serde::Serialize;
 
 use crate::{data, graph};
@@ -54,6 +54,14 @@ impl fmt::Display for EntityType {
 impl ToSql for EntityType {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         Ok(self.as_str().into())
+    }
+}
+
+impl FromSql for EntityType {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        value.as_str().and_then(|s| {
+            EntityType::from_str(s).map_err(|e| rusqlite::types::FromSqlError::Other(e.into()))
+        })
     }
 }
 

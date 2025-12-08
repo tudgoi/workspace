@@ -3,10 +3,13 @@ use rusqlite::Connection;
 use std::path::Path;
 
 use crate::{
-    LibrarySql, Source, dto, graph,
+    LibrarySql, Source,
+    dto::{self, Entity},
+    graph,
     ingest::{derive::derive_id, old::OldIngestor},
     repo,
 };
+use rusqlite::OptionalExtension;
 
 mod derive;
 mod old;
@@ -100,8 +103,12 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                 }
             }
             graph::Property::Contact(contact_type, value) => {
-                if !repo.conn.exists_entity_contact(&entity_type, &id, contact_type, |row| row.get(0))? {
-                    repo.conn.save_entity_contact(&entity_type, &id, contact_type, value)?;
+                if !repo
+                    .conn
+                    .exists_entity_contact(&entity_type, &id, contact_type, |row| row.get(0))?
+                {
+                    repo.conn
+                        .save_entity_contact(&entity_type, &id, contact_type, value)?;
                 }
             }
             graph::Property::Supervisor(relation, supervising_office) => {
@@ -135,6 +142,19 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
     Ok(())
 }
 
+fn escape_for_fts(input: &str) -> String {
+    let mut s = String::from("\"");
+    for c in input.chars() {
+        if c == '"' {
+            s.push_str("\"\""); // escape quotes by doubling
+        } else {
+            s.push(c);
+        }
+    }
+    s.push('"');
+    s
+}
+
 async fn ingest_entity_id_or_name<'a>(
     repo: &mut repo::Repository<'a>,
     entity_type: &dto::EntityType,
@@ -156,12 +176,17 @@ async fn ingest_entity_id_or_name<'a>(
         // id not provided. FTS by name and use it or else insert new
         let name =
             name.with_context(|| format!("entity should have a name if id is not provided"))?;
-
+        let query = escape_for_fts(name);
         let entity = repo
-            .search_entity(name, Some(&entity_type))
-            .with_context(|| format!("could not search for `{}`", name))?
-            .into_iter()
-            .next();
+            .conn
+            .search_entity(Some(&entity_type), &query, |row| {
+                Ok(Entity {
+                    entity_type: row.get(0)?,
+                    id: row.get(1)?,
+                    name: row.get(2)?,
+                })
+            })
+            .optional()?;
         if let Some(entity) = entity {
             Ok(entity.id)
         } else {

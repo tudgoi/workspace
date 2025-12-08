@@ -220,7 +220,10 @@ impl<'a> ContextFetcher<'a> {
     }
 
     pub fn fetch_office(&self, dynamic: bool, id: &str) -> Result<context::OfficeContext> {
-        let name = self.repo.get_office_name(id)?;
+        let name = self
+            .repo
+            .conn
+            .get_entity_name(&dto::EntityType::Office, id, |row| row.get(0))?;
         let photo = self
             .repo
             .conn
@@ -232,8 +235,7 @@ impl<'a> ContextFetcher<'a> {
             })
             .optional()?;
         let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-        self
-            .repo
+        self.repo
             .conn
             .get_entity_contacts(&dto::EntityType::Office, id, |row| {
                 contacts.insert(row.get(0)?, row.get(1)?);
@@ -385,15 +387,16 @@ fn render_offices(
     fs::create_dir(office_path.as_path())
         .with_context(|| format!("could not create office dir {:?}", office_path))?;
 
-    let ids = context_fetcher
+    let mut ids: Vec<String> = Vec::new();
+    context_fetcher
         .repo
-        .list_all_office_id()
-        .with_context(|| "could not query all offices")?;
-
+        .conn
+        .get_entity_ids(&dto::EntityType::Office, |row| {
+            ids.push(row.get(0)?);
+            Ok(())
+        })?;
     for id in ids {
-        let office_context = context_fetcher
-            .fetch_office(false, &id)
-            .with_context(|| format!("could not fetch context for office {}", id))?;
+        let office_context = context_fetcher.fetch_office(false, &id)?;
         let str = renderer.render_office(&office_context)?;
 
         let output_path = office_path.join(format!("{}.html", office_context.office.id));

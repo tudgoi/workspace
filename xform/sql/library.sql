@@ -22,6 +22,24 @@ ORDER BY e.name;
 INSERT INTO entity (type, id, name)
 VALUES (:typ, :id, :name);
 /
+-- name: get_entity_ids?
+-- Get all entity IDs of the given type
+-- param: typ: &dto::EntityType
+SELECT id
+FROM entity 
+WHERE type = :typ
+/
+-- name: search_entity->
+-- Search for a best matching entity for the query 
+-- param: typ: Option<&dto::EntityType>
+-- param: query: &str
+SELECT e.type, e.id, e.name
+FROM entity_idx(:query) AS fts
+JOIN entity AS e ON fts.rowid = e.rowid
+WHERE :typ IS NULL OR e.type == :typ
+ORDER BY rank
+LIMIT 1
+/
 -- name: get_entity_name->
 -- Returns the name of the entity of the given type with the given id
 -- # Parameters
