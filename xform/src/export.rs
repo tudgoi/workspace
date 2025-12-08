@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::OptionalExtension;
 use std::{
+    collections::BTreeMap,
     fs::{self, File},
     io::Write,
     path::Path,
@@ -8,7 +9,7 @@ use std::{
 
 use crate::{
     LibrarySql,
-    data::{self, Tenure},
+    data::{self, ContactType, Tenure},
     dto, repo,
 };
 
@@ -55,13 +56,21 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
 
             Ok(())
         })?;
-        let contacts = repo
-            .get_entity_contacts(&dto::EntityType::Person, &id)
-            .ok();
+        let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
+        repo.conn
+            .get_entity_contacts(&dto::EntityType::Person, &id, |row| {
+                contacts.insert(row.get(0)?, row.get(1)?);
+
+                Ok(())
+            })?;
         let person_data = data::Person {
             name,
             photo,
-            contacts: contacts.filter(|c| !c.is_empty()),
+            contacts: if contacts.is_empty() {
+                None
+            } else {
+                Some(contacts)
+            },
             tenures: if tenures.is_empty() {
                 None
             } else {

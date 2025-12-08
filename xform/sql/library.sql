@@ -82,7 +82,35 @@ SET
 WHERE
     entity_type = :typ AND entity_id = :id
 /
--- name: get_tenures->
+-- name: save_entity_contact!
+-- # Parameters
+-- param: entity_type: &dto::EntityType
+-- param: entity_id: &str
+-- param: typ: &data::ContactType
+-- param: value: &str
+INSERT INTO entity_contact (entity_type, entity_id, type, value)
+VALUES (:entity_type, :entity_id, :typ, :value)
+/
+-- name: exists_entity_contact->
+-- # Parameters
+-- param: entity_type: &dto::EntityType
+-- param: entity_id: &str
+-- param: typ: &data::ContactType
+SELECT EXISTS(
+    SELECT 1 FROM entity_contact
+    WHERE entity_type = :entity_type AND entity_id = :entity_id AND type = :typ
+)
+/
+-- name: get_entity_contacts?
+-- Returns the contacts of the entity with the given id
+-- # Parameters
+-- param: typ: &dto::EntityType
+-- param: id: &str
+SELECT type, value
+FROM entity_contact
+WHERE entity_type = :typ AND entity_id = :id
+/
+-- name: get_tenures?
 -- Returns the tenures of the person with the given id
 -- # Parameters
 -- param: id: &str - person ID

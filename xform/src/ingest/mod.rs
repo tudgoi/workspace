@@ -92,7 +92,7 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
             graph::Property::Photo { url, attribution } => {
                 if !repo
                     .conn
-                    .exists_entity_photo(&entity_type, &id, |row| Ok(row.get::<_, i32>(0)? == 1))?
+                    .exists_entity_photo(&entity_type, &id, |row| row.get(0))?
                 {
                     repo.conn
                         .save_entity_photo(&entity_type, &id, url, attribution.as_deref())
@@ -100,9 +100,8 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                 }
             }
             graph::Property::Contact(contact_type, value) => {
-                if !repo.exists_entity_contact(&entity_type, &id, contact_type)? {
-                    repo.insert_entity_contact(&entity_type, &id, contact_type, value)
-                        .with_context(|| format!("failed to ingest contact"))?;
+                if !repo.conn.exists_entity_contact(&entity_type, &id, contact_type, |row| row.get(0))? {
+                    repo.conn.save_entity_contact(&entity_type, &id, contact_type, value)?;
                 }
             }
             graph::Property::Supervisor(relation, supervising_office) => {
@@ -116,7 +115,7 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
 
                 if !repo
                     .conn
-                    .exists_office_supervisor(&id, relation, |row| Ok(row.get::<_, i32>(0)? == 1))?
+                    .exists_office_supervisor(&id, relation, |row| row.get(0))?
                 {
                     let supervising_office_id = ingest_entity_id_or_name(
                         repo,

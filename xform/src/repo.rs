@@ -8,14 +8,13 @@ use serde_variant::to_variant_name;
 use crate::{
     LibrarySql,
     context::{self},
-    data::{self},
+    data::{self, ContactType},
     dto::{self, EntityType},
 };
 
 pub struct Repository<'a> {
     pub conn: &'a mut Connection,
     all_supervising_relation_variants: HashMap<String, data::SupervisingRelation>,
-    all_contact_type_variants: HashMap<String, data::ContactType>,
 }
 
 impl<'a> Repository<'a> {
@@ -24,8 +23,6 @@ impl<'a> Repository<'a> {
             conn,
             all_supervising_relation_variants: Self::build_supervising_relation_variants()
                 .with_context(|| format!("could not build SupervisingRelation variants"))?,
-            all_contact_type_variants: Self::build_contact_type_variants()
-                .with_context(|| format!("could not build ContactType variants"))?,
         })
     }
 
@@ -39,27 +36,6 @@ impl<'a> Repository<'a> {
             data::SupervisingRelation::Minister,
         ];
         let mut map: HashMap<String, data::SupervisingRelation> = HashMap::new();
-        for variant in ALL_VARIANTS {
-            map.insert(to_variant_name(&variant)?.to_string(), variant);
-        }
-
-        Ok(map)
-    }
-
-    fn build_contact_type_variants() -> Result<HashMap<String, data::ContactType>> {
-        const ALL_VARIANTS: [data::ContactType; 10] = [
-            data::ContactType::Address,
-            data::ContactType::Phone,
-            data::ContactType::Email,
-            data::ContactType::Website,
-            data::ContactType::Wikipedia,
-            data::ContactType::X,
-            data::ContactType::Youtube,
-            data::ContactType::Facebook,
-            data::ContactType::Instagram,
-            data::ContactType::Wikidata,
-        ];
-        let mut map: HashMap<String, data::ContactType> = HashMap::new();
         for variant in ALL_VARIANTS {
             map.insert(to_variant_name(&variant)?.to_string(), variant);
         }
@@ -220,7 +196,12 @@ impl<'a> Repository<'a> {
         let mut offices = HashMap::new();
         for result in office_iter {
             let (id, name, photo) = result?;
-            let contacts = self.get_entity_contacts(&EntityType::Office, &id)?;
+            let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
+            self.conn.get_entity_contacts(&EntityType::Office, &id, |row| {
+                contacts.insert(row.get(0)?, row.get(1)?);
+
+                Ok(())
+            })?;
             let supervisors = self.query_supervisors_for_office_flat(&id)?;
             offices.insert(
                 id,
@@ -590,72 +571,5 @@ impl<'a> Repository<'a> {
             })
             .with_context(|| format!("could not get office name for {}", id))?;
         Ok(name)
-    }
-
-    /// # entity_contact
-
-    pub fn get_entity_contacts(
-        &self,
-        entity_type: &dto::EntityType,
-        id: &str,
-    ) -> Result<BTreeMap<data::ContactType, String>> {
-        let entity_type_str = to_variant_name(entity_type)?;
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT type, value
-            FROM entity_contact
-            WHERE entity_type = ?1 AND entity_id = ?2
-        ",
-        )?;
-        let iter = stmt.query_map(params![entity_type_str, id], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })?;
-        let mut contacts = BTreeMap::new();
-        for result in iter {
-            let (contact_type, value): (String, String) = result?;
-            let contact_type = self
-                .all_contact_type_variants
-                .get(&contact_type)
-                .with_context(|| format!("could not get string for enum {:?}", contact_type))?
-                .clone();
-            contacts.insert(contact_type, value);
-        }
-
-        Ok(contacts)
-    }
-
-    pub fn exists_entity_contact(
-        &self,
-        entity_type: &dto::EntityType,
-        id: &str,
-        contact_type: &data::ContactType,
-    ) -> Result<bool> {
-        let entity_type_str = to_variant_name(entity_type)?;
-        let contact_type_str = to_variant_name(contact_type)?;
-        let mut stmt = self.conn.prepare(
-            "SELECT EXISTS(
-                SELECT 1 FROM entity_contact
-                WHERE entity_type = ?1 AND entity_id = ?2 AND type = ?3
-            )",
-        )?;
-        let exists: i32 =
-            stmt.query_row((entity_type_str, id, contact_type_str), |row| row.get(0))?;
-        Ok(exists != 0)
-    }
-
-    pub fn insert_entity_contact(
-        &mut self,
-        entity_type: &dto::EntityType,
-        id: &str,
-        contact_type: &data::ContactType,
-        value: &str,
-    ) -> Result<()> {
-        let entity_type_str = to_variant_name(entity_type)?;
-        let contact_type_str = to_variant_name(contact_type)?;
-        self.conn.execute(
-            "INSERT INTO entity_contact (entity_type, entity_id, type, value) VALUES (?1, ?2, ?3, ?4)",
-            params![entity_type_str, id, contact_type_str, value],
-        )?;
-        Ok(())
     }
 }

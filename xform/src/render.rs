@@ -2,11 +2,13 @@ use anyhow::{Context, Result};
 use askama::Template;
 use axum::extract::State;
 use rusqlite::{Connection, OptionalExtension};
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::{fs, sync::Arc};
 use tera;
 use tera::Tera;
 
+use crate::data::ContactType;
 use crate::dto::EntityType;
 use crate::{LibrarySql, SchemaSql, data};
 use crate::{
@@ -78,7 +80,14 @@ impl<'a> ContextFetcher<'a> {
                 })
             })
             .optional()?;
-        let contacts = self.repo.get_entity_contacts(&EntityType::Person, id).ok();
+        let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
+        self.repo
+            .conn
+            .get_entity_contacts(&EntityType::Person, id, |row| {
+                contacts.insert(row.get(0)?, row.get(1)?);
+
+                Ok(())
+            })?;
         let commit_date = self
             .repo
             .conn
@@ -88,17 +97,27 @@ impl<'a> ContextFetcher<'a> {
             id: id.to_string(),
             name,
             photo,
-            contacts,
+            contacts: if contacts.is_empty() {
+                None
+            } else {
+                Some(contacts)
+            },
             commit_date,
         };
         let mut offices_for_person = Vec::new();
         self.repo
             .conn
             .get_person_incumbent_office_details(id, |row| {
-                let contacts = self
-                    .repo
-                    .get_entity_contacts(&EntityType::Office, &row.get::<_, String>(0)?)
-                    .ok();
+                let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
+                self.repo.conn.get_entity_contacts(
+                    &EntityType::Office,
+                    &row.get::<_, String>(0)?,
+                    |row| {
+                        contacts.insert(row.get(0)?, row.get(1)?);
+
+                        Ok(())
+                    },
+                )?;
                 offices_for_person.push(dto::Office {
                     id: row.get(0)?,
                     name: row.get(1)?,
@@ -110,7 +129,11 @@ impl<'a> ContextFetcher<'a> {
                     } else {
                         None
                     },
-                    contacts,
+                    contacts: if contacts.is_empty() {
+                        None
+                    } else {
+                        Some(contacts)
+                    },
                 });
 
                 Ok(())
@@ -208,9 +231,15 @@ impl<'a> ContextFetcher<'a> {
                 })
             })
             .optional()?;
-        let contacts = self
+        let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
+        self
             .repo
-            .get_entity_contacts(&dto::EntityType::Office, id)?;
+            .conn
+            .get_entity_contacts(&dto::EntityType::Office, id, |row| {
+                contacts.insert(row.get(0)?, row.get(1)?);
+
+                Ok(())
+            })?;
         let incumbent = self
             .repo
             .conn
