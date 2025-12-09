@@ -166,7 +166,7 @@ async fn ingest_entity_id_or_name<'a>(
         let entity = conn
             .search_entity(Some(&entity_type), &query, |row| {
                 Ok(Entity {
-                    entity_type: row.get(0)?,
+                    typ: row.get(0)?,
                     id: row.get(1)?,
                     name: row.get(2)?,
                 })

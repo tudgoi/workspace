@@ -24,7 +24,7 @@ pub struct Office {
 
 #[derive(Debug)]
 pub struct Entity {
-    pub entity_type: EntityType,
+    pub typ: EntityType,
     pub id: String,
     pub name: String,
 }

@@ -7,6 +7,7 @@ use rusqlite::Connection;
 
 use crate::LibrarySql;
 use crate::SchemaSql;
+use crate::dto;
 use crate::{
     context::{self, Page},
     serve::{AppError, AppState},
@@ -44,16 +45,10 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
     })
 }
 
-pub struct Entity {
-    pub typ: String,
-    pub id: String,
-    pub name: String,
-}
-
 #[derive(Template, WebTemplate)]
 #[template(path = "uncommitted.html")]
 pub struct UncommittedTemplate {
-    pub entities: Vec<Entity>,
+    pub entities: Vec<dto::Entity>,
     pub config: Arc<context::Config>,
     pub page: context::Page,
 }
@@ -65,7 +60,7 @@ pub async fn uncommitted(
     let conn = state.get_conn()?;
     let mut entities = Vec::new();
     conn.get_entity_uncommitted(|row| {
-        let entity = Entity {
+        let entity = dto::Entity {
             typ: row.get(0)?,
             id: row.get(1)?,
             name: row.get(2)?,
