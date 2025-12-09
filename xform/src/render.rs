@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use askama::Template;
-use axum::extract::State;
+use axum::extract::{self, State};
 use rusqlite::{Connection, OptionalExtension};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -9,10 +9,9 @@ use tera;
 use tera::Tera;
 
 use crate::data::ContactType;
-use crate::dto::EntityType;
 use crate::{LibrarySql, SchemaSql, data};
 use crate::{
-    context::{OfficeContext, PersonContext},
+    context::OfficeContext,
     dto,
     serve::{self, AppState},
 };
@@ -21,9 +20,9 @@ use crate::context::{self, Maintenance, Person, Quondam};
 
 #[tokio::main]
 pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
-    let state = AppState::new(db.to_path_buf(), templates.to_path_buf(), false)?;
-    let mut pooled_conn = state.db_pool.get()?;
-    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
+    let state = Arc::new(AppState::new(db.to_path_buf(), templates.to_path_buf(), false)?);
+    let mut conn = state.db_pool.get()?;
+    let context_fetcher = ContextFetcher::new(&mut conn, state.config.as_ref().clone())
         .with_context(|| format!("could not create context fetcher"))?;
 
     fs::create_dir(output).with_context(|| format!("could not create output dir {:?}", output))?;
@@ -31,7 +30,8 @@ pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
     let renderer = Renderer::new(templates)?;
 
     // persons
-    render_persons(&context_fetcher, &renderer, output)
+    render_persons(context_fetcher.conn, State(state.clone()), output)
+        .await
         .with_context(|| format!("could not render persons"))?;
 
     // offices
@@ -39,7 +39,7 @@ pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
         .with_context(|| format!("could not render offices"))?;
 
     // render index
-    let template = serve::handler::index(State(Arc::new(state))).await?;
+    let template = serve::handler::index(State(state.clone())).await?;
     let str = template.render()?;
     let output_path = output.join("index.html");
     fs::write(output_path.as_path(), str)
@@ -61,184 +61,6 @@ impl<'a> ContextFetcher<'a> {
         // read config
 
         Ok(ContextFetcher { config, conn })
-    }
-
-    pub fn fetch_person(&self, dynamic: bool, id: &str) -> Result<context::PersonContext> {
-        let name = self
-            .conn
-            .get_entity_name(&dto::EntityType::Person, id, |row| row.get(0))?;
-        let photo = self
-            .conn
-            .get_entity_photo(&dto::EntityType::Person, id, |row| {
-                Ok(data::Photo {
-                    url: row.get(0)?,
-                    attribution: row.get(1)?,
-                })
-            })
-            .optional()?;
-        let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-        self.conn
-            .get_entity_contacts(&EntityType::Person, id, |row| {
-                contacts.insert(row.get(0)?, row.get(1)?);
-
-                Ok(())
-            })?;
-        let commit_date = self
-            .conn
-            .get_entity_commit_date(&dto::EntityType::Person, id, |row| row.get(0))
-            .optional()?;
-        let person = dto::Person {
-            id: id.to_string(),
-            name,
-            photo,
-            contacts: if contacts.is_empty() {
-                None
-            } else {
-                Some(contacts)
-            },
-            commit_date,
-        };
-        let mut offices_for_person = Vec::new();
-        self.conn
-            .get_person_incumbent_office_details(id, |row| {
-                let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-                self.conn.get_entity_contacts(
-                    &EntityType::Office,
-                    &row.get::<_, String>(0)?,
-                    |row| {
-                        contacts.insert(row.get(0)?, row.get(1)?);
-
-                        Ok(())
-                    },
-                )?;
-                offices_for_person.push(dto::Office {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    photo: if let Some(url) = row.get(2)? {
-                        Some(data::Photo {
-                            url,
-                            attribution: row.get(3)?,
-                        })
-                    } else {
-                        None
-                    },
-                    contacts: if contacts.is_empty() {
-                        None
-                    } else {
-                        Some(contacts)
-                    },
-                });
-
-                Ok(())
-            })?;
-
-        // office, official_contacts, supervisors, subordinates
-        let mut offices = Vec::new();
-        for office_dto in offices_for_person {
-            // supervisors
-            let mut supervisors: BTreeMap<data::SupervisingRelation, context::Officer> =
-                BTreeMap::new();
-            self.conn
-                .get_office_supervisors(&office_dto.id, |row| {
-                    let person = if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
-                        Some(context::Person { id, name })
-                    } else {
-                        None
-                    };
-                    supervisors.insert(
-                        row.get(0)?,
-                        context::Officer {
-                            office_id: row.get(1)?,
-                            office_name: row.get(2)?,
-                            person,
-                        },
-                    );
-
-                    Ok(())
-                })?;
-
-            // subordinates
-            let mut subordinates: BTreeMap<data::SupervisingRelation, Vec<context::Officer>> =
-                BTreeMap::new();
-            self.conn
-                .get_office_subordinates(&office_dto.id, |row| {
-                    let relation: data::SupervisingRelation = row.get(0)?;
-                    let officer = context::Officer {
-                        office_id: row.get(1)?,
-                        office_name: row.get(2)?,
-                        person: if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
-                            Some(context::Person { id, name })
-                        } else {
-                            None
-                        },
-                    };
-                    subordinates
-                        .entry(relation)
-                        .or_insert_with(Vec::new)
-                        .push(officer);
-
-                    Ok(())
-                })?;
-
-            offices.push(context::OfficeDetails {
-                office: context::Office {
-                    id: office_dto.id,
-                    name: office_dto.name,
-                },
-                photo: office_dto.photo,
-                contacts: office_dto.contacts,
-                supervisors: if supervisors.is_empty() {
-                    None
-                } else {
-                    Some(supervisors)
-                },
-                subordinates: if subordinates.is_empty() {
-                    None
-                } else {
-                    Some(subordinates)
-                },
-            });
-        }
-
-        let mut past_tenures = Vec::new();
-        self.conn.get_past_tenures(&id, |row| {
-            past_tenures.push(context::TenureDetails {
-                office: context::Office {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                },
-                start: row.get(2)?,
-                end: row.get(3)?,
-            });
-
-            Ok(())
-        })?;
-
-        // page
-        let page = context::Page {
-            base: "../".to_string(),
-            dynamic,
-        };
-
-        // metadata
-        let metadata = context::Metadata {
-            maintenance: Maintenance { incomplete: true },
-            commit_date: person.commit_date,
-        };
-
-        Ok(context::PersonContext {
-            person: context::Person {
-                id: person.id,
-                name: person.name,
-            },
-            photo: person.photo,
-            contacts: person.contacts,
-            offices: Some(offices).filter(|v| !v.is_empty()),
-            past_tenures: Some(past_tenures).filter(|v| !v.is_empty()),
-            config: self.config.clone(),
-            page,
-            metadata,
-        })
     }
 
     pub fn fetch_office(&self, dynamic: bool, id: &str) -> Result<context::OfficeContext> {
@@ -347,10 +169,6 @@ impl Renderer {
         Ok(Renderer { tera })
     }
 
-    pub fn render_person(&self, context: &PersonContext) -> Result<String> {
-        self.render(&context, "person.html")
-    }
-
     pub fn render_office(&self, context: &OfficeContext) -> Result<String> {
         self.render(&context, "office.html")
     }
@@ -364,32 +182,25 @@ impl Renderer {
     }
 }
 
-fn render_persons(
-    context_fetcher: &ContextFetcher,
-    renderer: &Renderer,
-    output: &Path,
-) -> Result<()> {
+async fn render_persons(conn: &Connection, state: State<Arc<AppState>>, output: &Path) -> Result<()> {
     // persons
     let person_path = output.join("person");
     fs::create_dir(person_path.as_path())
         .with_context(|| format!("could not create person dir {:?}", person_path))?;
 
     let mut ids: Vec<String> = Vec::new();
-    context_fetcher
-        .conn
+        conn
         .get_entity_ids(&dto::EntityType::Person, |row| {
             ids.push(row.get(0)?);
             Ok(())
         })?;
 
     for id in ids {
-        let person_context = context_fetcher
-            .fetch_person(false, &id)
-            .with_context(|| format!("could not fetch context for person {}", id))?;
-        let str = renderer.render_person(&person_context)?;
-
-        let output_path = person_path.join(format!("{}.html", person_context.person.id));
-
+        let template =
+            serve::handler::person_page(state.clone(), extract::Path(format!("{}.html", id)))
+                .await?;
+        let str = template.render()?;
+        let output_path = output.join("index.html");
         fs::write(output_path.as_path(), str)
             .with_context(|| format!("could not write rendered file {:?}", output_path))?;
     }

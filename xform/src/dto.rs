@@ -6,15 +6,6 @@ use serde::Serialize;
 use crate::{data, graph};
 
 #[derive(Debug)]
-pub struct Person {
-    pub id: String,
-    pub name: String,
-    pub photo: Option<data::Photo>,
-    pub contacts: Option<BTreeMap<data::ContactType, String>>,
-    pub commit_date: Option<String>,
-}
-
-#[derive(Debug)]
 pub struct Office {
     pub id: String,
     pub name: String,

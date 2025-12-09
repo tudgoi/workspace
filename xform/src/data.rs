@@ -34,6 +34,7 @@ pub enum ContactType {
     Instagram,
     Wikidata,
 }
+
 impl ContactType {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -47,6 +48,36 @@ impl ContactType {
             ContactType::Facebook => "facebook",
             ContactType::Instagram => "instagram",
             ContactType::Wikidata => "wikidata",
+        }
+    }
+
+    pub fn to_link(&self, s: &str) -> String {
+        match self {
+            &ContactType::Address => String::from(""),
+            &ContactType::Phone => format!("tel:{}", s),
+            &ContactType::Email => format!("mailto:{}", s),
+            &ContactType::Website => format!("{}", s),
+            &ContactType::Wikipedia => format!("https://en.wikipedia.org/wiki/{}", s),
+            &ContactType::X => format!("https://x.com/{}", s),
+            &ContactType::Youtube => format!("https://www.youtube.com/{}", s),
+            &ContactType::Facebook => format!("https://www.facebook.com/{}", s),
+            &ContactType::Instagram => format!("https://www.instagram.com/{}", s),
+            &ContactType::Wikidata => format!("https://www.wikidata.org/wiki/{}", s),
+        }
+    }
+    
+    pub fn is_independent(&self) -> bool {
+        match self {
+            ContactType::Address => false,
+            ContactType::Phone => false,
+            ContactType::Email => false,
+            ContactType::Website => false,
+            ContactType::Wikipedia => true,
+            ContactType::X => false,
+            ContactType::Youtube => false,
+            ContactType::Facebook => false,
+            ContactType::Instagram => false,
+            ContactType::Wikidata => true,
         }
     }
 }
@@ -66,24 +97,21 @@ impl ToSql for ContactType {
 impl FromSql for ContactType {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         match value {
-            rusqlite::types::ValueRef::Text(s) => {
-                match s {
-                    b"address" => Ok(ContactType::Address),
-                    b"phone" => Ok(ContactType::Phone),
-                    b"email" => Ok(ContactType::Email),
-                    b"website" => Ok(ContactType::Website),
-                    b"wikipedia" => Ok(ContactType::Wikipedia),
-                    b"x" => Ok(ContactType::X),
-                    b"youtube" => Ok(ContactType::Youtube),
-                    b"facebook" => Ok(ContactType::Facebook),
-                    b"instagram" => Ok(ContactType::Instagram),
-                    b"wikidata" => Ok(ContactType::Wikidata),
-                    _ => Err(rusqlite::types::FromSqlError::Other(
-                        format!("Unrecognized ContactType: {}", String::from_utf8_lossy(s))
-                            .into(),
-                    )),
-                }
-            }
+            rusqlite::types::ValueRef::Text(s) => match s {
+                b"address" => Ok(ContactType::Address),
+                b"phone" => Ok(ContactType::Phone),
+                b"email" => Ok(ContactType::Email),
+                b"website" => Ok(ContactType::Website),
+                b"wikipedia" => Ok(ContactType::Wikipedia),
+                b"x" => Ok(ContactType::X),
+                b"youtube" => Ok(ContactType::Youtube),
+                b"facebook" => Ok(ContactType::Facebook),
+                b"instagram" => Ok(ContactType::Instagram),
+                b"wikidata" => Ok(ContactType::Wikidata),
+                _ => Err(rusqlite::types::FromSqlError::Other(
+                    format!("Unrecognized ContactType: {}", String::from_utf8_lossy(s)).into(),
+                )),
+            },
             _ => Err(rusqlite::types::FromSqlError::InvalidType),
         }
     }
@@ -115,6 +143,12 @@ pub enum SupervisingRelation {
     Minister,
 }
 
+impl Display for SupervisingRelation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 impl SupervisingRelation {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -137,23 +171,21 @@ impl ToSql for SupervisingRelation {
 impl FromSql for SupervisingRelation {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         match value {
-            rusqlite::types::ValueRef::Text(s) => {
-                match s {
-                    b"head" => Ok(SupervisingRelation::Head),
-                    b"adviser" => Ok(SupervisingRelation::Adviser),
-                    b"during_the_pleasure_of" => Ok(SupervisingRelation::DuringThePleasureOf),
-                    b"responsible_to" => Ok(SupervisingRelation::ResponsibleTo),
-                    b"member_of" => Ok(SupervisingRelation::MemberOf),
-                    b"minister" => Ok(SupervisingRelation::Minister),
-                    _ => Err(rusqlite::types::FromSqlError::Other(
-                        format!(
-                            "Unrecognized SupervisingRelation: {}",
-                            String::from_utf8_lossy(s)
-                        )
-                        .into(),
-                    )),
-                }
-            }
+            rusqlite::types::ValueRef::Text(s) => match s {
+                b"head" => Ok(SupervisingRelation::Head),
+                b"adviser" => Ok(SupervisingRelation::Adviser),
+                b"during_the_pleasure_of" => Ok(SupervisingRelation::DuringThePleasureOf),
+                b"responsible_to" => Ok(SupervisingRelation::ResponsibleTo),
+                b"member_of" => Ok(SupervisingRelation::MemberOf),
+                b"minister" => Ok(SupervisingRelation::Minister),
+                _ => Err(rusqlite::types::FromSqlError::Other(
+                    format!(
+                        "Unrecognized SupervisingRelation: {}",
+                        String::from_utf8_lossy(s)
+                    )
+                    .into(),
+                )),
+            },
             _ => Err(rusqlite::types::FromSqlError::InvalidType),
         }
     }

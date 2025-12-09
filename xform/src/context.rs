@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::data;
+use crate::data::{self, ContactType};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
@@ -34,6 +34,23 @@ pub struct Icons {
     pub wikidata: String,
 }
 
+impl Icons {
+    pub fn for_contact_type(&self, typ: &data::ContactType) -> &str {
+        match typ {
+            &ContactType::Address => &self.address,
+            &ContactType::Phone => &self.phone,
+            &ContactType::Email => &self.email,
+            &ContactType::Website => &self.website,
+            &ContactType::Wikipedia => &self.wikipedia,
+            &ContactType::X => &self.x,
+            &ContactType::Youtube => &self.youtube,
+            &ContactType::Facebook => &self.facebook,
+            &ContactType::Instagram => &self.instagram,
+            &ContactType::Wikidata => &self.wikidata,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Labels {
     pub supervisors: SupervisorsLabels,
@@ -51,17 +68,17 @@ pub struct SupervisorsLabels {
     pub minister: String,
 }
 
-#[derive(Serialize, Debug)]
-pub struct PersonContext {
-    pub person: Person,
-    pub photo: Option<data::Photo>,
-    pub contacts: Option<BTreeMap<data::ContactType, String>>,
-    pub offices: Option<Vec<OfficeDetails>>,
-    pub past_tenures: Option<Vec<TenureDetails>>,
-
-    pub config: Config,
-    pub page: Page,
-    pub metadata: Metadata,
+impl SupervisorsLabels {
+    pub fn for_relation(&self, relation: &data::SupervisingRelation) -> &str {
+        match relation {
+            data::SupervisingRelation::Adviser => &self.adviser,
+            data::SupervisingRelation::DuringThePleasureOf => &self.during_the_pleasure_of,
+            data::SupervisingRelation::Head => &self.head,
+            data::SupervisingRelation::MemberOf => &self.member_of,
+            data::SupervisingRelation::ResponsibleTo => &self.responsible_to,
+            data::SupervisingRelation::Minister => &self.minister,
+        }
+    }
 }
 
 #[derive(Serialize, Debug)]

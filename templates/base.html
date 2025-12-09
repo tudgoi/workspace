@@ -15,8 +15,11 @@
       </div>
       <div class="toolbar">
         {% block toolbar %}
+        {% if page.dynamic %}
+        <a href="/uncommitted">Uncommitted</a>
         <a href="/new/person">New Person</a>
         <a href="/new/office">New Office</a>
+        {% endif %}
         {% endblock toolbar %}
       </div>
     </header>

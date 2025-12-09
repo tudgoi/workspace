@@ -14,6 +14,8 @@ use crate::{
 };
 
 pub mod entity;
+pub mod person;
+pub mod filters;
 
 #[derive(Template, WebTemplate)]
 #[template(path = "index.html")]
@@ -84,15 +86,14 @@ pub async fn uncommitted(
 pub async fn search_db(State(state): State<Arc<AppState>>) -> Result<Vec<u8>, AppError> {
     let conn = Connection::open_in_memory()?;
     conn.create_entity_tables()?;
-    let db_path_str= state
+    let db_path_str = state
         .db
         .to_str()
         .ok_or_else(|| AppError::Unexpected(format!("could not convert path {:?}", state.db)))?;
     conn.attach_db(db_path_str)?;
     conn.copy_entity_from_db()?;
     conn.detach_db()?;
-    let db_bytes = conn
-        .serialize("main")?;
+    let db_bytes = conn.serialize("main")?;
 
     Ok(db_bytes.to_vec())
 }

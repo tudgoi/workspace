@@ -1,6 +1,7 @@
 {% extends "entity.html" %}
+{% import "macros.html" as macros %}
 {% block toolbar %}
-  {{ super() }}
+  {% call super() %}
   <a href="{{person.id}}/edit">Edit</a>
 {% endblock toolbar %}
 
@@ -39,55 +40,63 @@
 </style>
 <main>
   <div class="photo">
-    {% if photo %}
-    {{ macros::render_photo(photo=photo, alt=person.name) }}
-    {% elif offices and (offices | length > 0) and offices[0].photo %}
-    {{ macros::render_photo(photo=offices[0].photo, alt=person.name) }}
+    {% if let Some(photo) = photo %}
+      {% call macros::render_photo(photo=photo, alt=person.name) %}
+    {% else if let Some(offices) = offices %}
+      {% if offices.len() > 0 %}
+        {% if let Some(office_photo) = offices[0].photo %}
+          {% call macros::render_photo(photo=office_photo, alt=person.name) %}
+        {% endif %}
+      {% endif %}
     {% else %}
-    {{ macros::render_photo(photo=config.defaults.photo, alt=person.name) }}
+      {% call macros::render_photo(photo=config.defaults.photo, alt=person.name) %}
     {% endif %}
   </div>
   <div class="title">
     <h2>
       {{ person.name }}
-      {{ macros::render_ext_links(links=contacts) }}
+      {% if let Some(contacts) = contacts %}
+      {% call macros::render_ext_links(links=contacts) %}
+      {% endif %}
     </h2>
     <hr />
   </div>
   <div class="offices">
-    {% if offices %}
+    {% if let Some(offices_vec) = offices %}
     <dl class="office-list">
-      {% for office in offices %}
+      {% for office in offices_vec %}
       <dt>
-        {{ macros::render_office(id=office.office.id, name=office.office.name) }}
-        {{ macros::render_ext_links(links=office.contacts) }}
+        {% call macros::render_office(id=office.office.id, name=office.office.name) %}
+        {% if let Some(office_contacts) = office.contacts %}
+        {% call macros::render_ext_links(links=office_contacts) %}
+        {% endif %}
       </dt>
       <dd>
-        {% if office.contacts %}
-        {{ macros::render_contacts(contacts=office.contacts) }}
+        {% if let Some(office_contacts) = office.contacts %}
+        {% call macros::render_contacts(contacts=office_contacts) %}
         {% endif %}
-        {% if office.supervisors %}
-        {{ macros::render_supervisors(officers=office.supervisors) }}
+        {% if let Some(office_supervisors) = office.supervisors %}
+        {% call macros::render_supervisors(officers=office_supervisors) %}
         {% endif %}
         {% endfor %}
     </dl>
     {% endif %}
   </div>
   <div class="contacts">
-    {% if contacts %}
+    {% if let Some(contact_map) = contacts %}
     <hr />
-    {{ macros::render_contacts(contacts=contacts) }}
+    {% call macros::render_contacts(contacts=contact_map) %}
     {% endif %}
   </div>
   <div class="subordinates">
-    {% if offices %}
+    {% if let Some(offices_vec) = offices %}
     <hr />
     <dl>
-      {% for office in offices %}
-      {% if office.subordinates %}
+      {% for office in offices_vec %}
+      {% if let Some(office_subordinates) = office.subordinates %}
       <dt>{{ office.office.name }}</dt>
       <dd>
-        {{ macros::render_subordinates(officers=office.subordinates) }}
+        {% call macros::render_subordinates(officers=office_subordinates) %}
       </dd>
       {% endif %}
       {% endfor %}
@@ -96,14 +105,14 @@
   </div>
 
   <div class="past-tenures">
-    {% if past_tenures %}
+    {% if let Some(past_tenures_vec) = past_tenures %}
     <hr />
     <dl>
       <dt>Past Tenures</dt>
       <dd>
         <ul>
-          {% for tenure in past_tenures %}
-          <li>{{ macros::render_office(id=tenure.office.id, name=tenure.office.name) }}, <em>{{ tenure.start }} to {{
+          {% for tenure in past_tenures_vec %}
+          <li>{% call macros::render_office(id=tenure.office.id, name=tenure.office.name) %}, <em>{{ tenure.start }} to {{
               tenure.end }}</em></li>
           {% endfor %}
         </ul>
@@ -112,12 +121,12 @@
     {% endif %}
   </div>
   <div class="sources">
-    {% if page.extra.sources %}
+    {% if let Some(sources) = sources %}
     <hr>
     <details>
       <summary>Sources</summary>
       <ul>
-        {% for url in page.extra.sources %}
+        {% for url in sources %}
         <li><a href="{{ url }}">{{ url }}</a></li>
         {% endfor %}
       </ul>

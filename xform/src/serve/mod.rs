@@ -69,7 +69,7 @@ pub async fn run(
 
     let app = Router::new()
         .route("/", get(handler::index))
-        .route("/person/{id}", get(person_page))
+        .route("/person/{id}", get(handler::person::page))
         .route("/office/{id}", get(office_page))
         .route("/search.db", get(handler::search_db))
         .route("/uncommitted", get(handler::uncommitted))
@@ -129,27 +129,6 @@ impl AppState {
     pub fn get_conn(&self) -> Result<PooledConnection<SqliteConnectionManager>, R2D2Error> {
         self.db_pool.get()
     }
-}
-
-#[axum::debug_handler]
-async fn person_page(
-    State(state): State<Arc<AppState>>,
-    axum::extract::Path(id_with_ext): axum::extract::Path<String>,
-) -> Result<Html<String>, AppError> {
-    println!("Request called for {}", id_with_ext);
-    let id = id_with_ext.trim_end_matches(".html");
-    let mut pooled_conn = state.get_conn()?;
-    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
-        .with_context(|| format!("could not create context fetcher"))?;
-    let renderer = Renderer::new(&state.templates)?;
-
-    let person_context = context_fetcher.fetch_person(true, id)?;
-
-    let body = renderer
-        .render_person(&person_context)
-        .with_context(|| "could not render person page")?;
-
-    Ok(Html(body))
 }
 
 #[axum::debug_handler]

@@ -1,0 +1,102 @@
+{% macro render_ext_links(links) %}
+    <span class="ext-links">
+    {% for (key, value) in links %}
+      {% if key.is_independent() %}
+            <a href="{{ key.to_link(value) }}"><button><span class="icon">
+                {{ config.icons.for_contact_type(key) | safe }}
+            </span></button></a>
+      {% endif %}
+    {% endfor %}
+    </span>
+{% endmacro render_ext_links %}
+
+{% macro render_contacts(contacts) %}
+    <dl class="contact-list">
+      {% for (key, value) in contacts %}
+      {% if !key.is_independent() %}
+        <div class="dl-single-line">
+          <dt><span class="icon">
+            {{ config.icons.for_contact_type(key) | safe }}
+          </span></dt>
+          <dd>
+            {% if *key != data::ContactType::Address %}
+              <a href="{{ key.to_link(value) }}">{{ value }}</a>
+            {% else %}
+              {{ value }}
+            {% endif %}
+          </dd>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </dl>
+{% endmacro render_contacts %}
+
+{% macro render_supervisors(officers) %}
+    <dl>
+      {% for (key, value) in officers %}
+          <div class="dl-single-line">
+              <dt>
+                {% if key.to_string() == "adviser" %}{{ config.labels.supervisors.adviser }}
+                {% elif key.to_string() == "during_the_pleasure_of" %}{{ config.labels.supervisors.during_the_pleasure_of }}
+                {% elif key.to_string() == "head" %}{{ config.labels.supervisors.head }}
+                {% elif key.to_string() == "member_of" %}{{ config.labels.supervisors.member_of }}
+                {% elif key.to_string() == "responsible_to" %}{{ config.labels.supervisors.responsible_to }}
+                {% elif key.to_string() == "minister" %}{{ config.labels.supervisors.minister }}
+                {% endif %}
+              </dt>
+              <dd>{% call render_officer(officer=value) %}</dd>
+          </div>
+      {% endfor %}
+    </dl>
+{% endmacro render_supervisors %}
+
+{% macro render_subordinates(officers) %}
+  <dl class="backlink-list">
+    {% for (key, value) in officers %}
+      <dt>
+        {{ config.labels.subordinates.for_relation(key) }}
+        ({{ value.len() }})</dt>
+        <dd>
+          <ul>
+            {% for item in value %}
+              <li>{% call render_officer(officer=item) %}</li>
+            {% endfor %}
+          </ul>
+        </dd>
+    {% endfor %}
+  </dl>
+{% endmacro render_subordinates %}
+
+{% macro render_url(url) %}
+    <a href="{{ url}}">{{ url }}</a>
+{% endmacro render_url %}
+
+{% macro render_officer(officer) %}
+    {% if let Some(person_obj) = officer.person %}
+        {%- call render_person(person=person_obj) -%},
+    {% endif %}
+    {% call render_office(id=officer.office_id, name=officer.office_name) %}
+{% endmacro render_officer %}
+
+{%- macro render_person(person) -%}
+    <a href="{% call page_link_id(type="person", id=person.id) %}">{{ person.name }}</a>
+{%- endmacro render_person -%}
+
+{%- macro render_office(id, name) -%}
+    <a href="{% call page_link_id(type="office", id=id) %}">{{ name }}</a>
+{%- endmacro render_office -%}
+
+{% macro render_photo(photo, alt) %}
+    <figure>
+            <img src="{{ photo.url | thumbnail }}" alt="{{ alt }}" />
+        {% if let Some(attr_text) = photo.attribution %}
+            <figcaption title="{{ attr_text }}">
+                Image by {{ attr_text }}
+            </figcaption>
+        {% endif %}
+    </figure>
+{% endmacro render_photo %}
+
+{% macro page_link_id(type, id) %}
+    {{- page.base ~ type ~ "/" ~ id ~ ".html" -}}
+{% endmacro page_link_id %}
