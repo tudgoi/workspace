@@ -8,6 +8,15 @@ FROM entity;
 -- name: enable_commit_tracking!
 INSERT OR IGNORE INTO commit_tracking (id, enabled) VALUES (1, 1)
 /
+-- name: save_entity_commit!
+-- Inserts a commit entry for an entity.
+-- # Parameters
+-- param: entity_type: &dto::EntityType - entity type
+-- param: entity_id: &str - entity ID
+-- param: date: &chrono::NaiveDate - commit date
+INSERT INTO entity_commit (entity_type, entity_id, date)
+VALUES (:entity_type, :entity_id, :date);
+/
 -- name: get_entity_uncommitted?
 -- Returns the entities that are local to the DB and not yet committed to git
 SELECT e.type, e.id, e.name
@@ -246,6 +255,42 @@ SELECT p.id, p.name FROM person_office_incumbent AS i
 JOIN person AS p ON i.person_id = p.id
 WHERE i.office_id = :office_id 
 LIMIT 1
+/
+-- name: get_office_subordinates?
+-- Returns the subordinates for a given office.
+-- # Parameters
+-- param: office_id: &str
+SELECT s.relation, s.office_id, o.name, i.person_id, p.name
+FROM office_supervisor AS s
+INNER JOIN office AS o ON o.id = s.office_id
+LEFT JOIN person_office_incumbent AS i ON i.office_id = s.office_id
+LEFT JOIN person as p on p.id = i.person_id
+WHERE s.supervisor_office_id = :office_id
+ORDER BY s.office_id;
+/
+-- name: get_office_supervisors->
+-- Returns the supervisors for a given office.
+-- # Parameters
+-- param: office_id: &str
+SELECT
+    s.relation,
+    s.supervisor_office_id,
+    o.name,
+    i.person_id,
+    p.name
+FROM office_supervisor AS s
+INNER JOIN office AS o ON o.id = s.supervisor_office_id
+LEFT JOIN person_office_incumbent AS i ON i.office_id = s.supervisor_office_id
+LEFT JOIN person as p on p.id = i.person_id
+WHERE s.office_id = :office_id;
+/
+-- name: get_office_supervising_offices->
+-- Returns supervising offices for an office.
+-- # Parameters
+-- param: office_id: &str
+SELECT relation, supervisor_office_id
+FROM office_supervisor
+WHERE office_id = :office_id;
 /
 -- name: get_person_incumbent_office_details?
 -- # Parameter

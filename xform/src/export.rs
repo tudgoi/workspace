@@ -30,10 +30,13 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
         .with_context(|| format!("could not open repository at {:?}", db))?;
 
     // Export persons
-    let persons = repo
-        .list_all_person_ids()
-        .with_context(|| "could not query all persons")?;
-    for id in persons {
+    let mut ids: Vec<String> = Vec::new();
+    repo.conn.get_entity_ids(&dto::EntityType::Person, |row| {
+        ids.push(row.get(0)?);
+        Ok(())
+    })?;
+
+    for id in ids {
         let name = repo
             .conn
             .get_entity_name(&dto::EntityType::Person, &id, |row| row.get(0))?;
@@ -88,11 +91,52 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     }
 
     // Export offices
-    let offices = repo
-        .list_all_office_data()
-        .with_context(|| "could not query all offices")?;
+    let mut ids: Vec<String> = Vec::new();
+    repo.conn.get_entity_ids(&dto::EntityType::Office, |row| {
+        ids.push(row.get(0)?);
+        Ok(())
+    })?;
 
-    for (id, office_data) in offices {
+    for id in ids {
+        let name = repo
+            .conn
+            .get_entity_name(&dto::EntityType::Office, &id, |row| row.get(0))?;
+        let photo = repo
+            .conn
+            .get_entity_photo(&dto::EntityType::Office, &id, |row| {
+                Ok(data::Photo {
+                    url: row.get(0)?,
+                    attribution: row.get(1)?,
+                })
+            })
+            .optional()?;
+        let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
+        repo.conn
+            .get_entity_contacts(&dto::EntityType::Office, &id, |row| {
+                contacts.insert(row.get(0)?, row.get(1)?);
+
+                Ok(())
+            })?;
+        let mut supervisors: BTreeMap<data::SupervisingRelation, String> = BTreeMap::new();
+        repo.conn.get_office_supervising_offices(&id, |row| {
+            supervisors.insert(row.get(0)?, row.get(1)?);
+            Ok(())
+        })?;
+        let office_data = data::Office {
+            name,
+            photo,
+            contacts: if contacts.is_empty() {
+                None
+            } else {
+                Some(contacts)
+            },
+            supervisors: if supervisors.is_empty() {
+                None
+            } else {
+                Some(supervisors)
+            },
+        };
+
         let toml_string =
             toml::to_string_pretty(&office_data).context("could not serialize office to TOML")?;
 

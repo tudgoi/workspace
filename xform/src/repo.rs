@@ -8,46 +8,26 @@ use serde_variant::to_variant_name;
 use crate::{
     LibrarySql,
     context::{self},
-    data::{self, ContactType},
-    dto::{self, EntityType},
+    data::{self},
+    dto::{self},
 };
 
 pub struct Repository<'a> {
     pub conn: &'a mut Connection,
-    all_supervising_relation_variants: HashMap<String, data::SupervisingRelation>,
 }
 
 impl<'a> Repository<'a> {
     pub fn new(conn: &'a mut Connection) -> Result<Repository<'a>> {
         Ok(Repository {
             conn,
-            all_supervising_relation_variants: Self::build_supervising_relation_variants()
-                .with_context(|| format!("could not build SupervisingRelation variants"))?,
         })
-    }
-
-    fn build_supervising_relation_variants() -> Result<HashMap<String, data::SupervisingRelation>> {
-        const ALL_VARIANTS: [data::SupervisingRelation; 6] = [
-            data::SupervisingRelation::Adviser,
-            data::SupervisingRelation::DuringThePleasureOf,
-            data::SupervisingRelation::Head,
-            data::SupervisingRelation::ResponsibleTo,
-            data::SupervisingRelation::MemberOf,
-            data::SupervisingRelation::Minister,
-        ];
-        let mut map: HashMap<String, data::SupervisingRelation> = HashMap::new();
-        for variant in ALL_VARIANTS {
-            map.insert(to_variant_name(&variant)?.to_string(), variant);
-        }
-
-        Ok(map)
     }
 
     pub fn insert_person_data(
         &mut self,
         id: &str,
         person: &data::Person,
-        commit_date: Option<&str>,
+        commit_date: Option<&NaiveDate>,
     ) -> Result<()> {
         self.conn
             .save_entity_name(&dto::EntityType::Person, id, &person.name)?;
@@ -92,7 +72,7 @@ impl<'a> Repository<'a> {
         }
 
         if let Some(date) = commit_date {
-            tx.execute("INSERT INTO entity_commit (entity_type, entity_id, date) VALUES ('person', ?1, ?2)", params![id, date])?;
+            tx.save_entity_commit(&dto::EntityType::Person, id, date)?;
         }
 
         tx.commit()?;
@@ -119,7 +99,7 @@ impl<'a> Repository<'a> {
         &mut self,
         id: &str,
         office: &data::Office,
-        commit_date: Option<&str>,
+        commit_date: Option<&NaiveDate>,
     ) -> Result<()> {
         self.conn
             .save_entity_name(&dto::EntityType::Office, id, &office.name)?;
@@ -150,207 +130,11 @@ impl<'a> Repository<'a> {
         }
 
         if let Some(date) = commit_date {
-            tx.execute("INSERT INTO entity_commit (entity_type, entity_id, date) VALUES ('office', ?1, ?2)", params![id, date])?;
+            tx.save_entity_commit(&dto::EntityType::Office, id, date)?;
         }
 
         tx.commit()?;
 
         Ok(())
-    }
-
-    pub fn list_all_person_ids(&self) -> Result<Vec<String>> {
-        let mut stmt = self.conn.prepare("SELECT id FROM person ORDER BY id")?;
-
-        let persons = stmt
-            .query_map([], |row| row.get(0))?
-            .collect::<Result<Vec<String>, _>>()?;
-
-        Ok(persons)
-    }
-
-    pub fn list_all_office_data(&self) -> Result<HashMap<String, data::Office>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT e.id, e.name, p.url, p.attribution
-            FROM entity AS e
-            LEFT JOIN entity_photo AS p ON e.id = p.entity_id AND p.entity_type = 'office'
-            WHERE e.type = 'office'
-            ORDER BY e.id
-            ",
-        )?;
-
-        let office_iter = stmt.query_map([], |row| {
-            let id: String = row.get(0)?;
-            let name: String = row.get(1)?;
-            let photo = if let Some(url) = row.get(2)? {
-                Some(data::Photo {
-                    url,
-                    attribution: row.get(3)?,
-                })
-            } else {
-                None
-            };
-            Ok((id, name, photo))
-        })?;
-
-        let mut offices = HashMap::new();
-        for result in office_iter {
-            let (id, name, photo) = result?;
-            let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-            self.conn
-                .get_entity_contacts(&EntityType::Office, &id, |row| {
-                    contacts.insert(row.get(0)?, row.get(1)?);
-
-                    Ok(())
-                })?;
-            let supervisors = self.query_supervisors_for_office_flat(&id)?;
-            offices.insert(
-                id,
-                data::Office {
-                    name,
-                    photo,
-                    contacts: if contacts.is_empty() {
-                        None
-                    } else {
-                        Some(contacts)
-                    },
-                    supervisors: if supervisors.is_empty() {
-                        None
-                    } else {
-                        Some(supervisors)
-                    },
-                },
-            );
-        }
-        Ok(offices)
-    }
-
-    pub fn get_office_subordinates(
-        &self,
-        office_id: &str,
-    ) -> Result<BTreeMap<data::SupervisingRelation, Vec<context::Officer>>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT s.relation, s.office_id, o.name, i.person_id, p.name
-            FROM office_supervisor AS s
-            INNER JOIN office AS o ON o.id = s.office_id
-            LEFT JOIN person_office_incumbent AS i ON i.office_id = s.office_id
-            LEFT JOIN person as p on p.id = i.person_id
-            WHERE s.supervisor_office_id = ?1
-            ORDER BY s.office_id
-        ",
-        )?;
-        let iter = stmt.query_map([office_id], |row| {
-            let relation: String = row.get(0)?;
-            let subordinate_office_id: String = row.get(1)?;
-            let office_name: String = row.get(2)?;
-
-            let person = if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
-                Some(context::Person { id, name })
-            } else {
-                None
-            };
-
-            Ok((
-                relation,
-                context::Officer {
-                    office_id: subordinate_office_id,
-                    office_name,
-                    person,
-                },
-            ))
-        })?;
-
-        let mut dtos = BTreeMap::new();
-        for result in iter {
-            let (relation, officer) = result?;
-            let relation = self
-                .all_supervising_relation_variants
-                .get(&relation)
-                .context(format!(
-                    "could not understand supervisor relation `{}`",
-                    relation
-                ))?
-                .clone();
-            dtos.entry(relation).or_insert_with(Vec::new).push(officer);
-        }
-        Ok(dtos)
-    }
-
-    pub fn get_office_supervisors(
-        &self,
-        office_id: &str,
-    ) -> Result<BTreeMap<data::SupervisingRelation, context::Officer>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT
-                s.relation,
-                s.supervisor_office_id,
-                o.name,
-                i.person_id,
-                p.name
-            FROM office_supervisor AS s
-            INNER JOIN office AS o ON o.id = s.supervisor_office_id
-            LEFT JOIN person_office_incumbent AS i ON i.office_id = s.supervisor_office_id
-            LEFT JOIN person as p on p.id = i.person_id
-            WHERE s.office_id = ?1
-        ",
-        )?;
-        let iter = stmt.query_map([office_id], |row| {
-            let relation_str: String = row.get(0)?;
-            let person = if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
-                Some(context::Person { id, name })
-            } else {
-                None
-            };
-            Ok((
-                relation_str,
-                context::Officer {
-                    office_id: row.get(1)?,
-                    office_name: row.get(2)?,
-                    person,
-                },
-            ))
-        })?;
-
-        let mut supervisors = BTreeMap::new();
-        for result in iter {
-            let (relation, officer) = result?;
-            let relation = self
-                .all_supervising_relation_variants
-                .get(&relation)
-                .with_context(|| format!("unknown relation {}", relation))?
-                .clone();
-            supervisors.insert(relation, officer);
-        }
-
-        Ok(supervisors)
-    }
-
-    fn query_supervisors_for_office_flat(
-        &self,
-        office_id: &str,
-    ) -> Result<BTreeMap<data::SupervisingRelation, String>> {
-        let mut stmt = self.conn.prepare(
-            "
-            SELECT relation, supervisor_office_id 
-            FROM office_supervisor
-            WHERE office_id = ?1
-        ",
-        )?;
-        let iter = stmt.query_map([office_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
-
-        let mut supervisors = BTreeMap::new();
-        for result in iter {
-            let (relation_str, supervisor_office_id): (String, String) = result?;
-            let relation = self
-                .all_supervising_relation_variants
-                .get(&relation_str)
-                .with_context(|| format!("unknown relation {}", relation_str))?
-                .clone();
-            supervisors.insert(relation, supervisor_office_id);
-        }
-
-        Ok(supervisors)
     }
 }

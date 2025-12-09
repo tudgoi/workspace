@@ -127,3 +127,28 @@ impl ToSql for SupervisingRelation {
         Ok(self.as_str().into())
     }
 }
+
+impl FromSql for SupervisingRelation {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        match value {
+            rusqlite::types::ValueRef::Text(s) => {
+                match s {
+                    b"head" => Ok(SupervisingRelation::Head),
+                    b"adviser" => Ok(SupervisingRelation::Adviser),
+                    b"during_the_pleasure_of" => Ok(SupervisingRelation::DuringThePleasureOf),
+                    b"responsible_to" => Ok(SupervisingRelation::ResponsibleTo),
+                    b"member_of" => Ok(SupervisingRelation::MemberOf),
+                    b"minister" => Ok(SupervisingRelation::Minister),
+                    _ => Err(rusqlite::types::FromSqlError::Other(
+                        format!(
+                            "Unrecognized SupervisingRelation: {}",
+                            String::from_utf8_lossy(s)
+                        )
+                        .into(),
+                    )),
+                }
+            }
+            _ => Err(rusqlite::types::FromSqlError::InvalidType),
+        }
+    }
+}

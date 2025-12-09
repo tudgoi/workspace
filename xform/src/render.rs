@@ -143,19 +143,50 @@ impl<'a> ContextFetcher<'a> {
         let mut offices = Vec::new();
         for office_dto in offices_for_person {
             // supervisors
-            let supervisors = self
-                .repo
-                .get_office_supervisors(&office_dto.id)
-                .with_context(|| {
-                    format!("could not query supervisors for office {}", office_dto.id)
+            let mut supervisors: BTreeMap<data::SupervisingRelation, context::Officer> =
+                BTreeMap::new();
+            self.repo
+                .conn
+                .get_office_supervisors(&office_dto.id, |row| {
+                    let person = if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
+                        Some(context::Person { id, name })
+                    } else {
+                        None
+                    };
+                    supervisors.insert(
+                        row.get(0)?,
+                        context::Officer {
+                            office_id: row.get(1)?,
+                            office_name: row.get(2)?,
+                            person,
+                        },
+                    );
+
+                    Ok(())
                 })?;
 
             // subordinates
-            let subordinates = self
-                .repo
-                .get_office_subordinates(&office_dto.id)
-                .with_context(|| {
-                    format!("could not query subordinates for office {}", office_dto.id)
+            let mut subordinates: BTreeMap<data::SupervisingRelation, Vec<context::Officer>> =
+                BTreeMap::new();
+            self.repo
+                .conn
+                .get_office_subordinates(&office_dto.id, |row| {
+                    let relation: data::SupervisingRelation = row.get(0)?;
+                    let officer = context::Officer {
+                        office_id: row.get(1)?,
+                        office_name: row.get(2)?,
+                        person: if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
+                            Some(context::Person { id, name })
+                        } else {
+                            None
+                        },
+                    };
+                    subordinates
+                        .entry(relation)
+                        .or_insert_with(Vec::new)
+                        .push(officer);
+
+                    Ok(())
                 })?;
 
             offices.push(context::OfficeDetails {
@@ -357,12 +388,16 @@ fn render_persons(
     fs::create_dir(person_path.as_path())
         .with_context(|| format!("could not create person dir {:?}", person_path))?;
 
-    let person_ids = context_fetcher
+    let mut ids: Vec<String> = Vec::new();
+    context_fetcher
         .repo
-        .list_all_person_ids()
-        .with_context(|| "could not query all persons")?;
+        .conn
+        .get_entity_ids(&dto::EntityType::Person, |row| {
+            ids.push(row.get(0)?);
+            Ok(())
+        })?;
 
-    for id in person_ids {
+    for id in ids {
         let person_context = context_fetcher
             .fetch_person(false, &id)
             .with_context(|| format!("could not fetch context for person {}", id))?;

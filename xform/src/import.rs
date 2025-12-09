@@ -1,5 +1,6 @@
 use anyhow::bail;
 use anyhow::{Context, Result, ensure};
+use chrono::NaiveDate;
 use std::path::Path;
 use std::process::Command;
 
@@ -9,7 +10,7 @@ use crate::LibrarySql;
 use super::from_toml_file;
 use super::{data, repo};
 
-fn get_commit_date(file_path: &Path) -> Result<Option<String>> {
+fn get_commit_date(file_path: &Path) -> Result<Option<NaiveDate>> {
     let path_str = file_path
         .to_str()
         .context("failed to convert path to string")?;
@@ -57,7 +58,7 @@ fn get_commit_date(file_path: &Path) -> Result<Option<String>> {
     if date_str.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(date_str.trim().to_string()))
+        Ok(Some(NaiveDate::parse_from_str(date_str.trim(), "%Y-%m-%d")?))
     }
 }
 
@@ -101,7 +102,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let office: data::Office =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load office"))?;
-        repo.insert_office_data(id, &office, commit_date.as_deref())?;
+        repo.insert_office_data(id, &office, commit_date.as_ref())?;
     }
 
     // process person
@@ -128,7 +129,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
-        repo.insert_person_data(id, &person, commit_date.as_deref())?;
+        repo.insert_person_data(id, &person, commit_date.as_ref())?;
     }
 
     repo.conn.enable_commit_tracking()
