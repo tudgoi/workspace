@@ -7,7 +7,6 @@ use crate::{
     dto::{self, Entity},
     graph,
     ingest::{derive::derive_id, old::OldIngestor},
-    repo,
 };
 use rusqlite::OptionalExtension;
 
@@ -32,8 +31,6 @@ impl Ingestor {
     }
 
     async fn ingest(&mut self, source: Source, dir_path: Option<&Path>) -> Result<()> {
-        let mut repo = repo::Repository::new(&mut self.conn)
-            .with_context(|| "could not open repository for ingestion")?;
         match source {
             Source::Wikidata => unimplemented!("wikidata source not yet implemented"),
             Source::Gemini => {
@@ -52,7 +49,7 @@ impl Ingestor {
                         result.with_context(|| format!("could not query from {:?}", source))?;
                     for entity in entities {
                         let entity: graph::Entity = entity.into();
-                        if let Err(e) = ingest_entity(&mut repo, entity).await {
+                        if let Err(e) = ingest_entity(&mut self.conn, entity).await {
                             println!("ingestion failed: {}", e)
                         }
                     }
@@ -63,13 +60,13 @@ impl Ingestor {
     }
 }
 
-async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entity) -> Result<()> {
+async fn ingest_entity<'a>(conn: &mut Connection, entity: graph::Entity) -> Result<()> {
     let entity_type = entity
         .get_type()
         .with_context(|| format!("entity should have a type"))?;
     let entity_type: dto::EntityType = entity_type.clone().into();
     let id =
-        ingest_entity_id_or_name(repo, &entity_type, entity.get_id(), entity.get_name()).await?;
+        ingest_entity_id_or_name(conn, &entity_type, entity.get_id(), entity.get_name()).await?;
 
     for property in entity.0.values() {
         match property {
@@ -84,31 +81,23 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                 );
                 let office: graph::Entity = items.to_vec().into();
                 let office_id = ingest_entity_id_or_name(
-                    repo,
+                    conn,
                     &dto::EntityType::Office,
                     office.get_id(),
                     office.get_name(),
                 )
                 .await?;
-                repo.conn.save_tenure(&id, &office_id, None, None)?;
+                conn.save_tenure(&id, &office_id, None, None)?;
             }
             graph::Property::Photo { url, attribution } => {
-                if !repo
-                    .conn
-                    .exists_entity_photo(&entity_type, &id, |row| row.get(0))?
-                {
-                    repo.conn
-                        .save_entity_photo(&entity_type, &id, url, attribution.as_deref())
+                if !conn.exists_entity_photo(&entity_type, &id, |row| row.get(0))? {
+                    conn.save_entity_photo(&entity_type, &id, url, attribution.as_deref())
                         .with_context(|| format!("Failed to ingest photo"))?;
                 }
             }
             graph::Property::Contact(contact_type, value) => {
-                if !repo
-                    .conn
-                    .exists_entity_contact(&entity_type, &id, contact_type, |row| row.get(0))?
-                {
-                    repo.conn
-                        .save_entity_contact(&entity_type, &id, contact_type, value)?;
+                if !conn.exists_entity_contact(&entity_type, &id, contact_type, |row| row.get(0))? {
+                    conn.save_entity_contact(&entity_type, &id, contact_type, value)?;
                 }
             }
             graph::Property::Supervisor(relation, supervising_office) => {
@@ -120,19 +109,16 @@ async fn ingest_entity<'a>(repo: &mut repo::Repository<'a>, entity: graph::Entit
                 );
                 let supervising_office: graph::Entity = supervising_office.to_vec().into();
 
-                if !repo
-                    .conn
-                    .exists_office_supervisor(&id, relation, |row| row.get(0))?
-                {
+                if !conn.exists_office_supervisor(&id, relation, |row| row.get(0))? {
                     let supervising_office_id = ingest_entity_id_or_name(
-                        repo,
+                        conn,
                         &dto::EntityType::Office,
                         supervising_office.get_id(),
                         supervising_office.get_name(),
                     )
                     .await?;
 
-                    repo.conn
+                    conn
                         .save_office_supervisor(&id, relation, &supervising_office_id)?;
                 }
             }
@@ -156,19 +142,19 @@ fn escape_for_fts(input: &str) -> String {
 }
 
 async fn ingest_entity_id_or_name<'a>(
-    repo: &mut repo::Repository<'a>,
+    conn: &mut Connection,
     entity_type: &dto::EntityType,
     id: Option<&str>,
     name: Option<&str>,
 ) -> Result<String> {
     if let Some(id) = id {
         // id provided. insert if it doesn't already exist
-        if !repo.conn.exists_entity(entity_type, id, |row| row.get(0))? {
+        if !conn.exists_entity(entity_type, id, |row| row.get(0))? {
             // The entity doesn't exist. So we lets insert.
             let name = name
                 .with_context(|| format!("entity {:?}:{} doesn't have a name", entity_type, id))?;
 
-            repo.conn.save_entity_name(entity_type, id, name)?;
+            conn.save_entity_name(entity_type, id, name)?;
         }
 
         Ok(id.to_string())
@@ -177,8 +163,7 @@ async fn ingest_entity_id_or_name<'a>(
         let name =
             name.with_context(|| format!("entity should have a name if id is not provided"))?;
         let query = escape_for_fts(name);
-        let entity = repo
-            .conn
+        let entity = conn
             .search_entity(Some(&entity_type), &query, |row| {
                 Ok(Entity {
                     entity_type: row.get(0)?,
@@ -191,8 +176,7 @@ async fn ingest_entity_id_or_name<'a>(
             Ok(entity.id)
         } else {
             let id = derive_id(entity_type, name);
-            repo.conn
-                .save_entity_name(entity_type, &id, name)
+            conn.save_entity_name(entity_type, &id, name)
                 .with_context(|| format!("could not insert entity {:?}:{}", entity_type, id))?;
 
             Ok(id)

@@ -14,7 +14,6 @@ mod graph;
 mod import;
 mod ingest;
 mod render;
-mod repo;
 mod serve;
 
 include_sql!("sql/library.sql");

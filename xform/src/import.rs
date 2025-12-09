@@ -1,14 +1,15 @@
 use anyhow::bail;
 use anyhow::{Context, Result, ensure};
 use chrono::NaiveDate;
+use rusqlite::Connection;
 use std::path::Path;
 use std::process::Command;
 
 use crate::SchemaSql;
-use crate::LibrarySql;
+use crate::{LibrarySql, dto};
 
 use super::from_toml_file;
-use super::{data, repo};
+use super::data;
 
 fn get_commit_date(file_path: &Path) -> Result<Option<NaiveDate>> {
     let path_str = file_path
@@ -58,7 +59,10 @@ fn get_commit_date(file_path: &Path) -> Result<Option<NaiveDate>> {
     if date_str.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(NaiveDate::parse_from_str(date_str.trim(), "%Y-%m-%d")?))
+        Ok(Some(NaiveDate::parse_from_str(
+            date_str.trim(),
+            "%Y-%m-%d",
+        )?))
     }
 }
 
@@ -74,9 +78,6 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
     conn.create_property_tables()
         .with_context(|| format!("could not create property schema"))?;
-
-    let mut repo = repo::Repository::new(&mut conn)
-        .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
 
     // process office
     let data_dir = source.join("office");
@@ -102,7 +103,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let office: data::Office =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load office"))?;
-        repo.insert_office_data(id, &office, commit_date.as_ref())?;
+        insert_office_data(&mut conn, id, &office, commit_date.as_ref())?;
     }
 
     // process person
@@ -129,11 +130,109 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 
         let person: data::Person =
             from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
-        repo.insert_person_data(id, &person, commit_date.as_ref())?;
+        insert_person_data(&mut conn, id, &person, commit_date.as_ref())?;
     }
 
-    repo.conn.enable_commit_tracking()
+    conn.enable_commit_tracking()
         .with_context(|| format!("could not enable commit tracking"))?;
+
+    Ok(())
+}
+
+pub fn insert_person_data(
+    conn: &mut Connection,
+    id: &str,
+    person: &data::Person,
+    commit_date: Option<&NaiveDate>,
+) -> Result<()> {
+    conn.save_entity_name(&dto::EntityType::Person, id, &person.name)?;
+
+    if let Some(data::Photo { url, attribution }) = &person.photo {
+        conn.save_entity_photo(
+            &dto::EntityType::Person,
+            id,
+            url,
+            attribution.as_ref().map(String::as_str),
+        )?;
+    }
+    let tx = conn.transaction()?;
+
+    // Insert contacts if they exist
+    if let Some(contacts) = &person.contacts {
+        for (contact_type, value) in contacts {
+            tx.save_entity_contact(&dto::EntityType::Person, id, contact_type, value)?;
+        }
+    }
+
+    // Insert tenures if they exist
+    if let Some(tenures) = &person.tenures {
+        for tenure in tenures {
+            tx.save_tenure(
+                id,
+                &tenure.office_id,
+                tenure
+                    .start
+                    .as_ref()
+                    .map(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d"))
+                    .transpose()?
+                    .as_ref(),
+                tenure
+                    .end
+                    .as_ref()
+                    .map(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d"))
+                    .transpose()?
+                    .as_ref(),
+            )?;
+        }
+    }
+
+    if let Some(date) = commit_date {
+        tx.save_entity_commit(&dto::EntityType::Person, id, date)?;
+    }
+
+    tx.commit()?;
+
+    Ok(())
+}
+
+fn insert_office_data(
+    conn: &mut Connection,
+    id: &str,
+    office: &data::Office,
+    commit_date: Option<&NaiveDate>,
+) -> Result<()> {
+    conn.save_entity_name(&dto::EntityType::Office, id, &office.name)?;
+
+    if let Some(data::Photo { url, attribution }) = &office.photo {
+        conn.save_entity_photo(
+            &dto::EntityType::Office,
+            id,
+            url,
+            attribution.as_ref().map(String::as_str),
+        )?;
+    }
+
+    let tx = conn.transaction()?;
+
+    // Insert supervisors if they exist
+    if let Some(supervisors) = &office.supervisors {
+        for (relation, supervisor_office_id) in supervisors {
+            tx.save_office_supervisor(id, relation, supervisor_office_id)?;
+        }
+    }
+
+    // Insert contacts if they exist
+    if let Some(contacts) = &office.contacts {
+        for (contact_type, value) in contacts {
+            tx.save_entity_contact(&dto::EntityType::Office, id, contact_type, value)?;
+        }
+    }
+
+    if let Some(date) = commit_date {
+        tx.save_entity_commit(&dto::EntityType::Office, id, date)?;
+    }
+
+    tx.commit()?;
 
     Ok(())
 }

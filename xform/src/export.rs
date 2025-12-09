@@ -10,7 +10,7 @@ use std::{
 use crate::{
     LibrarySql,
     data::{self, ContactType, Tenure},
-    dto, repo,
+    dto,
 };
 
 pub fn run(db: &Path, output: &Path) -> Result<()> {
@@ -24,24 +24,19 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
         .with_context(|| format!("could not create office directory at {:?}", office_dir))?;
 
     // Open repository
-    let mut conn = rusqlite::Connection::open(db)
+    let conn = rusqlite::Connection::open(db)
         .with_context(|| format!("could not open database at {:?}", db))?;
-    let repo = repo::Repository::new(&mut conn)
-        .with_context(|| format!("could not open repository at {:?}", db))?;
 
     // Export persons
     let mut ids: Vec<String> = Vec::new();
-    repo.conn.get_entity_ids(&dto::EntityType::Person, |row| {
+    conn.get_entity_ids(&dto::EntityType::Person, |row| {
         ids.push(row.get(0)?);
         Ok(())
     })?;
 
     for id in ids {
-        let name = repo
-            .conn
-            .get_entity_name(&dto::EntityType::Person, &id, |row| row.get(0))?;
-        let photo = repo
-            .conn
+        let name = conn.get_entity_name(&dto::EntityType::Person, &id, |row| row.get(0))?;
+        let photo = conn
             .get_entity_photo(&dto::EntityType::Person, &id, |row| {
                 Ok(data::Photo {
                     url: row.get(0)?,
@@ -50,7 +45,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
             })
             .optional()?;
         let mut tenures = Vec::new();
-        repo.conn.get_tenures(&id, |row| {
+        conn.get_tenures(&id, |row| {
             tenures.push(Tenure {
                 office_id: row.get(0)?,
                 start: row.get(1)?,
@@ -60,12 +55,11 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
             Ok(())
         })?;
         let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-        repo.conn
-            .get_entity_contacts(&dto::EntityType::Person, &id, |row| {
-                contacts.insert(row.get(0)?, row.get(1)?);
+        conn.get_entity_contacts(&dto::EntityType::Person, &id, |row| {
+            contacts.insert(row.get(0)?, row.get(1)?);
 
-                Ok(())
-            })?;
+            Ok(())
+        })?;
         let person_data = data::Person {
             name,
             photo,
@@ -92,17 +86,14 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
 
     // Export offices
     let mut ids: Vec<String> = Vec::new();
-    repo.conn.get_entity_ids(&dto::EntityType::Office, |row| {
+    conn.get_entity_ids(&dto::EntityType::Office, |row| {
         ids.push(row.get(0)?);
         Ok(())
     })?;
 
     for id in ids {
-        let name = repo
-            .conn
-            .get_entity_name(&dto::EntityType::Office, &id, |row| row.get(0))?;
-        let photo = repo
-            .conn
+        let name = conn.get_entity_name(&dto::EntityType::Office, &id, |row| row.get(0))?;
+        let photo = conn
             .get_entity_photo(&dto::EntityType::Office, &id, |row| {
                 Ok(data::Photo {
                     url: row.get(0)?,
@@ -111,14 +102,14 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
             })
             .optional()?;
         let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-        repo.conn
+        conn
             .get_entity_contacts(&dto::EntityType::Office, &id, |row| {
                 contacts.insert(row.get(0)?, row.get(1)?);
 
                 Ok(())
             })?;
         let mut supervisors: BTreeMap<data::SupervisingRelation, String> = BTreeMap::new();
-        repo.conn.get_office_supervising_offices(&id, |row| {
+        conn.get_office_supervising_offices(&id, |row| {
             supervisors.insert(row.get(0)?, row.get(1)?);
             Ok(())
         })?;

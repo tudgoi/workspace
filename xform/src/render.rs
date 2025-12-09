@@ -17,7 +17,6 @@ use crate::{
     serve::{self, AppState},
 };
 
-use super::repo;
 use crate::context::{self, Maintenance, Person, Quondam};
 
 #[tokio::main]
@@ -54,24 +53,21 @@ pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
 
 pub struct ContextFetcher<'a> {
     config: context::Config,
-    repo: repo::Repository<'a>,
+    conn: &'a mut Connection,
 }
 
 impl<'a> ContextFetcher<'a> {
     pub fn new(conn: &'a mut Connection, config: context::Config) -> Result<Self> {
         // read config
-        let repo = repo::Repository::new(conn)?;
 
-        Ok(ContextFetcher { config, repo })
+        Ok(ContextFetcher { config, conn })
     }
 
     pub fn fetch_person(&self, dynamic: bool, id: &str) -> Result<context::PersonContext> {
         let name = self
-            .repo
             .conn
             .get_entity_name(&dto::EntityType::Person, id, |row| row.get(0))?;
         let photo = self
-            .repo
             .conn
             .get_entity_photo(&dto::EntityType::Person, id, |row| {
                 Ok(data::Photo {
@@ -81,15 +77,13 @@ impl<'a> ContextFetcher<'a> {
             })
             .optional()?;
         let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-        self.repo
-            .conn
+        self.conn
             .get_entity_contacts(&EntityType::Person, id, |row| {
                 contacts.insert(row.get(0)?, row.get(1)?);
 
                 Ok(())
             })?;
         let commit_date = self
-            .repo
             .conn
             .get_entity_commit_date(&dto::EntityType::Person, id, |row| row.get(0))
             .optional()?;
@@ -105,11 +99,10 @@ impl<'a> ContextFetcher<'a> {
             commit_date,
         };
         let mut offices_for_person = Vec::new();
-        self.repo
-            .conn
+        self.conn
             .get_person_incumbent_office_details(id, |row| {
                 let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-                self.repo.conn.get_entity_contacts(
+                self.conn.get_entity_contacts(
                     &EntityType::Office,
                     &row.get::<_, String>(0)?,
                     |row| {
@@ -145,8 +138,7 @@ impl<'a> ContextFetcher<'a> {
             // supervisors
             let mut supervisors: BTreeMap<data::SupervisingRelation, context::Officer> =
                 BTreeMap::new();
-            self.repo
-                .conn
+            self.conn
                 .get_office_supervisors(&office_dto.id, |row| {
                     let person = if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
                         Some(context::Person { id, name })
@@ -168,8 +160,7 @@ impl<'a> ContextFetcher<'a> {
             // subordinates
             let mut subordinates: BTreeMap<data::SupervisingRelation, Vec<context::Officer>> =
                 BTreeMap::new();
-            self.repo
-                .conn
+            self.conn
                 .get_office_subordinates(&office_dto.id, |row| {
                     let relation: data::SupervisingRelation = row.get(0)?;
                     let officer = context::Officer {
@@ -210,7 +201,7 @@ impl<'a> ContextFetcher<'a> {
         }
 
         let mut past_tenures = Vec::new();
-        self.repo.conn.get_past_tenures(&id, |row| {
+        self.conn.get_past_tenures(&id, |row| {
             past_tenures.push(context::TenureDetails {
                 office: context::Office {
                     id: row.get(0)?,
@@ -252,11 +243,9 @@ impl<'a> ContextFetcher<'a> {
 
     pub fn fetch_office(&self, dynamic: bool, id: &str) -> Result<context::OfficeContext> {
         let name = self
-            .repo
             .conn
             .get_entity_name(&dto::EntityType::Office, id, |row| row.get(0))?;
         let photo = self
-            .repo
             .conn
             .get_entity_photo(&dto::EntityType::Office, id, |row| {
                 Ok(data::Photo {
@@ -266,15 +255,13 @@ impl<'a> ContextFetcher<'a> {
             })
             .optional()?;
         let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-        self.repo
-            .conn
+        self.conn
             .get_entity_contacts(&dto::EntityType::Office, id, |row| {
                 contacts.insert(row.get(0)?, row.get(1)?);
 
                 Ok(())
             })?;
         let incumbent = self
-            .repo
             .conn
             .get_office_incumbent(id, |row| {
                 Ok(context::Person {
@@ -284,7 +271,7 @@ impl<'a> ContextFetcher<'a> {
             })
             .optional()?;
         let mut quondams = Vec::new();
-        self.repo.conn.get_office_quondams(id, |row| {
+        self.conn.get_office_quondams(id, |row| {
             quondams.push(context::Quondam {
                 person: context::Person {
                     id: row.get(0)?,
@@ -297,7 +284,7 @@ impl<'a> ContextFetcher<'a> {
             Ok(())
         })?;
         let mut quondams = Vec::new();
-        self.repo.conn.get_office_quondams(id, |row| {
+        self.conn.get_office_quondams(id, |row| {
             quondams.push(Quondam {
                 person: Person {
                     id: row.get(0)?,
@@ -309,7 +296,6 @@ impl<'a> ContextFetcher<'a> {
             Ok(())
         })?;
         let commit_date = self
-            .repo
             .conn
             .get_entity_commit_date(&dto::EntityType::Office, id, |row| {
                 Ok(row.get::<_, chrono::NaiveDate>(0)?)
@@ -390,7 +376,6 @@ fn render_persons(
 
     let mut ids: Vec<String> = Vec::new();
     context_fetcher
-        .repo
         .conn
         .get_entity_ids(&dto::EntityType::Person, |row| {
             ids.push(row.get(0)?);
@@ -424,7 +409,6 @@ fn render_offices(
 
     let mut ids: Vec<String> = Vec::new();
     context_fetcher
-        .repo
         .conn
         .get_entity_ids(&dto::EntityType::Office, |row| {
             ids.push(row.get(0)?);
