@@ -284,7 +284,7 @@ LEFT JOIN person_office_incumbent AS i ON i.office_id = s.supervisor_office_id
 LEFT JOIN person as p on p.id = i.person_id
 WHERE s.office_id = :office_id;
 /
--- name: get_office_supervising_offices->
+-- name: get_office_supervising_offices?
 -- Returns supervising offices for an office.
 -- # Parameters
 -- param: office_id: &str
