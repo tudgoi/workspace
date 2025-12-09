@@ -268,7 +268,7 @@ LEFT JOIN person as p on p.id = i.person_id
 WHERE s.supervisor_office_id = :office_id
 ORDER BY s.office_id;
 /
--- name: get_office_supervisors->
+-- name: get_office_supervisors?
 -- Returns the supervisors for a given office.
 -- # Parameters
 -- param: office_id: &str

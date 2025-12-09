@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Display};
 
 use rusqlite::{ToSql, types::FromSql};
 use schemars::JsonSchema;
@@ -48,6 +48,12 @@ impl ContactType {
             ContactType::Instagram => "instagram",
             ContactType::Wikidata => "wikidata",
         }
+    }
+}
+
+impl Display for ContactType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
