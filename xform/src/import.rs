@@ -4,6 +4,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::SchemaSql;
+use crate::LibrarySql;
 
 use super::from_toml_file;
 use super::{data, repo};
@@ -130,7 +131,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         repo.insert_person_data(id, &person, commit_date.as_deref())?;
     }
 
-    repo.enable_commit_tracking()
+    repo.conn.enable_commit_tracking()
         .with_context(|| format!("could not enable commit tracking"))?;
 
     Ok(())

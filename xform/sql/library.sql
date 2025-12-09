@@ -5,6 +5,9 @@ SELECT
     COUNT(CASE WHEN type = 'office' THEN 1 END) AS offices
 FROM entity;
 /
+-- name: enable_commit_tracking!
+INSERT OR IGNORE INTO commit_tracking (id, enabled) VALUES (1, 1)
+/
 -- name: get_entity_uncommitted?
 -- Returns the entities that are local to the DB and not yet committed to git
 SELECT e.type, e.id, e.name
@@ -14,9 +17,25 @@ ON e.id=c.entity_id AND e.type = c.entity_type
 WHERE c.date IS NULL
 ORDER BY e.name;
 /
+-- name: get_entity_commit_date->
+-- # Parameter
+-- param: typ: &crate::dto::EntityType
+-- param: id: &str
+SELECT
+    date
+FROM entity_commit
+WHERE entity_type = :typ AND entity_id = :id
+/
+-- name: exists_entity->
+-- param: typ: &dto::EntityType
+-- param: id: &str
+SELECT EXISTS(
+     SELECT 1 FROM entity WHERE type = :typ AND id = :id
+ )
+/
 -- name: new_entity!
 -- Adds a new entity of the given type
--- param: typ: &str - entity type
+-- param: typ: &dto::EntityType - entity type
 -- param: id: &str - entity ID
 -- param: name: &str - name
 INSERT INTO entity (type, id, name)
@@ -30,7 +49,7 @@ FROM entity
 WHERE type = :typ
 /
 -- name: search_entity->
--- Search for a best matching entity for the query 
+-- Search for a best matching entity for the query optionally restricting to the given entity type.
 -- param: typ: Option<&dto::EntityType>
 -- param: query: &str
 SELECT e.type, e.id, e.name
@@ -128,6 +147,39 @@ SELECT type, value
 FROM entity_contact
 WHERE entity_type = :typ AND entity_id = :id
 /
+-- name: get_entities_without_contact?
+-- param: typ: &dto::EntityType
+-- param: contact_type: &data::ContactType
+SELECT e.id, e.name
+FROM entity e
+WHERE e.type = :typ AND NOT EXISTS (
+    SELECT 1
+    FROM entity_contact ec
+    WHERE ec.entity_id = e.id AND ec.type = :contact_type
+)
+/
+-- name: get_entities_with_contact_without_contact?
+-- param: typ: &dto::EntityType
+-- param: with_contact_type: &data::ContactType
+-- param: without_contact_type: &data::ContactType
+SELECT with_ec.value, e.id
+FROM entity e
+JOIN entity_contact with_ec ON e.type = :typ AND e.id = with_ec.id AND with_ec.type = :with_contact_type
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM entity_contact without_ec
+    WHERE without_ec.entity_type = :typ AND without_ec.id = e.id AND without_ec.type = :without_contact_type
+)
+/
+-- name: get_entities_with_contact_without_photo?
+-- param: typ: &dto::EntityType
+-- param: with_contact_type: &data::ContactType
+SELECT ec.value, e.id
+FROM entity e
+JOIN entity_contact ec ON e.type = ec.entity_type AND e.id = ec.entity_id
+LEFT JOIN entity_photo ep ON ep.entity_type = e.type AND e.id = ep.entity_id
+WHERE e.type = :typ AND ep.url IS NULL AND ec.type = :with_contact_type;
+/
 -- name: get_tenures?
 -- Returns the tenures of the person with the given id
 -- # Parameters
@@ -203,15 +255,6 @@ FROM person_office_incumbent AS i
 JOIN entity AS e ON i.office_id = e.id AND e.type = 'office'
 LEFT JOIN entity_photo AS p ON i.office_id = p.entity_id AND p.entity_type = 'office'
 WHERE i.person_id = :person_id
-/
--- name: get_entity_commit_date->
--- # Parameter
--- param: typ: &crate::dto::EntityType
--- param: id: &str
-SELECT
-    date
-FROM entity_commit
-WHERE entity_type = :typ AND entity_id = :id
 /
 -- name: attach_db!
 -- Attaches the given DB as 'db'

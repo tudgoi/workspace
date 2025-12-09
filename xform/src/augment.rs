@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::path::Path;
+use std::collections::HashMap;
 
-use crate::{Field, LibrarySql, Source, data, dto, repo};
+use crate::{Field, LibrarySql, Source, context, data, dto, repo};
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use rusqlite::Connection;
@@ -244,7 +244,14 @@ impl WikidataAugmentor {
 }
 
 async fn augment_photo(repo: &mut repo::Repository<'_>, source: &dyn Augmentor) -> Result<()> {
-    let map = repo.query_external_persons_without_photo(data::ContactType::Wikidata)?;
+    let mut map: HashMap<String, String> = HashMap::new();
+    repo.conn.get_entities_with_contact_without_photo(
+        &dto::EntityType::Person,
+        &data::ContactType::Wikidata,
+        |row| {
+            map.insert(row.get(0)?, row.get(1)?);
+            Ok(())
+        })?;
 
     for (wikidata_id, person_id) in map {
         println!("augmenting photo for {}:{}...", wikidata_id, person_id);
@@ -268,7 +275,15 @@ async fn augment_wikidata_id(
     repo: &mut repo::Repository<'_>,
     source: &dyn Augmentor,
 ) -> Result<()> {
-    let persons_to_augment = repo.query_persons_without_contact(data::ContactType::Wikidata)?;
+    let mut persons_to_augment: Vec<context::Person> = Vec::new();
+    repo.conn.get_entities_without_contact(&dto::EntityType::Person, &data::ContactType::Wikidata, |row| {
+        persons_to_augment.push(context::Person {
+            id: row.get(0)?,
+            name: row.get(1)?,
+        });
+        
+        Ok(())
+    })?;
 
     for person in persons_to_augment {
         println!(
@@ -287,9 +302,16 @@ async fn augment_wikidata_id(
 }
 
 async fn augment_wikipedia(repo: &mut repo::Repository<'_>, source: &dyn Augmentor) -> Result<()> {
-    let map = repo.query_persons_with_contact_without_contact(
-        data::ContactType::Wikidata,
-        data::ContactType::Wikipedia,
+    let mut map: HashMap<String, String> = HashMap::new();
+    repo.conn.get_entities_with_contact_without_contact(
+        &dto::EntityType::Person,
+        &data::ContactType::Wikidata,
+        &data::ContactType::Wikipedia,
+        |row| {
+            map.insert(row.get(0)?, row.get(1)?);
+
+            Ok(())
+        },
     )?;
 
     for (wikidata_id, person_id) in map {

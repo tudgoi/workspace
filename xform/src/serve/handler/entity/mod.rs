@@ -54,7 +54,7 @@ pub async fn new(
     Form(form): Form<NewForm>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    conn.new_entity(&typ.as_str(), &form.id, &form.name)?;
+    conn.new_entity(&typ, &form.id, &form.name)?;
 
     Ok(hx_redirect(&format!("/{}/{}/edit", typ, &form.id))?)
 }

@@ -163,7 +163,7 @@ async fn ingest_entity_id_or_name<'a>(
 ) -> Result<String> {
     if let Some(id) = id {
         // id provided. insert if it doesn't already exist
-        if !repo.exists_entity(entity_type, id)? {
+        if !repo.conn.exists_entity(entity_type, id, |row| row.get(0))? {
             // The entity doesn't exist. So we lets insert.
             let name = name
                 .with_context(|| format!("entity {:?}:{} doesn't have a name", entity_type, id))?;
