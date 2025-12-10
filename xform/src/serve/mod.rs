@@ -5,9 +5,8 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::{Context, Result};
 use axum::{
     Router,
-    extract::State,
     http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header::InvalidHeaderValue},
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Response},
     routing::{get, post, put},
 };
 use r2d2::{Pool, PooledConnection};
@@ -18,7 +17,6 @@ use tower_http::services::ServeDir;
 
 use crate::{
     context, from_toml_file,
-    render::{ContextFetcher, Renderer},
 };
 use tower_livereload::LiveReloadLayer;
 
@@ -70,7 +68,7 @@ pub async fn run(
     let app = Router::new()
         .route("/", get(handler::index))
         .route("/person/{id}", get(handler::person::page))
-        .route("/office/{id}", get(office_page))
+        .route("/office/{id}", get(handler::office::page))
         .route("/search.db", get(handler::search_db))
         .route("/uncommitted", get(handler::uncommitted))
         .route("/new/{typ}", get(handler::entity::new_form))
@@ -103,7 +101,6 @@ pub struct AppState {
     pub dynamic: bool,
     pub db: PathBuf,
     pub db_pool: Pool<SqliteConnectionManager>,
-    pub templates: PathBuf,
     pub config: Arc<context::Config>,
 }
 
@@ -121,7 +118,6 @@ impl AppState {
             dynamic,
             db,
             db_pool,
-            templates,
             config: Arc::new(config),
         })
     }
@@ -129,28 +125,6 @@ impl AppState {
     pub fn get_conn(&self) -> Result<PooledConnection<SqliteConnectionManager>, R2D2Error> {
         self.db_pool.get()
     }
-}
-
-#[axum::debug_handler]
-async fn office_page(
-    State(state): State<Arc<AppState>>,
-    axum::extract::Path(id_with_ext): axum::extract::Path<String>,
-) -> Result<Html<String>, AppError> {
-    println!("Request called for {}", id_with_ext);
-    let id = id_with_ext.trim_end_matches(".html");
-    let mut pooled_conn = state.get_conn()?;
-
-    let context_fetcher = ContextFetcher::new(&mut pooled_conn, state.config.as_ref().clone())
-        .with_context(|| format!("could not create context fetcher"))?;
-    let renderer = Renderer::new(&state.templates)?;
-
-    let office_context = context_fetcher.fetch_office(true, id)?;
-
-    let body = renderer
-        .render_office(&office_context)
-        .with_context(|| "could not render office page")?;
-
-    Ok(Html(body))
 }
 
 pub fn hx_redirect(url: &str) -> Result<Response, AppError> {

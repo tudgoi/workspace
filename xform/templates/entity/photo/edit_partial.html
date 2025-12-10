@@ -1,11 +1,3 @@
-{% let url = "" %}
-{% let attribution = "" %}
-{% if let Some(photo) = photo %}
-  {% set url = photo.url %}
-  {% if let Some(attribution) = photo.attribution %}
-    {% set attribution = attribution %}
-  {% endif %}
-{% endif %}
 <form hx-put="/{{ typ }}/{{ id }}/photo" hx-target="this" hx-swap="outerHTML">
   <div>
     <label>URL</label>

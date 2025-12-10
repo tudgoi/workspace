@@ -15,6 +15,7 @@ use crate::{
 
 pub mod entity;
 pub mod person;
+pub mod office;
 pub mod filters;
 
 #[derive(Template, WebTemplate)]

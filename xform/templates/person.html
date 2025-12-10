@@ -1,8 +1,12 @@
 {% extends "entity.html" %}
+
 {% import "macros.html" as macros %}
+
 {% block toolbar %}
-  {% call super() %}
+{% call super() %}
+{% if page.dynamic %}
   <a href="{{person.id}}/edit">Edit</a>
+{% endif %}
 {% endblock toolbar %}
 
 {% block content %}

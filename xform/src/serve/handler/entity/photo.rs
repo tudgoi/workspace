@@ -19,7 +19,8 @@ use crate::{
 pub struct EditPhotoPartial {
     typ: dto::EntityType,
     id: String,
-    photo: Option<data::Photo>,
+    url: String,
+    attribution: String,
 }
 
 #[axum::debug_handler]
@@ -36,7 +37,13 @@ pub async fn edit(
             })
         })
         .optional()?;
-    Ok(EditPhotoPartial { id, typ, photo })
+    let (url, attribution) = if let Some(photo) = photo {
+        (photo.url, photo.attribution.unwrap_or_default())
+    } else {
+        (String::new(), String::new())
+    };
+    
+    Ok(EditPhotoPartial { typ, id, url, attribution })
 }
 
 #[derive(Template, WebTemplate)]

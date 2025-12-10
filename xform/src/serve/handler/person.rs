@@ -15,8 +15,8 @@ pub struct PersonPageTemplate {
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
     pub offices: Option<Vec<context::OfficeDetails>>,
     pub past_tenures: Option<Vec<context::TenureDetails>>,
-    pub sources: Option<Vec<String>>,
 
+    pub sources: Option<Vec<String>>,
     pub config: Arc<context::Config>,
     pub page: context::Page,
     pub metadata: context::Metadata,
