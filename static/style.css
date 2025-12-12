@@ -28,52 +28,10 @@ div.search {
     place-items: center;
 }
 
-div.toolbar {
-    grid-area: toolbar;
-}
-
-div.photo {
-    grid-area: photo;
-}
-
-div.title {
-    grid-area: title;
-}
-
-div.offices {
-    grid-area: offices;
-}
-
-div.contacts {
-    grid-area: contacts;
-}
-
-div.past-tenures {
-    grid-area: past-tenures;
-}
-
-div.subordinates {
-    grid-area: subordinates;
-}
-
-div.quondams {
-    grid-area: quondams;
-}
-
-div.sources {
-    grid-area: sources;
-}
-
-
 .dl-single-line {
     display: grid;
     grid-template-columns: auto 1fr;
     column-gap: 0.5em;
-}
-
-.photo {
-    display: grid;
-    grid-template-columns: 1fr;
 }
 
 .photo figure img {

@@ -9,40 +9,17 @@
 {% endif %}
 {% endblock toolbar %}
 
-{% block content %}
-<style>
-  main {
-    display: grid;
-    column-gap: 1em;
-    row-gap: 0.5em;
-    grid-template-areas:
-      "toolbar"
-      "title"
-      "photo"
-      "offices"
-      "contacts"
-      "subordinates"
-      "past-tenures"
-      "sources";
-    margin-bottom: 1em;
-  }
+{% block content_title %}
+    <h2>
+      {{ person.name }}
+      {% if let Some(contacts) = contacts %}
+      {% call macros::render_ext_links(links=contacts) %}
+      {% endif %}
+    </h2>
+    <hr />
+{% endblock content_title %}
 
-  @media (min-width: 40em) {
-    main {
-      grid-template-columns: 1fr 3fr;
-      grid-template-rows: min-content min-content min-content 1fr auto auto;
-      grid-template-areas:
-        "toolbar toolbar"
-        "photo title"
-        "photo offices"
-        "photo contacts"
-        "subordinates subordinates"
-        "past-tenures past-tenures"
-        "sources sources";
-    }
-  }
-</style>
-<main>
+{% block content_left %}
   <div class="photo">
     {% if let Some(photo) = photo %}
       {% call macros::render_photo(photo=photo, alt=person.name) %}
@@ -56,15 +33,9 @@
       {% call macros::render_photo(photo=config.defaults.photo, alt=person.name) %}
     {% endif %}
   </div>
-  <div class="title">
-    <h2>
-      {{ person.name }}
-      {% if let Some(contacts) = contacts %}
-      {% call macros::render_ext_links(links=contacts) %}
-      {% endif %}
-    </h2>
-    <hr />
-  </div>
+{% endblock content_left %}
+
+{% block content_right %}
   <div class="offices">
     {% if let Some(offices_vec) = offices %}
     <dl class="office-list">
@@ -92,6 +63,9 @@
     {% call macros::render_contacts(contacts=contact_map) %}
     {% endif %}
   </div>
+{% endblock content_right %}
+
+{% block content_bottom %}
   <div class="subordinates">
     {% if let Some(offices_vec) = offices %}
     <hr />
@@ -124,18 +98,4 @@
     </dl>
     {% endif %}
   </div>
-  <div class="sources">
-    {% if let Some(sources) = sources %}
-    <hr>
-    <details>
-      <summary>Sources</summary>
-      <ul>
-        {% for url in sources %}
-        <li><a href="{{ url }}">{{ url }}</a></li>
-        {% endfor %}
-      </ul>
-    </details>
-    {% endif %}
-  </div>
-</main>
-{% endblock content %}
+{% endblock content_bottom %}

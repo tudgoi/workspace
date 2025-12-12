@@ -9,34 +9,15 @@
 {% endif %}
 {% endblock toolbar %}
 
-{% block content %}
-<style>
-  main {
-    display: grid;
-    column-gap: 1em;
-    row-gap: 0.5em;
-    grid-template-areas:
-      "title"
-      "photo"
-      "contacts"
-      "quondams"
-      "sources";
-    margin-bottom: 1em;
-  }
+{% block content_title %}
+    <h2>{{ office.name }}</h2>
+    {% if let Some(incumbent) = incumbent %}
+    {% call macros::render_person(person=incumbent) %}
+    {% endif %}
+    <hr />
+{% endblock content_title %}
 
-  @media (min-width: 40em) {
-    main {
-      grid-template-columns: 1fr 3fr;
-      grid-template-rows: min-content min-content 1fr 1fr auto auto;
-      grid-template-areas:
-        "photo title"
-        "photo contacts"
-        "quondams quondams"
-        "sources sources";
-    }
-  }
-</style>
-<main>
+{% block content_left %}
   <div class="photo">
     {% if let Some(photo) = photo %}
     {% call macros::render_photo(photo=photo, alt=office.name) %}
@@ -44,19 +25,18 @@
     {% call macros::render_photo(photo=config.defaults.photo, alt=office.name) %}
     {% endif %}
   </div>
-  <div class="title">
-    <h2>{{ office.name }}</h2>
-    {% if let Some(incumbent) = incumbent %}
-    {% call macros::render_person(person=incumbent) %}
-    {% endif %}
-    <hr />
-  </div>
+{% endblock content_left %}
+
+{% block content_right %}
   <div class="contacts">
     {% if let Some(contact_map) = contacts %}
-    <hr />
     {% call macros::render_contacts(contacts=contact_map) %}
     {% endif %}
   </div>
+</div>
+{% endblock content_right %}
+
+{% block content_bottom %}
   <div class="quondams">
     {% if let Some(quondams) = quondams %}
     <hr />
@@ -72,18 +52,4 @@
     </dl>
     {% endif %}
   </div>
-  <div class="sources">
-    {% if let Some(sources) = sources %}
-    <hr>
-    <details>
-      <summary>Sources</summary>
-      <ul>
-        {% for url in sources %}
-        <li><a href="{{ url }}">{{ url }}</a></li>
-        {% endfor %}
-      </ul>
-    </details>
-    {% endif %}
-  </div>
-</main>
-{% endblock content %}
+{% endblock content_bottom %}
