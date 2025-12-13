@@ -15,9 +15,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use r2d2::Error as R2D2Error;
 use tower_http::services::ServeDir;
 
-use crate::{
-    context, from_toml_file,
-};
+use crate::{context, from_toml_file};
 use tower_livereload::LiveReloadLayer;
 
 #[derive(Debug, thiserror::Error)]
@@ -80,6 +78,9 @@ pub async fn run(
         .route("/{typ}/{id}/photo/edit", get(handler::entity::photo::edit))
         .route("/{typ}/{id}/photo", get(handler::entity::photo::view))
         .route("/{typ}/{id}/photo", put(handler::entity::photo::save))
+        .route("/{typ}/{id}/contact/add", get(handler::entity::contact::add))
+        .route("/{typ}/{id}/contact", get(handler::entity::contact::view))
+        .route("/{typ}/{id}/contact", post(handler::entity::contact::save))
         .layer(LiveReloadLayer::new())
         .with_state(Arc::new(state))
         .nest_service("/static", ServeDir::new(static_files));
@@ -133,6 +134,6 @@ pub fn hx_redirect(url: &str) -> Result<Response, AppError> {
         HeaderName::from_static("hx-redirect"),
         HeaderValue::from_str(url)?,
     );
-    
+
     Ok((StatusCode::OK, headers).into_response())
 }

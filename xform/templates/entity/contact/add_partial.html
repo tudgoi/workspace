@@ -1,0 +1,17 @@
+<form hx-post="/{{ typ }}/{{ id }}/contact" hx-target="this" hx-swap="outerHTML">
+    <div>
+        <label>Type</label>:
+        {% for contact_type in missing_contacts %}
+        <input type="radio" id="{{ contact_type }}" name="contact_type" value="{{ contact_type }}" />
+        <label for="contact-type-{{ contact_type }}">{{ contact_type }}</label>
+        {% endfor %}
+    </div>
+    <div>
+        <label>Value</label>:
+        <input name="value" value="">
+    </div>
+    <div>
+        <button type="submit">Save</button>
+        <button hx-get="/{{ typ }}/{{ id }}/contact">Cancel</button>
+    </div>
+</form>

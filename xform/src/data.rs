@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, fmt::Display};
 use rusqlite::{ToSql, types::FromSql};
 use schemars::JsonSchema;
 use serde_derive::{Deserialize, Serialize};
+use strum_macros::VariantArray;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct Person {
@@ -19,7 +20,7 @@ pub struct Photo {
 }
 
 #[derive(
-    Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, JsonSchema,
+    Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, JsonSchema, VariantArray
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ContactType {

@@ -1,7 +1,8 @@
 pub mod name;
 pub mod photo;
+pub mod contact;
 
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use askama::Template;
 use askama_web::WebTemplate;
@@ -12,6 +13,7 @@ use axum::{
 };
 use rusqlite::OptionalExtension;
 use serde::Deserialize;
+use strum::VariantArray;
 
 use crate::{
     LibrarySql, context, data, dto,
@@ -62,12 +64,14 @@ pub async fn new(
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/edit.html")]
 pub struct EditTemplate {
-    config: Arc<context::Config>,
-    page: context::Page,
-    typ: dto::EntityType,
-    id: String,
-    name: String,
-    photo: Option<data::Photo>,
+    pub typ: dto::EntityType,
+    pub id: String,
+    pub name: String,
+    pub photo: Option<data::Photo>,
+    pub contacts: BTreeMap<data::ContactType, String>,
+
+    pub config: Arc<context::Config>,
+    pub page: context::Page,
 }
 
 #[axum::debug_handler]
@@ -86,13 +90,21 @@ pub async fn edit(
                 url: row.get(0)?,
                 attribution: row.get(1)?,
             })
-        }).optional()?;
+        })
+        .optional()?;
+    let mut contacts: BTreeMap<data::ContactType, String> = BTreeMap::new();
+    conn.get_entity_contacts(&dto::EntityType::Person, &id, |row| {
+        contacts.insert(row.get(0)?, row.get(1)?);
+
+        Ok(())
+    })?;
 
     Ok(EditTemplate {
         id,
         typ,
         name,
         photo,
+        contacts,
         config: state.config.clone(),
         page: context::Page {
             dynamic: state.dynamic,
