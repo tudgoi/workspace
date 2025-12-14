@@ -1,0 +1,16 @@
+<div hx-target="this" hx-swap="outerHTML">
+    {% if contacts.is_empty() %}
+    <div>No contacts available.</div>
+    {% else %}
+    {% for (contact_type, value) in contacts %}
+    <div>
+        <label>{{ contact_type }}</label>: {{ value }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if contacts.len() < data::ContactType::VARIANTS.len() %} <button hx-get="/{{ typ }}/{{ id }}/contact/add">
+        Add
+        </button>
+        {% endif %}
+</div>

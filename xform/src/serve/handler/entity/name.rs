@@ -35,7 +35,7 @@ pub async fn edit(
 }
 
 #[derive(Template, WebTemplate)]
-#[template(path = "entity/edit.html", block = "name")]
+#[template(path = "entity/name/view_partial.html")]
 pub struct ViewNamePartial {
     typ: dto::EntityType,
     id: String,

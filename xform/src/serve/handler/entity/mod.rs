@@ -2,7 +2,7 @@ pub mod name;
 pub mod photo;
 pub mod contact;
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 use askama::Template;
 use askama_web::WebTemplate;
@@ -11,13 +11,11 @@ use axum::{
     extract::{Path, State},
     response::Response,
 };
-use rusqlite::OptionalExtension;
 use serde::Deserialize;
-use strum::VariantArray;
 
 use crate::{
-    LibrarySql, context, data, dto,
-    serve::{AppError, AppState, hx_redirect},
+    LibrarySql, context, dto,
+    serve::{AppError, AppState, handler::entity::{contact::ViewContactPartial, name::ViewNamePartial, photo::ViewPhotoPartial}, hx_redirect},
 };
 
 #[derive(Template, WebTemplate)]
@@ -64,11 +62,10 @@ pub async fn new(
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/edit.html")]
 pub struct EditTemplate {
-    pub typ: dto::EntityType,
     pub id: String,
-    pub name: String,
-    pub photo: Option<data::Photo>,
-    pub contacts: BTreeMap<data::ContactType, String>,
+    pub name_partial: ViewNamePartial,
+    pub photo_partial: ViewPhotoPartial,
+    pub contact_partial: ViewContactPartial,
 
     pub config: Arc<context::Config>,
     pub page: context::Page,
@@ -80,31 +77,15 @@ pub async fn edit(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<EditTemplate, AppError> {
     let conn = state.get_conn()?;
-    let name = conn.get_entity_name(&typ, &id, |row| {
-        let name: String = row.get(0)?;
-        Ok(name)
-    })?;
-    let photo = conn
-        .get_entity_photo(&typ, &id, |row| {
-            Ok(data::Photo {
-                url: row.get(0)?,
-                attribution: row.get(1)?,
-            })
-        })
-        .optional()?;
-    let mut contacts: BTreeMap<data::ContactType, String> = BTreeMap::new();
-    conn.get_entity_contacts(&typ, &id, |row| {
-        contacts.insert(row.get(0)?, row.get(1)?);
-
-        Ok(())
-    })?;
+    let name_partial = ViewNamePartial::new(&conn, typ.clone(), id.clone())?;
+    let photo_partial = ViewPhotoPartial::new(&conn, typ.clone(), id.clone())?;
+    let contact_partial = ViewContactPartial::new(&conn, typ.clone(), id.clone())?;
 
     Ok(EditTemplate {
         id,
-        typ,
-        name,
-        photo,
-        contacts,
+        name_partial,
+        photo_partial,
+        contact_partial,
         config: state.config.clone(),
         page: context::Page {
             dynamic: state.dynamic,

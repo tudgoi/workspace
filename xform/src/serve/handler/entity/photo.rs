@@ -33,7 +33,7 @@ pub async fn edit(
         .get_entity_photo(&typ, &id, |row| {
             Ok(data::Photo {
                 url: row.get(0)?,
-                attribution: Some(row.get(1)?),
+                attribution: row.get(1)?,
             })
         })
         .optional()?;
@@ -52,7 +52,7 @@ pub async fn edit(
 }
 
 #[derive(Template, WebTemplate)]
-#[template(path = "entity/edit.html", block = "photo")]
+#[template(path = "entity/photo/view_partial.html")]
 pub struct ViewPhotoPartial {
     typ: dto::EntityType,
     id: String,
@@ -65,7 +65,7 @@ impl ViewPhotoPartial {
             .get_entity_photo(&typ, &id, |row| {
                 Ok(data::Photo {
                     url: row.get(0)?,
-                    attribution: Some(row.get(1)?),
+                    attribution: row.get(1)?,
                 })
             })
             .optional()?;

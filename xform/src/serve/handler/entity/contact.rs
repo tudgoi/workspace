@@ -52,7 +52,7 @@ pub async fn add(
 }
 
 #[derive(Template, WebTemplate)]
-#[template(path = "entity/edit.html", block = "contact")]
+#[template(path = "entity/contact/view_partial.html")]
 pub struct ViewContactPartial {
     typ: dto::EntityType,
     id: String,

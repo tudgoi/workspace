@@ -1,0 +1,17 @@
+<div hx-target="this" hx-swap="outerHTML">
+    {% if let Some(photo) = photo %}
+    <div><label>URL</label>: <a href="{{ photo.url }}" target="_blank">{{ photo.url }} ↗</a></div>
+    <div>
+        <label>Attribution</label>:
+        {% if let Some(attribution) = photo.attribution %}
+        {{ attribution }}
+        {% else %}
+        No attribution available
+        {% endif %}
+    </div>
+    <button hx-get="/{{ typ }}/{{ id }}/photo/edit">Edit</button>
+    {% else %}
+    <div>No photo available.</div>
+    <button hx-get="/{{ typ }}/{{ id }}/photo/edit">Add</button>
+    {% endif %}
+</div>
