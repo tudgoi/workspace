@@ -93,7 +93,7 @@ pub async fn edit(
         })
         .optional()?;
     let mut contacts: BTreeMap<data::ContactType, String> = BTreeMap::new();
-    conn.get_entity_contacts(&dto::EntityType::Person, &id, |row| {
+    conn.get_entity_contacts(&typ, &id, |row| {
         contacts.insert(row.get(0)?, row.get(1)?);
 
         Ok(())

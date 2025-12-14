@@ -6,7 +6,7 @@ use axum::{
     Form,
     extract::{Path, State},
 };
-use rusqlite::OptionalExtension;
+use rusqlite::{Connection, OptionalExtension};
 
 use crate::{LibrarySql, dto};
 use crate::{
@@ -42,8 +42,13 @@ pub async fn edit(
     } else {
         (String::new(), String::new())
     };
-    
-    Ok(EditPhotoPartial { typ, id, url, attribution })
+
+    Ok(EditPhotoPartial {
+        typ,
+        id,
+        url,
+        attribution,
+    })
 }
 
 #[derive(Template, WebTemplate)]
@@ -54,25 +59,32 @@ pub struct ViewPhotoPartial {
     photo: Option<data::Photo>,
 }
 
+impl ViewPhotoPartial {
+    pub fn new(conn: &Connection, typ: dto::EntityType, id: String) -> Result<Self, AppError> {
+        let photo = conn
+            .get_entity_photo(&typ, &id, |row| {
+                Ok(data::Photo {
+                    url: row.get(0)?,
+                    attribution: Some(row.get(1)?),
+                })
+            })
+            .optional()?;
+        Ok(ViewPhotoPartial {
+            id,
+            typ: typ,
+            photo,
+        })
+    }
+}
+
 #[axum::debug_handler]
 pub async fn view(
     State(state): State<Arc<AppState>>,
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<ViewPhotoPartial, AppError> {
     let conn = state.get_conn()?;
-    let photo = conn
-        .get_entity_photo(&typ, &id, |row| {
-            Ok(data::Photo {
-                url: row.get(0)?,
-                attribution: Some(row.get(1)?),
-            })
-        })
-        .optional()?;
-    Ok(ViewPhotoPartial {
-        id,
-        typ: typ,
-        photo,
-    })
+    
+    ViewPhotoPartial::new(&conn, typ, id)
 }
 
 #[axum::debug_handler]
@@ -89,18 +101,5 @@ pub async fn save(
         photo_form.attribution.as_deref(),
     )?;
 
-    let photo = conn
-        .get_entity_photo(&typ, &id, |row| {
-            Ok(data::Photo {
-                url: row.get(0)?,
-                attribution: Some(row.get(1)?),
-            })
-        })
-        .optional()?;
-
-    Ok(ViewPhotoPartial {
-        id,
-        typ: typ,
-        photo,
-    })
+    ViewPhotoPartial::new(&conn, typ, id)
 }
