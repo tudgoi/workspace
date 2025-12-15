@@ -9,8 +9,7 @@
     {% endfor %}
     {% endif %}
 
-    {% if contacts.len() < data::ContactType::VARIANTS.len() %} <button hx-get="/{{ typ }}/{{ id }}/contact/add">
-        Add
-        </button>
-        {% endif %}
+    {% if contacts.len() < data::ContactType::VARIANTS.len() %}
+    <button hx-get="/{{ typ }}/{{ id }}/contact/add">Add</button>
+    {% endif %}
 </div>

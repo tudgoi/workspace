@@ -81,6 +81,9 @@ pub async fn run(
         .route("/{typ}/{id}/contact/add", get(handler::entity::contact::add))
         .route("/{typ}/{id}/contact", get(handler::entity::contact::view))
         .route("/{typ}/{id}/contact", post(handler::entity::contact::save))
+        .route("/person/{id}/tenure/add", get(handler::person::tenure::add))
+        .route("/person/{id}/tenure", get(handler::person::tenure::view))
+        .route("/person/{id}/tenure", post(handler::person::tenure::save))
         .layer(LiveReloadLayer::new())
         .with_state(Arc::new(state))
         .nest_service("/static", ServeDir::new(static_files));

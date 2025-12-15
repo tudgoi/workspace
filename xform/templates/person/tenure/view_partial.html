@@ -1,0 +1,26 @@
+<div hx-target="this" hx-swap="outerHTML">
+    {% if tenures.is_empty() %}
+    <div>No tenure available.</div>
+    <button hx-get="/person/{{ id }}/tenure/add">Add</button>
+    {% else %}
+    <ul>
+        {% for tenure in tenures %}
+        <li>
+            {{ tenure.office_id }},
+            {% if let Some(start) = tenure.start %}
+            {{ start }}
+            {% else %}
+            None
+            {% endif %}
+            to
+            {% if let Some(end) = tenure.end %}
+            {{ end }}
+            {% else %}
+            None
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    <button hx-get="/person/{{ id }}/tenure/add">Add</button>
+</div>

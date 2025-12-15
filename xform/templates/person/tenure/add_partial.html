@@ -1,0 +1,16 @@
+<form hx-post="/person/{{ id }}/tenure" hx-target="this" hx-swap="outerHTML">
+  <div>
+    <label>Office ID</label>:
+    <input type="text" name="office_id" value="">
+  </div>
+  <div>
+    <label>Start</label>:
+    <input type="text" name="start" value="">
+  </div>
+  <div>
+    <label>End</label>:
+    <input type="text" name="end" value="">
+  </div>
+  <button type="submit">Save</button>
+  <button hx-get="/person/{{ id }}/tenure">Cancel</button>
+</form>

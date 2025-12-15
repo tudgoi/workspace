@@ -7,6 +7,8 @@ use crate::{context, data, dto, serve::{AppError, AppState}};
 use crate::LibrarySql;
 use crate::serve::handler::filters;
 
+pub mod tenure;
+
 #[derive(Template, WebTemplate)]
 #[template(path = "person.html")]
 pub struct PersonPageTemplate {
