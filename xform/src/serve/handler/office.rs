@@ -18,6 +18,7 @@ pub struct OfficePageTemplate {
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
     pub incumbent: Option<context::Person>,
     pub quondams: Option<Vec<context::Quondam>>,
+    pub supervisors: Option<BTreeMap<data::SupervisingRelation, context::Office>>,
 
     pub sources: Option<Vec<String>>,
     pub config: Arc<context::Config>,
@@ -48,7 +49,24 @@ pub async fn page(
 
         Ok(())
     })?;
-    let incumbent = conn
+
+    let mut supervisors: BTreeMap<data::SupervisingRelation, context::Office> = BTreeMap::new();
+    conn.get_office_supervising_offices(id, |row| {
+        let relation = row.get(0)?;
+        let supervising_office_id: String = row.get(1)?;
+        let name = conn.get_entity_name(&dto::EntityType::Office, &supervising_office_id, |row| row.get(0))?;
+        supervisors.insert(
+            relation,
+            context::Office {
+                id: supervising_office_id,
+                name,
+            },
+        );
+
+        Ok(())
+    })?;
+
+let incumbent = conn
         .get_office_incumbent(id, |row| {
             Ok(context::Person {
                 id: row.get(0)?,
@@ -107,6 +125,7 @@ pub async fn page(
         },
         photo,
         contacts: Some(contacts).filter(|v| !v.is_empty()),
+        supervisors: Some(supervisors).filter(|v| !v.is_empty()),
         incumbent,
         quondams: Some(quondams).filter(|v| !v.is_empty()),
         sources: None,

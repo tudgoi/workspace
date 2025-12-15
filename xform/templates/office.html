@@ -33,6 +33,18 @@
     {% call macros::render_contacts(contacts=contact_map) %}
     {% endif %}
   </div>
+  <div class="supervisors">
+    {% if let Some(supervisors) = supervisors %}
+    <dl>
+      {% for (relation, office) in supervisors %}
+      <div class="dl-single-line">
+        <dt>{{ relation }}</dt>
+        <dd>{% call macros::render_office(id=office.id, name=office.name) %}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+    {% endif %}
+  </div>
 </div>
 {% endblock content_right %}
 
