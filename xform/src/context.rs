@@ -11,7 +11,6 @@ pub struct Config {
     pub base_url: String,
     pub source_url: String,
     pub icons: Icons,
-    pub labels: Labels,
     pub defaults: Defaults,
 }
 
@@ -47,36 +46,6 @@ impl Icons {
             &ContactType::Facebook => &self.facebook,
             &ContactType::Instagram => &self.instagram,
             &ContactType::Wikidata => &self.wikidata,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Labels {
-    pub supervisors: SupervisorsLabels,
-    pub subordinates: SupervisorsLabels,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SupervisorsLabels {
-    pub adviser: String,
-    pub during_the_pleasure_of: String,
-    pub head: String,
-    pub member_of: String,
-    pub responsible_to: String,
-    pub elected_by: String,
-    pub minister: String,
-}
-
-impl SupervisorsLabels {
-    pub fn for_relation(&self, relation: &data::SupervisingRelation) -> &str {
-        match relation {
-            data::SupervisingRelation::Adviser => &self.adviser,
-            data::SupervisingRelation::DuringThePleasureOf => &self.during_the_pleasure_of,
-            data::SupervisingRelation::Head => &self.head,
-            data::SupervisingRelation::MemberOf => &self.member_of,
-            data::SupervisingRelation::ResponsibleTo => &self.responsible_to,
-            data::SupervisingRelation::Minister => &self.minister,
         }
     }
 }

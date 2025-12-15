@@ -62,6 +62,7 @@ pub async fn new(
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/edit.html")]
 pub struct EditTemplate {
+    pub typ: dto::EntityType,
     pub id: String,
     pub name_partial: ViewNamePartial,
     pub photo_partial: ViewPhotoPartial,
@@ -83,6 +84,7 @@ pub async fn edit(
     let contact_partial = ViewContactPartial::new(&conn, typ.clone(), id.clone())?;
     let tenure_partial = ViewTenurePartial::new(&conn, id.clone())?;
     Ok(EditTemplate {
+        typ,
         id,
         name_partial,
         photo_partial,

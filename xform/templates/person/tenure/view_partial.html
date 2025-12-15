@@ -1,7 +1,6 @@
 <div hx-target="this" hx-swap="outerHTML">
     {% if tenures.is_empty() %}
     <div>No tenure available.</div>
-    <button hx-get="/person/{{ id }}/tenure/add">Add</button>
     {% else %}
     <ul>
         {% for tenure in tenures %}

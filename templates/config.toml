@@ -21,21 +21,3 @@ wikidata = """<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path 
 
 [defaults.photo]
 url = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"
-
-[labels.supervisors]
-adviser = "Adviser"
-during_the_pleasure_of = "During the pleasure of"
-head = "Head"
-member_of = "Member of"
-responsible_to = "Responsible to"
-elected_by = "Elected by"
-minister = "Minister"
-
-[labels.subordinates]
-adviser = "Advises"
-during_the_pleasure_of = "During their pleasure"
-head = "Heads"
-member_of = "Members"
-responsible_to = "Under their responsibility"
-elected_by = "Elected by them"
-minister = "Under their Ministry"

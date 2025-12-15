@@ -35,10 +35,11 @@
   </div>
   <div class="supervisors">
     {% if let Some(supervisors) = supervisors %}
+    <hr>
     <dl>
       {% for (relation, office) in supervisors %}
       <div class="dl-single-line">
-        <dt>{{ relation }}</dt>
+        <dt>{{ relation.forward_label() }}</dt>
         <dd>{% call macros::render_office(id=office.id, name=office.name) %}</dd>
       </div>
       {% endfor %}

@@ -161,6 +161,28 @@ impl SupervisingRelation {
             SupervisingRelation::Minister => "minister",
         }
     }
+    
+    pub fn forward_label(&self) -> &'static str {
+        match self {
+            SupervisingRelation::Head => "Head",
+            SupervisingRelation::Adviser => "Adviser",
+            SupervisingRelation::DuringThePleasureOf => "During the pleasure of",
+            SupervisingRelation::ResponsibleTo => "Responsible to",
+            SupervisingRelation::MemberOf => "Member of",
+            SupervisingRelation::Minister => "Minister",
+        }
+    }
+
+    pub fn reverse_label(&self) -> &'static str {
+        match self {
+            SupervisingRelation::Head => "Heads",
+            SupervisingRelation::Adviser => "Advises",
+            SupervisingRelation::DuringThePleasureOf => "During their pleasure",
+            SupervisingRelation::ResponsibleTo => "Under their responsibility",
+            SupervisingRelation::MemberOf => "Members",
+            SupervisingRelation::Minister => "Under their Ministry",
+        }
+    }
 }
 
 impl ToSql for SupervisingRelation {

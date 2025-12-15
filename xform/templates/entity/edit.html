@@ -19,9 +19,15 @@
     <dd>
         {{ contact_partial | safe }}
     </dd>
+    {% match typ %}
+    {% when dto::EntityType::Person %}
     <dt>Tenures</dt>
     <dd>
         {{ tenure_partial | safe }}
     </dd>
+    {% endwhen %}
+    {% when dto::EntityType::Office %}
+    {% endwhen %}
+    {% endmatch %}
 </dl>
 {% endblock content %}

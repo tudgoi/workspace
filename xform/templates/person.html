@@ -90,8 +90,10 @@
       <dd>
         <ul>
           {% for tenure in past_tenures_vec %}
-          <li>{% call macros::render_office(id=tenure.office.id, name=tenure.office.name) %}, <em>{{ tenure.start }} to {{
-              tenure.end }}</em></li>
+          <li>
+            {% call macros::render_office(id=tenure.office.id, name=tenure.office.name) %},
+            <em>{{ tenure.start }} to {{ tenure.end }}</em>
+            </li>
           {% endfor %}
         </ul>
       </dd>
