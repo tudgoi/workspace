@@ -10,6 +10,8 @@ use axum::extract::State;
 use rusqlite::OptionalExtension;
 use std::{collections::BTreeMap, sync::Arc};
 
+pub mod supervisor;
+
 #[derive(Template, WebTemplate)]
 #[template(path = "office.html")]
 pub struct OfficePageTemplate {

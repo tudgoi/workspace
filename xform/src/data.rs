@@ -133,7 +133,7 @@ pub struct Office {
     pub supervisors: Option<BTreeMap<SupervisingRelation, String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, VariantArray)]
 #[serde(rename_all = "snake_case")]
 pub enum SupervisingRelation {
     Head,

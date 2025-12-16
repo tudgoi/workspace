@@ -1,0 +1,15 @@
+<div hx-target="this" hx-swap="outerHTML">
+    {% if supervisors.is_empty() %}
+    <div>No supervisors available.</div>
+    {% else %}
+    <ul>
+        {% for (relation, office) in supervisors %}
+        <li>
+            {{ relation }}:
+            {{ office.id }} ({{ office.name }})
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    <button hx-get="/office/{{ id }}/supervisor/add">Add</button>
+</div>

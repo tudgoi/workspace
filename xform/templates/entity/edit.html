@@ -27,6 +27,10 @@
     </dd>
     {% endwhen %}
     {% when dto::EntityType::Office %}
+    <dt>Supervisors</dt>
+    <dd>
+        {{ supervisor_partial | safe }}
+    </dd>
     {% endwhen %}
     {% endmatch %}
 </dl>

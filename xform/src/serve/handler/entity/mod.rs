@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use crate::{
     LibrarySql, context, dto,
-    serve::{AppError, AppState, handler::{entity::{contact::ViewContactPartial, name::ViewNamePartial, photo::ViewPhotoPartial}, person::tenure::ViewTenurePartial}, hx_redirect},
+    serve::{AppError, AppState, handler::{entity::{contact::ViewContactPartial, name::ViewNamePartial, photo::ViewPhotoPartial}, office::supervisor::ViewSupervisorPartial, person::tenure::ViewTenurePartial}, hx_redirect},
 };
 
 #[derive(Template, WebTemplate)]
@@ -68,6 +68,7 @@ pub struct EditTemplate {
     pub photo_partial: ViewPhotoPartial,
     pub contact_partial: ViewContactPartial,
     pub tenure_partial: ViewTenurePartial,
+    pub supervisor_partial: ViewSupervisorPartial,
 
     pub config: Arc<context::Config>,
     pub page: context::Page,
@@ -83,6 +84,8 @@ pub async fn edit(
     let photo_partial = ViewPhotoPartial::new(&conn, typ.clone(), id.clone())?;
     let contact_partial = ViewContactPartial::new(&conn, typ.clone(), id.clone())?;
     let tenure_partial = ViewTenurePartial::new(&conn, id.clone())?;
+    let supervisor_partial = ViewSupervisorPartial::new(&conn, id.clone())?;
+
     Ok(EditTemplate {
         typ,
         id,
@@ -90,6 +93,7 @@ pub async fn edit(
         photo_partial,
         contact_partial,
         tenure_partial,
+        supervisor_partial,
         config: state.config.clone(),
         page: context::Page {
             dynamic: state.dynamic,

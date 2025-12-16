@@ -84,6 +84,9 @@ pub async fn run(
         .route("/person/{id}/tenure/add", get(handler::person::tenure::add))
         .route("/person/{id}/tenure", get(handler::person::tenure::view))
         .route("/person/{id}/tenure", post(handler::person::tenure::save))
+        .route("/office/{id}/supervisor/add", get(handler::office::supervisor::add))
+        .route("/office/{id}/supervisor", get(handler::office::supervisor::view))
+        .route("/office/{id}/supervisor", post(handler::office::supervisor::save))
         .layer(LiveReloadLayer::new())
         .with_state(Arc::new(state))
         .nest_service("/static", ServeDir::new(static_files));

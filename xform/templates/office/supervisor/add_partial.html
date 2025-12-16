@@ -1,0 +1,17 @@
+<form hx-post="/office/{{ id }}/supervisor" hx-target="this" hx-swap="outerHTML">
+    <div>
+      <label>Relation</label>:
+      {% for relation in missing_relations %}
+      <input type="radio" id="relation-{{ relation }}" name="relation" value="{{ relation }}" />
+      <label for="relation-{{ relation }}">{{ relation }}</label>
+      {% endfor %}
+    </div>
+    <div>
+        <label>Office</label>:
+        <input name="office_id" value="">
+    </div>
+    <div>
+      <button type="submit">Save</button>
+      <button hx-get="/office/{{ id }}/tenure">Cancel</button>
+    </div>
+</form>
