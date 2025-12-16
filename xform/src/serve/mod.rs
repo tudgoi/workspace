@@ -13,12 +13,13 @@ use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 
 use r2d2::Error as R2D2Error;
+use thiserror::Error;
 use tower_http::services::ServeDir;
 
 use crate::{context, from_toml_file};
 use tower_livereload::LiveReloadLayer;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum AppError {
     #[error("Unexpected: {0}")]
     Unexpected(String),

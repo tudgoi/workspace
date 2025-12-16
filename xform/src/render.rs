@@ -91,7 +91,8 @@ async fn render_offices(
     for id in ids {
         let template =
             serve::handler::office::page(state.clone(), extract::Path(format!("{}.html", id)))
-                .await?;
+                .await
+                .with_context(|| format!("could not render office for {}", id))?;
         let str = template.render()?;
         let output_path = office_path.join(format!("{}.html", id));
         fs::write(output_path.as_path(), str)

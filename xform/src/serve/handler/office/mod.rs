@@ -4,6 +4,7 @@ use crate::{
     context, data, dto,
     serve::{AppError, AppState},
 };
+use anyhow::Context;
 use askama::Template;
 use askama_web::WebTemplate;
 use axum::extract::State;
@@ -36,7 +37,10 @@ pub async fn page(
     let id = id_with_ext.trim_end_matches(".html");
     let conn = state.get_conn()?;
 
-    let name = conn.get_entity_name(&dto::EntityType::Office, id, |row| row.get(0))?;
+    let name = conn
+        .get_entity_name(&dto::EntityType::Office, id, |row| row.get(0))
+        .with_context(|| format!("could not get name for office: {}", id))?;
+
     let photo = conn
         .get_entity_photo(&dto::EntityType::Office, id, |row| {
             Ok(data::Photo {
@@ -44,7 +48,9 @@ pub async fn page(
                 attribution: row.get(1)?,
             })
         })
-        .optional()?;
+        .optional()
+        .with_context(|| format!("could not get photo for office: {}", id))?;
+
     let mut contacts: BTreeMap<data::ContactType, String> = BTreeMap::new();
     conn.get_entity_contacts(&dto::EntityType::Office, id, |row| {
         contacts.insert(row.get(0)?, row.get(1)?);
@@ -69,7 +75,8 @@ pub async fn page(
         );
 
         Ok(())
-    })?;
+    })
+    .with_context(|| format!("could not get supervising offices for office: {}", id))?;
 
     let incumbent = conn
         .get_office_incumbent(id, |row| {
@@ -79,6 +86,7 @@ pub async fn page(
             })
         })
         .optional()?;
+
     let mut quondams = Vec::new();
     conn.get_office_quondams(id, |row| {
         quondams.push(context::Quondam {
@@ -92,18 +100,7 @@ pub async fn page(
 
         Ok(())
     })?;
-    let mut quondams = Vec::new();
-    conn.get_office_quondams(id, |row| {
-        quondams.push(context::Quondam {
-            person: context::Person {
-                id: row.get(0)?,
-                name: row.get(1)?,
-            },
-            start: row.get(2)?,
-            end: row.get(3)?,
-        });
-        Ok(())
-    })?;
+
     let commit_date = conn
         .get_entity_commit_date(&dto::EntityType::Office, id, |row| {
             row.get::<_, chrono::NaiveDate>(0)
