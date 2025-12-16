@@ -1,11 +1,25 @@
 name = "Anandiben Patel"
 
 [photo]
-url = "https://upload.wikimedia.org/wikipedia/commons/9/96/Anandiben_Patel_Ji.jpg"
+url = "https://upload.wikimedia.org/wikipedia/commons/f/f9/Anandiben_Patel_in_2022_%28cropped%29.jpg"
+attribution = "President's Secretariat, GODL-India <https://data.gov.in/sites/default/files/Gazette_Notification_OGDL.pdf>, via Wikimedia Commons"
 
 [contacts]
 wikipedia = "Anandiben_Patel"
+x = "anandibenpatel"
+facebook = "anandiben"
+instagram = "anandiben_patel"
 wikidata = "Q4751365"
 
 [[tenures]]
 office_id = "goup"
+
+[[tenures]]
+office_id = "gomp"
+start = "2020-07-01"
+end = "2021-07-08"
+
+[[tenures]]
+office_id = "gomp"
+start = "2018-01-23"
+end = "2019-07-28"
