@@ -1,11 +1,14 @@
-use std::{collections::BTreeMap, sync::Arc};
+use crate::LibrarySql;
+use crate::serve::handler::filters;
+use crate::{
+    context, data, dto,
+    serve::{AppError, AppState},
+};
 use askama::Template;
 use askama_web::WebTemplate;
 use axum::extract::State;
 use rusqlite::OptionalExtension;
-use crate::{context, data, dto, serve::{AppError, AppState}};
-use crate::LibrarySql;
-use crate::serve::handler::filters;
+use std::{collections::BTreeMap, sync::Arc};
 
 pub mod tenure;
 
@@ -114,10 +117,7 @@ pub async fn page(
                     None
                 },
             };
-            subordinates
-                .entry(relation)
-                .or_insert_with(Vec::new)
-                .push(officer);
+            subordinates.entry(relation).or_default().push(officer);
 
             Ok(())
         })?;
@@ -143,7 +143,7 @@ pub async fn page(
     }
 
     let mut past_tenures = Vec::new();
-    conn.get_past_tenures(&id, |row| {
+    conn.get_past_tenures(id, |row| {
         past_tenures.push(context::TenureDetails {
             office: context::Office {
                 id: row.get(0)?,

@@ -46,10 +46,7 @@ impl ViewTenurePartial {
             Ok(())
         })?;
 
-        Ok(ViewTenurePartial {
-            id,
-            tenures,
-        })
+        Ok(ViewTenurePartial { id, tenures })
     }
 }
 
@@ -77,7 +74,12 @@ pub async fn save(
     Form(form): Form<TenureEntry>,
 ) -> Result<ViewTenurePartial, AppError> {
     let conn = state.get_conn()?;
-    conn.save_tenure(&person_id, &form.office_id, form.start.as_ref(), form.end.as_ref())?;
+    conn.save_tenure(
+        &person_id,
+        &form.office_id,
+        form.start.as_ref(),
+        form.end.as_ref(),
+    )?;
 
     ViewTenurePartial::new(&conn, person_id)
 }

@@ -1,7 +1,7 @@
 use anyhow::bail;
 use anyhow::{Context, Result, ensure};
 use chrono::NaiveDate;
-use rusqlite::{Transaction};
+use rusqlite::Transaction;
 use std::path::Path;
 use std::process::Command;
 
@@ -53,7 +53,7 @@ fn get_commit_date(file_path: &Path) -> Result<Option<NaiveDate>> {
         bail!("Git command failed with error: {}", error_message);
     }
     let date_str = str::from_utf8(&output.stdout)
-        .with_context(|| format!("could not read output of git command"))?
+        .context("could not read output of git command")?
         .trim();
 
     if date_str.is_empty() {
@@ -74,10 +74,10 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
 
     conn.create_entity_tables()
-        .with_context(|| format!("could not create entity schema"))?;
+        .context("could not create entity schema")?;
 
     conn.create_property_tables()
-        .with_context(|| format!("could not create property schema"))?;
+        .context("could not create property schema")?;
 
     let mut tx = conn.transaction()?;
 
@@ -104,7 +104,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         })?;
 
         let office: data::Office =
-            from_toml_file(file_entry.path()).with_context(|| format!("could not load office"))?;
+            from_toml_file(file_entry.path()).context("could not load office")?;
         insert_office_data(&mut tx, id, &office, commit_date.as_ref())?;
     }
 
@@ -131,12 +131,12 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         })?;
 
         let person: data::Person =
-            from_toml_file(file_entry.path()).with_context(|| format!("could not load person"))?;
+            from_toml_file(file_entry.path()).context("could not load person")?;
         insert_person_data(&mut tx, id, &person, commit_date.as_ref())?;
     }
 
     tx.enable_commit_tracking()
-        .with_context(|| format!("could not enable commit tracking"))?;
+        .context("could not enable commit tracking")?;
 
     tx.commit()?;
 
@@ -175,13 +175,13 @@ pub fn insert_person_data(
                 tenure
                     .start
                     .as_ref()
-                    .map(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d"))
+                    .map(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d"))
                     .transpose()?
                     .as_ref(),
                 tenure
                     .end
                     .as_ref()
-                    .map(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d"))
+                    .map(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d"))
                     .transpose()?
                     .as_ref(),
             )?;

@@ -25,12 +25,12 @@ pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
     // persons
     render_persons(&conn, State(state.clone()), output)
         .await
-        .with_context(|| format!("could not render persons"))?;
+        .context("could not render persons")?;
 
     // offices
     render_offices(&conn, State(state.clone()), output)
         .await
-        .with_context(|| format!("could not render offices"))?;
+        .context("could not render offices")?;
 
     // render index
     let template = serve::handler::index(State(state.clone())).await?;
@@ -102,8 +102,7 @@ async fn render_offices(
 }
 
 pub fn create_search_database(search_db_path: &Path, db_path: &Path) -> Result<()> {
-    let conn = Connection::open(search_db_path)
-        .with_context(|| format!("could not create search database"))?;
+    let conn = Connection::open(search_db_path).context("could not create search database")?;
     conn.create_entity_tables()?;
     let db_path_str = db_path
         .to_str()
@@ -115,7 +114,7 @@ pub fn create_search_database(search_db_path: &Path, db_path: &Path) -> Result<(
     // The error from `close` is `(Connection, Error)`, so we map it to just the error.
     conn.close()
         .map_err(|(_, err)| err)
-        .with_context(|| format!("could not close search database"))?;
+        .context("could not close search database")?;
 
     Ok(())
 }

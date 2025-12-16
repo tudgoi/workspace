@@ -71,7 +71,7 @@ impl ViewPhotoPartial {
             .optional()?;
         Ok(ViewPhotoPartial {
             id,
-            typ: typ,
+            typ,
             photo,
         })
     }

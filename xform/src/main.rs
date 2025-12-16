@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
+use include_sqlite_sql::{impl_sql, include_sql};
 use serde::de::DeserializeOwned;
 use std::fs;
 use std::path::PathBuf;
-use include_sqlite_sql::{include_sql, impl_sql};
 
 mod augment;
 mod context;
@@ -89,7 +89,6 @@ enum Source {
     Old,
 }
 
-
 fn main() -> Result<()> {
     let args = Cli::parse();
 
@@ -105,12 +104,8 @@ fn main() -> Result<()> {
             db,
             templates,
             output,
-        } => render::run(
-            db.as_path(),
-            templates.as_path(),
-            output.as_path(),
-        )
-        .with_context(|| "could not run `render`"),
+        } => render::run(db.as_path(), templates.as_path(), output.as_path())
+            .with_context(|| "could not run `render`"),
         Commands::Augment {
             db,
             source: source_name,

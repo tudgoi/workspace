@@ -81,9 +81,7 @@ impl Iterator for OldIngestor {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.dir_iter.next().map(|result| {
-            let path = result
-                .with_context(|| format!("skipping - could not get next file"))?
-                .path();
+            let path = result.context("skipping - could not get next file")?.path();
             if !path.is_file() {
                 bail!("skipping {:?} - not a file", path)
             }
@@ -124,23 +122,23 @@ impl From<Person> for (Vec<graph::Property>, Vec<graph::Property>) {
         person.push(graph::Property::Tenure(office.clone()));
 
         // taxonomies.member_of
-        if let Some(member_of) = value.taxonomies.member_of {
-            if let Some(member_of) = member_of.first() {
-                office.push(graph::Property::Supervisor(
-                    data::SupervisingRelation::MemberOf,
-                    vec![graph::Property::Name(member_of.clone())],
-                ));
-            }
+        if let Some(member_of) = value.taxonomies.member_of
+            && let Some(member_of) = member_of.first()
+        {
+            office.push(graph::Property::Supervisor(
+                data::SupervisingRelation::MemberOf,
+                vec![graph::Property::Name(member_of.clone())],
+            ));
         }
 
         // taxonomies.during_the_pleasure_of
-        if let Some(during_the_pleasure_of) = value.taxonomies.during_the_pleasure_of {
-            if let Some(during_the_pleasure_of) = during_the_pleasure_of.first() {
-                office.push(graph::Property::Supervisor(
-                    data::SupervisingRelation::DuringThePleasureOf,
-                    vec![graph::Property::Name(during_the_pleasure_of.to_string())],
-                ));
-            }
+        if let Some(during_the_pleasure_of) = value.taxonomies.during_the_pleasure_of
+            && let Some(during_the_pleasure_of) = during_the_pleasure_of.first()
+        {
+            office.push(graph::Property::Supervisor(
+                data::SupervisingRelation::DuringThePleasureOf,
+                vec![graph::Property::Name(during_the_pleasure_of.to_string())],
+            ));
         }
 
         // extra.photo

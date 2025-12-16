@@ -56,7 +56,10 @@ pub async fn page(
     conn.get_office_supervising_offices(id, |row| {
         let relation = row.get(0)?;
         let supervising_office_id: String = row.get(1)?;
-        let name = conn.get_entity_name(&dto::EntityType::Office, &supervising_office_id, |row| row.get(0))?;
+        let name =
+            conn.get_entity_name(&dto::EntityType::Office, &supervising_office_id, |row| {
+                row.get(0)
+            })?;
         supervisors.insert(
             relation,
             context::Office {
@@ -68,7 +71,7 @@ pub async fn page(
         Ok(())
     })?;
 
-let incumbent = conn
+    let incumbent = conn
         .get_office_incumbent(id, |row| {
             Ok(context::Person {
                 id: row.get(0)?,
@@ -103,7 +106,7 @@ let incumbent = conn
     })?;
     let commit_date = conn
         .get_entity_commit_date(&dto::EntityType::Office, id, |row| {
-            Ok(row.get::<_, chrono::NaiveDate>(0)?)
+            row.get::<_, chrono::NaiveDate>(0)
         })
         .optional()?
         .map(|d| d.to_string());

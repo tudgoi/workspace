@@ -1,6 +1,6 @@
+pub mod contact;
 pub mod name;
 pub mod photo;
-pub mod contact;
 
 use std::sync::Arc;
 
@@ -15,7 +15,15 @@ use serde::Deserialize;
 
 use crate::{
     LibrarySql, context, dto,
-    serve::{AppError, AppState, handler::{entity::{contact::ViewContactPartial, name::ViewNamePartial, photo::ViewPhotoPartial}, office::supervisor::ViewSupervisorPartial, person::tenure::ViewTenurePartial}, hx_redirect},
+    serve::{
+        AppError, AppState,
+        handler::{
+            entity::{contact::ViewContactPartial, name::ViewNamePartial, photo::ViewPhotoPartial},
+            office::supervisor::ViewSupervisorPartial,
+            person::tenure::ViewTenurePartial,
+        },
+        hx_redirect,
+    },
 };
 
 #[derive(Template, WebTemplate)]
@@ -56,7 +64,7 @@ pub async fn new(
     let conn = state.get_conn()?;
     conn.new_entity(&typ, &form.id, &form.name)?;
 
-    Ok(hx_redirect(&format!("/{}/{}/edit", typ, &form.id))?)
+    hx_redirect(&format!("/{}/{}/edit", typ, &form.id))
 }
 
 #[derive(Template, WebTemplate)]
@@ -80,9 +88,9 @@ pub async fn edit(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<EditTemplate, AppError> {
     let conn = state.get_conn()?;
-    let name_partial = ViewNamePartial::new(&conn, typ.clone(), id.clone())?;
-    let photo_partial = ViewPhotoPartial::new(&conn, typ.clone(), id.clone())?;
-    let contact_partial = ViewContactPartial::new(&conn, typ.clone(), id.clone())?;
+    let name_partial = ViewNamePartial::new(&conn, typ, id.clone())?;
+    let photo_partial = ViewPhotoPartial::new(&conn, typ, id.clone())?;
+    let contact_partial = ViewContactPartial::new(&conn, typ, id.clone())?;
     let tenure_partial = ViewTenurePartial::new(&conn, id.clone())?;
     let supervisor_partial = ViewSupervisorPartial::new(&conn, id.clone())?;
 

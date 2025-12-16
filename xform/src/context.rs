@@ -35,17 +35,17 @@ pub struct Icons {
 
 impl Icons {
     pub fn for_contact_type(&self, typ: &data::ContactType) -> &str {
-        match typ {
-            &ContactType::Address => &self.address,
-            &ContactType::Phone => &self.phone,
-            &ContactType::Email => &self.email,
-            &ContactType::Website => &self.website,
-            &ContactType::Wikipedia => &self.wikipedia,
-            &ContactType::X => &self.x,
-            &ContactType::Youtube => &self.youtube,
-            &ContactType::Facebook => &self.facebook,
-            &ContactType::Instagram => &self.instagram,
-            &ContactType::Wikidata => &self.wikidata,
+        match *typ {
+            ContactType::Address => &self.address,
+            ContactType::Phone => &self.phone,
+            ContactType::Email => &self.email,
+            ContactType::Website => &self.website,
+            ContactType::Wikipedia => &self.wikipedia,
+            ContactType::X => &self.x,
+            ContactType::Youtube => &self.youtube,
+            ContactType::Facebook => &self.facebook,
+            ContactType::Instagram => &self.instagram,
+            ContactType::Wikidata => &self.wikidata,
         }
     }
 }

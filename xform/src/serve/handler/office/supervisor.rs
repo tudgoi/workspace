@@ -1,4 +1,7 @@
-use std::{collections::{BTreeMap, HashSet}, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::Arc,
+};
 
 use askama::Template;
 use askama_web::WebTemplate;
@@ -11,7 +14,9 @@ use serde::Deserialize;
 use strum::VariantArray;
 
 use crate::{
-    LibrarySql, context, data::{self, SupervisingRelation}, dto,
+    LibrarySql, context,
+    data::{self, SupervisingRelation},
+    dto,
     serve::{AppError, AppState},
 };
 
@@ -40,7 +45,10 @@ pub async fn add(
         .cloned()
         .collect();
 
-    Ok(AddSupervisorPartial { id, missing_relations })
+    Ok(AddSupervisorPartial {
+        id,
+        missing_relations,
+    })
 }
 
 #[derive(Template, WebTemplate)]
@@ -97,11 +105,7 @@ pub async fn save(
     Form(form): Form<SupervisorEntry>,
 ) -> Result<ViewSupervisorPartial, AppError> {
     let conn = state.get_conn()?;
-    conn.save_office_supervisor(
-        &office_id,
-        &form.relation,
-        &form.office_id,
-    )?;
+    conn.save_office_supervisor(&office_id, &form.relation, &form.office_id)?;
 
     ViewSupervisorPartial::new(&conn, office_id)
 }

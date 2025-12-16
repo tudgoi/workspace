@@ -20,7 +20,17 @@ pub struct Photo {
 }
 
 #[derive(
-    Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, JsonSchema, VariantArray
+    Serialize,
+    Deserialize,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Clone,
+    JsonSchema,
+    VariantArray,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ContactType {
@@ -53,20 +63,20 @@ impl ContactType {
     }
 
     pub fn to_link(&self, s: &str) -> String {
-        match self {
-            &ContactType::Address => String::from(""),
-            &ContactType::Phone => format!("tel:{}", s),
-            &ContactType::Email => format!("mailto:{}", s),
-            &ContactType::Website => format!("{}", s),
-            &ContactType::Wikipedia => format!("https://en.wikipedia.org/wiki/{}", s),
-            &ContactType::X => format!("https://x.com/{}", s),
-            &ContactType::Youtube => format!("https://www.youtube.com/{}", s),
-            &ContactType::Facebook => format!("https://www.facebook.com/{}", s),
-            &ContactType::Instagram => format!("https://www.instagram.com/{}", s),
-            &ContactType::Wikidata => format!("https://www.wikidata.org/wiki/{}", s),
+        match *self {
+            ContactType::Address => String::from(""),
+            ContactType::Phone => format!("tel:{}", s),
+            ContactType::Email => format!("mailto:{}", s),
+            ContactType::Website => s.to_string(),
+            ContactType::Wikipedia => format!("https://en.wikipedia.org/wiki/{}", s),
+            ContactType::X => format!("https://x.com/{}", s),
+            ContactType::Youtube => format!("https://www.youtube.com/{}", s),
+            ContactType::Facebook => format!("https://www.facebook.com/{}", s),
+            ContactType::Instagram => format!("https://www.instagram.com/{}", s),
+            ContactType::Wikidata => format!("https://www.wikidata.org/wiki/{}", s),
         }
     }
-    
+
     pub fn is_independent(&self) -> bool {
         match self {
             ContactType::Address => false,
@@ -133,7 +143,9 @@ pub struct Office {
     pub supervisors: Option<BTreeMap<SupervisingRelation, String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, VariantArray)]
+#[derive(
+    Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, VariantArray,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum SupervisingRelation {
     Head,
@@ -161,7 +173,7 @@ impl SupervisingRelation {
             SupervisingRelation::Minister => "minister",
         }
     }
-    
+
     pub fn forward_label(&self) -> &'static str {
         match self {
             SupervisingRelation::Head => "Head",

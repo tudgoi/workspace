@@ -60,10 +60,8 @@ impl Ingestor {
     }
 }
 
-async fn ingest_entity<'a>(conn: &mut Connection, entity: graph::Entity) -> Result<()> {
-    let entity_type = entity
-        .get_type()
-        .with_context(|| format!("entity should have a type"))?;
+async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<()> {
+    let entity_type = entity.get_type().context("entity should have a type")?;
     let entity_type: dto::EntityType = entity_type.clone().into();
     let id =
         ingest_entity_id_or_name(conn, &entity_type, entity.get_id(), entity.get_name()).await?;
@@ -92,7 +90,7 @@ async fn ingest_entity<'a>(conn: &mut Connection, entity: graph::Entity) -> Resu
             graph::Property::Photo { url, attribution } => {
                 if !conn.exists_entity_photo(&entity_type, &id, |row| row.get(0))? {
                     conn.save_entity_photo(&entity_type, &id, url, attribution.as_deref())
-                        .with_context(|| format!("Failed to ingest photo"))?;
+                        .context("Failed to ingest photo")?;
                 }
             }
             graph::Property::Contact(contact_type, value) => {
@@ -118,8 +116,7 @@ async fn ingest_entity<'a>(conn: &mut Connection, entity: graph::Entity) -> Resu
                     )
                     .await?;
 
-                    conn
-                        .save_office_supervisor(&id, relation, &supervising_office_id)?;
+                    conn.save_office_supervisor(&id, relation, &supervising_office_id)?;
                 }
             }
         }
@@ -141,7 +138,7 @@ fn escape_for_fts(input: &str) -> String {
     s
 }
 
-async fn ingest_entity_id_or_name<'a>(
+async fn ingest_entity_id_or_name(
     conn: &mut Connection,
     entity_type: &dto::EntityType,
     id: Option<&str>,
@@ -160,11 +157,10 @@ async fn ingest_entity_id_or_name<'a>(
         Ok(id.to_string())
     } else {
         // id not provided. FTS by name and use it or else insert new
-        let name =
-            name.with_context(|| format!("entity should have a name if id is not provided"))?;
+        let name = name.context("entity should have a name if id is not provided")?;
         let query = escape_for_fts(name);
         let entity = conn
-            .search_entity(Some(&entity_type), &query, |row| {
+            .search_entity(Some(entity_type), &query, |row| {
                 Ok(Entity {
                     typ: row.get(0)?,
                     id: row.get(1)?,

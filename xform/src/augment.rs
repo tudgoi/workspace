@@ -60,10 +60,10 @@ impl Augmentor for WikidataAugmentor {
         .cloned()
         .collect();
         let res = self.api.get_query_api_json(&params).await?;
-        if let Some(r) = res["search"].as_array().and_then(|s| s.first()) {
-            if let Some(id) = r["id"].as_str() {
-                return Ok(Some(id.to_string()));
-            }
+        if let Some(r) = res["search"].as_array().and_then(|s| s.first())
+            && let Some(id) = r["id"].as_str()
+        {
+            return Ok(Some(id.to_string()));
         }
         Ok(None)
     }
@@ -79,29 +79,22 @@ impl Augmentor for WikidataAugmentor {
         .collect();
         let res = self.api.get_query_api_json(&params).await?;
 
-        if let Some(entity) = res["entities"].as_object().and_then(|e| e.get(id)) {
-            if let Some(claims) = entity.get("claims") {
-                if let Some(claim) = claims.get("P18") {
-                    if let Some(claim) = claim.as_array().and_then(|a| a.first()) {
-                        if let Some(mainsnak) = claim.get("mainsnak") {
-                            if let Some(datavalue) = mainsnak.get("datavalue") {
-                                if let Some(value) = datavalue.get("value") {
-                                    if let Some(file_name) = value.as_str() {
-                                        let attribution =
-                                            self.fetch_file_attribution(file_name).await?;
-                                        let url = self.fetch_file_url(file_name).await?;
+        if let Some(entity) = res["entities"].as_object().and_then(|e| e.get(id))
+            && let Some(claims) = entity.get("claims")
+            && let Some(claim) = claims.get("P18")
+            && let Some(claim) = claim.as_array().and_then(|a| a.first())
+            && let Some(mainsnak) = claim.get("mainsnak")
+            && let Some(datavalue) = mainsnak.get("datavalue")
+            && let Some(value) = datavalue.get("value")
+            && let Some(file_name) = value.as_str()
+        {
+            let attribution = self.fetch_file_attribution(file_name).await?;
+            let url = self.fetch_file_url(file_name).await?;
 
-                                        return Ok(Some(data::Photo {
-                                            url,
-                                            attribution: Some(attribution),
-                                        }));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            return Ok(Some(data::Photo {
+                url,
+                attribution: Some(attribution),
+            }));
         }
 
         Ok(None)
@@ -118,20 +111,15 @@ impl Augmentor for WikidataAugmentor {
         .collect();
         let res = self.api.get_query_api_json(&params).await?;
 
-        if let Some(entity) = res["entities"].as_object().and_then(|e| e.get(id)) {
-            if let Some(sitelinks) = entity.get("sitelinks") {
-                if let Some(enwiki) = sitelinks.get("enwiki") {
-                    if let Some(url) = enwiki.get("url") {
-                        if let Some(url_str) = url.as_str() {
-                            if let Some(title) = url_str.split('/').last() {
-                                if !title.is_empty() {
-                                    return Ok(Some(title.to_string()));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        if let Some(entity) = res["entities"].as_object().and_then(|e| e.get(id))
+            && let Some(sitelinks) = entity.get("sitelinks")
+            && let Some(enwiki) = sitelinks.get("enwiki")
+            && let Some(url) = enwiki.get("url")
+            && let Some(url_str) = url.as_str()
+            && let Some(title) = url_str.split('/').next_back()
+            && !title.is_empty()
+        {
+            return Ok(Some(title.to_string()));
         }
 
         Ok(None)
@@ -162,45 +150,42 @@ impl WikidataAugmentor {
         if let Some(page) = res["query"]["pages"]
             .as_object()
             .and_then(|p| p.values().next())
+            && let Some(imageinfo) = page["imageinfo"].as_array().and_then(|i| i.first())
+            && let Some(extmetadata) = imageinfo.get("extmetadata")
         {
-            if let Some(imageinfo) = page["imageinfo"].as_array().and_then(|i| i.first()) {
-                if let Some(extmetadata) = imageinfo.get("extmetadata") {
-                    let artist = if let Some(artist) = extmetadata.get("Artist") {
-                        artist["value"].as_str()
-                    } else {
-                        None
-                    };
-                    let license_short_name =
-                        if let Some(short_name) = extmetadata.get("LicenseShortName") {
-                            short_name["value"].as_str()
-                        } else {
-                            None
-                        };
-                    let license_url = if let Some(url) = extmetadata.get("LicenseUrl") {
-                        url["value"].as_str()
-                    } else {
-                        None
-                    };
+            let artist = if let Some(artist) = extmetadata.get("Artist") {
+                artist["value"].as_str()
+            } else {
+                None
+            };
+            let license_short_name = if let Some(short_name) = extmetadata.get("LicenseShortName") {
+                short_name["value"].as_str()
+            } else {
+                None
+            };
+            let license_url = if let Some(url) = extmetadata.get("LicenseUrl") {
+                url["value"].as_str()
+            } else {
+                None
+            };
 
-                    let mut attribution_parts: Vec<String> = Vec::new();
-                    if let Some(artist_str) = artist {
-                        attribution_parts.push(artist_str.to_string());
-                    }
-
-                    let license_str = match (license_short_name, license_url) {
-                        (Some(name), Some(url)) => Some(format!("{} <{}>", name, url)),
-                        (Some(name), None) => Some(name.to_string()),
-                        (None, Some(url)) => Some(format!("<{}>", url)),
-                        (None, None) => None,
-                    };
-                    if let Some(license_str) = license_str {
-                        attribution_parts.push(license_str);
-                    }
-
-                    attribution_parts.push("via Wikimedia Commons".to_string());
-                    return Ok(attribution_parts.join(", "));
-                }
+            let mut attribution_parts: Vec<String> = Vec::new();
+            if let Some(artist_str) = artist {
+                attribution_parts.push(artist_str.to_string());
             }
+
+            let license_str = match (license_short_name, license_url) {
+                (Some(name), Some(url)) => Some(format!("{} <{}>", name, url)),
+                (Some(name), None) => Some(name.to_string()),
+                (None, Some(url)) => Some(format!("<{}>", url)),
+                (None, None) => None,
+            };
+            if let Some(license_str) = license_str {
+                attribution_parts.push(license_str);
+            }
+
+            attribution_parts.push("via Wikimedia Commons".to_string());
+            return Ok(attribution_parts.join(", "));
         }
 
         bail!("could not fetch attribution for file")
@@ -227,14 +212,11 @@ impl WikidataAugmentor {
         if let Some(page) = res["query"]["pages"]
             .as_object()
             .and_then(|p| p.values().next())
+            && let Some(imageinfo) = page["imageinfo"].as_array().and_then(|i| i.first())
+            && let Some(url) = imageinfo.get("url")
+            && let Some(url_str) = url.as_str()
         {
-            if let Some(imageinfo) = page["imageinfo"].as_array().and_then(|i| i.first()) {
-                if let Some(url) = imageinfo.get("url") {
-                    if let Some(url) = url.as_str() {
-                        return Ok(url.to_string());
-                    }
-                }
-            }
+            return Ok(url_str.to_string());
         }
 
         bail!("could not fetch url for file")

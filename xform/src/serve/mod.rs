@@ -78,15 +78,27 @@ pub async fn run(
         .route("/{typ}/{id}/photo/edit", get(handler::entity::photo::edit))
         .route("/{typ}/{id}/photo", get(handler::entity::photo::view))
         .route("/{typ}/{id}/photo", put(handler::entity::photo::save))
-        .route("/{typ}/{id}/contact/add", get(handler::entity::contact::add))
+        .route(
+            "/{typ}/{id}/contact/add",
+            get(handler::entity::contact::add),
+        )
         .route("/{typ}/{id}/contact", get(handler::entity::contact::view))
         .route("/{typ}/{id}/contact", post(handler::entity::contact::save))
         .route("/person/{id}/tenure/add", get(handler::person::tenure::add))
         .route("/person/{id}/tenure", get(handler::person::tenure::view))
         .route("/person/{id}/tenure", post(handler::person::tenure::save))
-        .route("/office/{id}/supervisor/add", get(handler::office::supervisor::add))
-        .route("/office/{id}/supervisor", get(handler::office::supervisor::view))
-        .route("/office/{id}/supervisor", post(handler::office::supervisor::save))
+        .route(
+            "/office/{id}/supervisor/add",
+            get(handler::office::supervisor::add),
+        )
+        .route(
+            "/office/{id}/supervisor",
+            get(handler::office::supervisor::view),
+        )
+        .route(
+            "/office/{id}/supervisor",
+            post(handler::office::supervisor::save),
+        )
         .layer(LiveReloadLayer::new())
         .with_state(Arc::new(state))
         .nest_service("/static", ServeDir::new(static_files));
@@ -94,12 +106,12 @@ pub async fn run(
     let addr = format!("0.0.0.0:{}", port.unwrap_or("8080"));
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
-        .with_context(|| format!("could not listen"))?;
+        .context("could not listen")?;
 
     println!("Serving at http://{}/", addr);
     axum::serve(listener, app)
         .await
-        .with_context(|| format!("could not start server"))?;
+        .context("could not start server")?;
 
     Ok(())
 }
@@ -113,8 +125,8 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(db: PathBuf, templates: PathBuf, dynamic: bool) -> Result<Self> {
-        let config: context::Config = from_toml_file(templates.join("config.toml"))
-            .with_context(|| format!("could not parse config"))?;
+        let config: context::Config =
+            from_toml_file(templates.join("config.toml")).context("could not parse config")?;
 
         let manager = SqliteConnectionManager::file(&db);
         let db_pool = r2d2::Pool::builder()

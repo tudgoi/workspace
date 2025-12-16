@@ -69,7 +69,7 @@ impl ViewContactPartial {
         })?;
         Ok(ViewContactPartial {
             id,
-            typ: typ,
+            typ,
             contacts,
         })
     }
