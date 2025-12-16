@@ -10,7 +10,12 @@
 {% endblock toolbar %}
 
 {% block content_title %}
-    <h2>{{ office.name }}</h2>
+    <h2>
+      {{ office.name }}
+      {% if let Some(contacts) = contacts %}
+      {% call macros::render_ext_links(links=contacts) %}
+      {% endif %}
+    </h2>
     {% if let Some(incumbent) = incumbent %}
     {% call macros::render_person(person=incumbent) %}
     {% endif %}
