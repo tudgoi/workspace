@@ -15,6 +15,7 @@ mod import;
 mod ingest;
 mod render;
 mod serve;
+mod repo;
 
 include_sql!("sql/library.sql");
 include_sql!("sql/schema.sql");
