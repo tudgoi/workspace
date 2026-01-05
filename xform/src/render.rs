@@ -12,10 +12,9 @@ use crate::{
 };
 
 #[tokio::main]
-pub async fn run(db: &Path, templates: &Path, output: &Path) -> Result<()> {
+pub async fn run(db: &Path, output: &Path) -> Result<()> {
     let state = Arc::new(AppState::new(
         db.to_path_buf(),
-        templates.to_path_buf(),
         false,
     )?);
     let conn = state.db_pool.get()?;

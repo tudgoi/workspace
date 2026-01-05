@@ -3,7 +3,7 @@
     {% for (key, value) in links %}
       {% if key.is_independent() %}
             <a href="{{ key.to_link(value) }}"><button><span class="icon">
-                {{ config.icons.for_contact_type(key) | safe }}
+                {{ key.icon() | safe }}
             </span></button></a>
       {% endif %}
     {% endfor %}
@@ -16,7 +16,7 @@
       {% if !key.is_independent() %}
         <div class="dl-single-line">
           <dt><span class="icon">
-            {{ config.icons.for_contact_type(key) | safe }}
+            {{ key.icon() | safe }}
           </span></dt>
           <dd>
             {% if *key != data::ContactType::Address %}

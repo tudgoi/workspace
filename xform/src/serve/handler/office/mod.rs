@@ -1,4 +1,5 @@
-use crate::LibrarySql;
+use crate::{CONFIG, LibrarySql};
+use crate::config::Config;
 use crate::serve::handler::filters;
 use crate::{
     context, data, dto,
@@ -24,7 +25,7 @@ pub struct OfficePageTemplate {
     pub supervisors: Option<BTreeMap<data::SupervisingRelation, context::Office>>,
 
     pub sources: Option<Vec<String>>,
-    pub config: Arc<context::Config>,
+    pub config: &'static Config,
     pub page: context::Page,
     pub metadata: context::Metadata,
 }
@@ -131,7 +132,7 @@ pub async fn page(
         incumbent,
         quondams: Some(quondams).filter(|v| !v.is_empty()),
         sources: None,
-        config: state.config.clone(),
+        config: &CONFIG,
         page,
         metadata,
     })

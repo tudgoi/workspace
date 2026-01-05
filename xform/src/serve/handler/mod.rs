@@ -5,8 +5,10 @@ use askama_web::WebTemplate;
 use axum::extract::State;
 use rusqlite::Connection;
 
+use crate::CONFIG;
 use crate::LibrarySql;
 use crate::SchemaSql;
+use crate::config::Config;
 use crate::dto;
 use crate::{
     context::{self, Page},
@@ -23,7 +25,7 @@ pub mod filters;
 pub struct IndexTemplate {
     pub persons: u32,
     pub offices: u32,
-    pub config: Arc<context::Config>,
+    pub config: &'static Config,
     pub page: context::Page,
 }
 
@@ -40,7 +42,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
     Ok(IndexTemplate {
         persons,
         offices,
-        config: state.config.clone(),
+        config: &CONFIG,
         page: Page {
             dynamic: state.dynamic,
             base: String::from("./"),
@@ -52,7 +54,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
 #[template(path = "uncommitted.html")]
 pub struct UncommittedTemplate {
     pub entities: Vec<dto::Entity>,
-    pub config: Arc<context::Config>,
+    pub config: &'static Config,
     pub page: context::Page,
 }
 
@@ -75,7 +77,7 @@ pub async fn uncommitted(
 
     Ok(UncommittedTemplate {
         entities,
-        config: state.config.clone(),
+        config: &CONFIG,
         page: Page {
             base: String::from("./"),
             dynamic: true,

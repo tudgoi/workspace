@@ -1,4 +1,5 @@
-use crate::LibrarySql;
+use crate::{CONFIG, LibrarySql};
+use crate::config::Config;
 use crate::serve::handler::filters;
 use crate::{
     context, data, dto,
@@ -22,7 +23,7 @@ pub struct PersonPageTemplate {
     pub past_tenures: Option<Vec<context::TenureDetails>>,
 
     pub sources: Option<Vec<String>>,
-    pub config: Arc<context::Config>,
+    pub config: &'static Config,
     pub page: context::Page,
     pub metadata: context::Metadata,
 }
@@ -180,7 +181,7 @@ pub async fn page(
             Some(past_tenures)
         },
         sources: None, // Initialize sources as None
-        config: state.config.clone(),
+        config: &CONFIG,
         page: context::Page {
             base: String::from("../"),
             dynamic: state.dynamic,

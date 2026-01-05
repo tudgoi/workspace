@@ -24,11 +24,7 @@
 
 {% block content_left %}
   <div class="photo">
-    {% if let Some(photo) = photo %}
-    {% call macros::render_photo(photo=photo, alt=office.name) %}
-    {% else %}
-    {% call macros::render_photo(photo=config.defaults.photo, alt=office.name) %}
-    {% endif %}
+    {% call macros::render_photo(photo=photo.clone().unwrap_or_default(), alt=office.name) %}
   </div>
 {% endblock content_left %}
 

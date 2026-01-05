@@ -14,8 +14,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    LibrarySql, context, dto,
-    serve::{
+    CONFIG, LibrarySql, config::Config, context, dto, serve::{
         AppError, AppState,
         handler::{
             entity::{contact::ViewContactPartial, name::ViewNamePartial, photo::ViewPhotoPartial},
@@ -23,13 +22,13 @@ use crate::{
             person::tenure::ViewTenurePartial,
         },
         hx_redirect,
-    },
+    }
 };
 
 #[derive(Template, WebTemplate)]
 #[template(path = "entity/new.html")]
 pub struct NewTemplate {
-    config: Arc<context::Config>,
+    config: &'static Config,
     page: context::Page,
     typ: dto::EntityType,
 }
@@ -41,7 +40,7 @@ pub async fn new_form(
 ) -> Result<NewTemplate, AppError> {
     Ok(NewTemplate {
         typ,
-        config: state.config.clone(),
+        config: &CONFIG,
         page: context::Page {
             dynamic: state.dynamic,
             base: String::from("../"),
@@ -78,7 +77,7 @@ pub struct EditTemplate {
     pub tenure_partial: ViewTenurePartial,
     pub supervisor_partial: ViewSupervisorPartial,
 
-    pub config: Arc<context::Config>,
+    pub config: &'static Config,
     pub page: context::Page,
 }
 
@@ -102,7 +101,7 @@ pub async fn edit(
         contact_partial,
         tenure_partial,
         supervisor_partial,
-        config: state.config.clone(),
+        config: &CONFIG,
         page: context::Page {
             dynamic: state.dynamic,
             base: String::from("../../"),

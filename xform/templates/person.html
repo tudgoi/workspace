@@ -21,17 +21,7 @@
 
 {% block content_left %}
   <div class="photo">
-    {% if let Some(photo) = photo %}
-      {% call macros::render_photo(photo=photo, alt=person.name) %}
-    {% else if let Some(offices) = offices %}
-      {% if offices.len() > 0 %}
-        {% if let Some(office_photo) = offices[0].photo %}
-          {% call macros::render_photo(photo=office_photo, alt=person.name) %}
-        {% endif %}
-      {% endif %}
-    {% else %}
-      {% call macros::render_photo(photo=config.defaults.photo, alt=person.name) %}
-    {% endif %}
+    {% call macros::render_photo(photo=photo.clone().unwrap_or_default(), alt=person.name) %}
   </div>
 {% endblock content_left %}
 

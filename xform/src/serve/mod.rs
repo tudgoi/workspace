@@ -16,7 +16,6 @@ use r2d2::Error as R2D2Error;
 use thiserror::Error;
 use tower_http::services::ServeDir;
 
-use crate::{context, from_toml_file};
 use tower_livereload::LiveReloadLayer;
 
 #[derive(Debug, Error)]
@@ -58,11 +57,10 @@ impl IntoResponse for AppError {
 #[tokio::main]
 pub async fn run(
     db: PathBuf,
-    templates: PathBuf,
     static_files: PathBuf,
     port: Option<&str>,
 ) -> Result<()> {
-    let state = AppState::new(db, templates, true)?;
+    let state = AppState::new(db, true)?;
 
     let app = Router::new()
         .route("/", get(handler::index))
@@ -121,14 +119,10 @@ pub struct AppState {
     pub dynamic: bool,
     pub db: PathBuf,
     pub db_pool: Pool<SqliteConnectionManager>,
-    pub config: Arc<context::Config>,
 }
 
 impl AppState {
-    pub fn new(db: PathBuf, templates: PathBuf, dynamic: bool) -> Result<Self> {
-        let config: context::Config =
-            from_toml_file(templates.join("config.toml")).context("could not parse config")?;
-
+    pub fn new(db: PathBuf, dynamic: bool) -> Result<Self> {
         let manager = SqliteConnectionManager::file(&db);
         let db_pool = r2d2::Pool::builder()
             .max_size(15) // Max connections to keep open
@@ -138,7 +132,6 @@ impl AppState {
             dynamic,
             db,
             db_pool,
-            config: Arc::new(config),
         })
     }
 

@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use include_sqlite_sql::{impl_sql, include_sql};
 use serde::de::DeserializeOwned;
+use static_toml::static_toml;
 use std::fs;
 use std::path::PathBuf;
 
@@ -14,11 +15,42 @@ mod graph;
 mod import;
 mod ingest;
 mod render;
-mod serve;
 mod repo;
+mod serve;
 
 include_sql!("sql/library.sql");
 include_sql!("sql/schema.sql");
+
+static_toml! {
+    pub static CONFIG = include_toml!("config.toml");
+}
+
+impl data::ContactType {
+    pub fn icon(&self) -> &'static str {
+        let icons = &CONFIG.icons;
+        match self {
+            Self::Address => icons.address,
+            Self::Phone => icons.phone,
+            Self::Email => icons.email,
+            Self::Website => icons.website,
+            Self::Wikipedia => icons.wikipedia,
+            Self::X => icons.x,
+            Self::Youtube => icons.youtube,
+            Self::Facebook => icons.facebook,
+            Self::Instagram => icons.instagram,
+            Self::Wikidata => icons.wikidata,
+        }
+    }
+}
+
+impl Default for data::Photo {
+    fn default() -> Self {
+        Self {
+            url: CONFIG.defaults.photo.url.to_string(),
+            attribution: None,
+        }
+    }
+}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -41,7 +73,6 @@ enum Commands {
 
     Render {
         db: PathBuf,
-        templates: PathBuf,
         output: PathBuf,
     },
 
@@ -67,7 +98,6 @@ enum Commands {
 
     Serve {
         db: PathBuf,
-        templates: PathBuf,
         static_files: PathBuf,
 
         #[arg(short = 'p', long)]
@@ -101,12 +131,9 @@ fn main() -> Result<()> {
             export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
         }
 
-        Commands::Render {
-            db,
-            templates,
-            output,
-        } => render::run(db.as_path(), templates.as_path(), output.as_path())
-            .with_context(|| "could not run `render`"),
+        Commands::Render { db, output } => {
+            render::run(db.as_path(), output.as_path()).with_context(|| "could not run `render`")
+        }
         Commands::Augment {
             db,
             source: source_name,
@@ -123,11 +150,9 @@ fn main() -> Result<()> {
 
         Commands::Serve {
             db,
-            templates,
             static_files,
             port,
-        } => serve::run(db, templates, static_files, port.as_deref())
-            .with_context(|| "failed to run `serve`"),
+        } => serve::run(db, static_files, port.as_deref()).with_context(|| "failed to run `serve`"),
     }
 }
 

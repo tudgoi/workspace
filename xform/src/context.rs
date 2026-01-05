@@ -1,54 +1,8 @@
 use std::collections::BTreeMap;
 
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Serialize;
 
-use crate::data::{self, ContactType};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct Config {
-    pub title: String,
-    pub base_url: String,
-    pub source_url: String,
-    pub icons: Icons,
-    pub defaults: Defaults,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Defaults {
-    pub photo: data::Photo,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Icons {
-    pub address: String,
-    pub phone: String,
-    pub email: String,
-    pub website: String,
-    pub wikipedia: String,
-    pub x: String,
-    pub youtube: String,
-    pub facebook: String,
-    pub instagram: String,
-    pub wikidata: String,
-}
-
-impl Icons {
-    pub fn for_contact_type(&self, typ: &data::ContactType) -> &str {
-        match *typ {
-            ContactType::Address => &self.address,
-            ContactType::Phone => &self.phone,
-            ContactType::Email => &self.email,
-            ContactType::Website => &self.website,
-            ContactType::Wikipedia => &self.wikipedia,
-            ContactType::X => &self.x,
-            ContactType::Youtube => &self.youtube,
-            ContactType::Facebook => &self.facebook,
-            ContactType::Instagram => &self.instagram,
-            ContactType::Wikidata => &self.wikidata,
-        }
-    }
-}
+use crate::data::{self};
 
 #[derive(Serialize, Debug)]
 pub struct Quondam {

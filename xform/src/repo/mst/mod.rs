@@ -218,7 +218,7 @@ impl<R: Repo> MstNode<R> {
     ///
     /// We can decide to store the level within the node to avoid recomputation if needed.
     fn estimate_level(&self) -> Option<u32> {
-        for item in &self.items {
+        if let Some(item) = self.items.first() {
             return Some(item.key.level());
         }
         None
