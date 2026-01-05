@@ -10,7 +10,7 @@ pub trait Key: Ord {
 
 /// Stores a (K, V) pair and optionally hash of a subtree with keys greater
 /// than current item.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MstItem<K: Key, V, H> {
     key: K,
     value: V,
@@ -22,7 +22,7 @@ pub struct MstItem<K: Key, V, H> {
 /// It's purpose it maintain a list of (K, V) ordered by K.
 ///
 /// left stores the left subtree with keys < keys of all items.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MstNode<R: Repo> {
     pub left: Option<R::Hash>,
     pub items: Vec<MstItem<R::Key, R::Value, R::Hash>>,
@@ -52,114 +52,167 @@ impl<R: Repo> MstNode<R> {
             self.upsert_local(repo, key, value)?;
         } else if req_level < node_level {
             // lower level
-            todo!()
+            let idx = self
+                .items
+                .iter()
+                .position(|item| item.key > key)
+                .unwrap_or(self.items.len());
+
+            let child_hash = if idx == 0 {
+                self.left.clone()
+            } else {
+                self.items[idx - 1].right.clone()
+            };
+
+            let mut child_node = match child_hash {
+                Some(ref h) => repo.read_node(h)?,
+                None => MstNode::empty(),
+            };
+
+            let new_child_hash = child_node.upsert(repo, key, value)?;
+
+            if idx == 0 {
+                self.left = Some(new_child_hash);
+            } else {
+                self.items[idx - 1].right = Some(new_child_hash);
+            }
         } else {
             // higher level
-            todo!()
+            let (l_hash, r_hash) = self.split(repo, &key)?;
+            self.items.clear();
+            self.left = l_hash;
+            self.items.push(MstItem {
+                key,
+                value,
+                right: r_hash,
+            });
         }
 
         repo.write_node(self)
     }
 
     /// Inserts a key-value pair directly into the current node.
-    fn upsert_local(&mut self, repo: &R, key: R::Key, value: R::Value) -> Result<(), R::Error> {
-        match self.items.iter().position(|item| key < item.key) {
-            Some(pos) => {
-                if pos > 0 {
-                    let prev_item = self.items.get_mut(pos - 1).unwrap();
-                    if prev_item.key == key {
-                        // update the value
-                        prev_item.value = value;
-                    } else {
-                        let right = match &prev_item.right {
-                            Some(hash) => {
-                                // split and insert into left subtree
-                                let node = repo.read_node(hash)?;
-                                let (left, right) = node.split(repo, &key)?;
-                                prev_item.right = Some(left);
-
-                                Some(right)
-                            }
-                            None => {
-                                // No split. So no subtree to the right
-                                None
-                            }
-                        };
-                        self.items.insert(
-                            pos,
-                            MstItem {
-                                key: key,
-                                value: value,
-                                right,
-                            },
-                        );
-                    }
-                } else {
-                    // pos = 0. So this is going to be the first item
-                    let right = match &self.left {
-                        Some(hash) => {
-                            // left subtree needs to be split
-                            let node = repo.read_node(hash)?;
-                            let (left, right) = node.split(repo, &key)?;
-                            self.left = Some(left);
-
-                            Some(right)
-                        }
-                        None => {
-                            // No split. So no subtree to the right.
-                            None
-                        }
-                    };
-                    self.items.insert(
-                        pos,
-                        MstItem {
-                            key: key,
-                            value: value,
-                            right,
-                        },
-                    );
-                }
+    fn upsert_local(
+        &mut self,
+        repo: &mut R,
+        key: R::Key,
+        value: R::Value,
+    ) -> Result<(), R::Error> {
+        match self.items.binary_search_by(|item| item.key.cmp(&key)) {
+            Ok(idx) => {
+                self.items[idx].value = value;
             }
-            None => {
-                // this key is greater than or equal to all the items
-                let prev_item = self.items.last_mut();
-                if let Some(prev_item) = prev_item {
-                    if prev_item.key == key {
-                        // update the value
-                        prev_item.value = value;
-                    } else {
-                        match &prev_item.right {
-                            Some(hash) => {
-                                // there is a subtree to the right. split and insert
-                                todo!()
-                            }
-                            None => {
-                                // this is the last item in the entire tree. Just append to node.
-                                self.items.push(MstItem {
-                                    key,
-                                    value,
-                                    right: None,
-                                })
-                            }
-                        }
-                    }
+            Err(idx) => {
+                // Insert new
+                // Split child at idx
+                let child_hash = if idx == 0 {
+                    self.left.clone()
                 } else {
-                    // the node is empty
-                    self.items.push(MstItem {
+                    self.items[idx - 1].right.clone()
+                };
+
+                let (l_hash, r_hash) = Self::split_hash(repo, child_hash, &key)?;
+
+                // Update left neighbor
+                if idx == 0 {
+                    self.left = l_hash;
+                } else {
+                    self.items[idx - 1].right = l_hash;
+                }
+
+                // Insert item
+                self.items.insert(
+                    idx,
+                    MstItem {
                         key,
                         value,
-                        right: None,
-                    })
-                }
+                        right: r_hash,
+                    },
+                );
             }
         }
-
         Ok(())
     }
 
-    fn split(&self, repo: &R, key: &R::Key) -> Result<(R::Hash, R::Hash), R::Error> {
-        todo!()
+    fn split(
+        &mut self,
+        repo: &mut R,
+        split_key: &R::Key,
+    ) -> Result<(Option<R::Hash>, Option<R::Hash>), R::Error> {
+        // Find index where keys become > split_key
+        let idx = self
+            .items
+            .iter()
+            .position(|item| item.key > *split_key)
+            .unwrap_or(self.items.len());
+
+        // The child that needs splitting is at idx-1 (right of previous) or self.left if idx==0
+        // We take the hash out because we are about to destructively modify the node anyway.
+        let child_hash_to_split = if idx == 0 {
+            self.left.take()
+        } else {
+            self.items[idx - 1].right.take()
+        };
+
+        let (mid_l, mid_r) = Self::split_hash(repo, child_hash_to_split, split_key)?;
+
+        // Construct Right Node first by splitting off from self.items
+        // split_off moves elements at [idx, end) to a new Vec
+        let right_items = self.items.split_off(idx);
+
+        // Construct Left Node
+        // self.items now contains [0, idx)
+        let mut left_node = MstNode {
+            left: self.left.take(), // This might be None (if idx=0 we took it, if idx>0 we want to move it here)
+            items: std::mem::take(&mut self.items),
+        };
+
+        // Fix the rightmost pointer of left_node to be mid_l
+        if idx == 0 {
+            left_node.left = mid_l;
+        } else {
+            // idx > 0, so items[idx-1] exists.
+            if let Some(last) = left_node.items.last_mut() {
+                last.right = mid_l;
+            }
+        }
+
+        // Construct Right Node
+        let right_node = MstNode {
+            left: mid_r, // inherits split result as left
+            items: right_items,
+        };
+
+        // Write nodes
+        let l_hash = if left_node.items.is_empty() && left_node.left.is_none() {
+            None
+        } else {
+            Some(repo.write_node(&left_node)?)
+        };
+
+        let r_hash = if right_node.items.is_empty() && right_node.left.is_none() {
+            None
+        } else {
+            Some(repo.write_node(&right_node)?)
+        };
+
+        Ok((l_hash, r_hash))
     }
+
+    fn split_hash(
+        repo: &mut R,
+        hash: Option<R::Hash>,
+        split_key: &R::Key,
+    ) -> Result<(Option<R::Hash>, Option<R::Hash>), R::Error> {
+        match hash {
+            None => Ok((None, None)),
+            Some(h) => {
+                let mut node = repo.read_node(&h)?;
+                node.split(repo, split_key)
+            }
+        }
+    }
+
 
     /// Estimates the level of the current node based on the keys it contains.
     ///
