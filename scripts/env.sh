@@ -1,7 +1,3 @@
-xform() {
-    cargo run --manifest-path xform/Cargo.toml -- $@
-}
-
 import () {
     rm -rf output && mkdir output &&
     cargo run --manifest-path xform/Cargo.toml import data output/directory.db
@@ -21,7 +17,7 @@ render() {
     (
         set -e
         rm -rf output/html output/search
-        cargo run --manifest-path xform/Cargo.toml render output/directory.db templates output/html
+        cargo run --manifest-path xform/Cargo.toml render output/directory.db output/html
         cp -R static output/html/
     )
 }
@@ -80,25 +76,4 @@ release () {
             echo "No changes to release."
         fi
     )
-}
-
-fp () {
-    FILE=$(rg -l $1) &&
-    ffp $FILE
-}
-
-ffp () {
-    FILE=$1 &&
-    BASE=$(basename $FILE .md) &&
-    mv $FILE $HOME/workspace/tudgoi/data/person/$BASE.toml ;
-}
-fo () {
-    FILE=$(rg -l $1) &&
-    ffo $FILE
-}
-
-ffo () {
-    FILE=$1 &&
-    BASE=$(basename $FILE .md) &&
-    mv $FILE $HOME/workspace/tudgoi/data/office/$BASE.toml ;
 }

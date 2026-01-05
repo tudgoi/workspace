@@ -1,5 +1,5 @@
 [jobs.run-serve]
-command = ["cargo", "run", "--", "serve", "../output/directory.db", "../templates/", "../static/"]
+command = ["cargo", "run", "--", "serve", "../output/directory.db", "../static/"]
 watch = ["src/", "templates/", "../templates/"]
 need_stdout = true
 background = false
