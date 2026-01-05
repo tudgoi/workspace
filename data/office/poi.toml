@@ -1,5 +1,9 @@
 name = "President of India"
 
+[photo]
+url = "https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg"
+attribution = "Government of India, Public domain, via Wikimedia Commons"
+
 [contacts]
 website = "https://presidentofindia.gov.in/"
 wikipedia = "President_of_India"
