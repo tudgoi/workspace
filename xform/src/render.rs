@@ -4,6 +4,7 @@ use axum::extract::{self, State};
 use rusqlite::Connection;
 use std::path::Path;
 use std::{fs, sync::Arc};
+use serve::StaticDir;
 
 use crate::{LibrarySql, SchemaSql};
 use crate::{
@@ -40,6 +41,22 @@ pub async fn run(db: &Path, output: &Path) -> Result<()> {
 
     let search_db_path = output.join("search.db");
     create_search_database(&search_db_path, db)?;
+
+    // write static files to output
+    let static_dir = output.join("static");
+    fs::create_dir(&static_dir)?;
+    for item in StaticDir::iter() {
+        let file_path = item.as_ref();
+        let content = StaticDir::get(file_path).context("could not get static file")?;
+        let output_path = static_dir.join(file_path);
+
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(&output_path, content.data)
+            .with_context(|| format!("could not write static file {:?}", output_path))?;
+    }
 
     Ok(())
 }

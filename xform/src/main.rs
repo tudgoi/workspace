@@ -98,7 +98,6 @@ enum Commands {
 
     Serve {
         db: PathBuf,
-        static_files: PathBuf,
 
         #[arg(short = 'p', long)]
         port: Option<String>,
@@ -150,9 +149,8 @@ fn main() -> Result<()> {
 
         Commands::Serve {
             db,
-            static_files,
             port,
-        } => serve::run(db, static_files, port.as_deref()).with_context(|| "failed to run `serve`"),
+        } => serve::run(db, port.as_deref()).with_context(|| "failed to run `serve`"),
     }
 }
 

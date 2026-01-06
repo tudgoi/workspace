@@ -1,7 +1,8 @@
 pub mod handler;
 
 use std::{path::PathBuf, sync::Arc};
-
+use rust_embed::Embed;
+use axum_embed::ServeEmbed;
 use anyhow::{Context, Result};
 use axum::{
     Router,
@@ -14,9 +15,12 @@ use r2d2_sqlite::SqliteConnectionManager;
 
 use r2d2::Error as R2D2Error;
 use thiserror::Error;
-use tower_http::services::ServeDir;
 
 use tower_livereload::LiveReloadLayer;
+
+#[derive(Embed, Clone)]
+#[folder = "static/"]
+pub struct StaticDir;
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -57,7 +61,6 @@ impl IntoResponse for AppError {
 #[tokio::main]
 pub async fn run(
     db: PathBuf,
-    static_files: PathBuf,
     port: Option<&str>,
 ) -> Result<()> {
     let state = AppState::new(db, true)?;
@@ -100,7 +103,7 @@ pub async fn run(
         )
         .layer(LiveReloadLayer::new())
         .with_state(Arc::new(state))
-        .nest_service("/static", ServeDir::new(static_files));
+        .nest_service("/static", ServeEmbed::<StaticDir>::new());
 
     let addr = format!("0.0.0.0:{}", port.unwrap_or("8080"));
     let listener = tokio::net::TcpListener::bind(&addr)

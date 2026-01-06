@@ -18,7 +18,6 @@ render() {
         set -e
         rm -rf output/html output/search
         cargo run --manifest-path xform/Cargo.toml render output/directory.db output/html
-        cp -R static output/html/
     )
 }
 
