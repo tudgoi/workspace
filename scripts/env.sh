@@ -1,16 +1,18 @@
+TUDGOI_DATA=../tudgoi-data
+
 import () {
     rm -rf output && mkdir output &&
-    cargo run --manifest-path xform/Cargo.toml import data output/directory.db
+    cargo run --manifest-path xform/Cargo.toml import $TUDGOI_DATA output/directory.db
 }
 
 export-data () {
-    if [ -n "$(git status --porcelain data)" ]; then
+    if [ -n "$(git status --porcelain $TUDGOI_DATA)" ]; then
         echo "Error: There are uncommitted changes in the 'data' directory."
         echo "Please commit your changes before running the export."
         return 1
     fi
     
-    cargo run --manifest-path xform/Cargo.toml export output/directory.db data
+    cargo run --manifest-path xform/Cargo.toml export output/directory.db $TUDGOI_DATA
 }
 
 render() {

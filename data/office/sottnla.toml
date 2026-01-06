@@ -1,7 +1,0 @@
-name = "Speaker of the Tamil Nadu Legislative Assembly"
-
-[contacts]
-email = "mlaradhapuram@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

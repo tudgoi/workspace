@@ -1,5 +1,0 @@
-name = "Lieutenant Governor of Delhi"
-
-[supervisors]
-adviser = "cmodl"
-during_the_pleasure_of = "poi"

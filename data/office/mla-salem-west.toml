@@ -1,7 +1,0 @@
-name = "MLA (Salem (West))"
-
-[contacts]
-email = "mlasalemwest@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

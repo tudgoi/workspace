@@ -1,7 +1,0 @@
-name = "Minister for Labour Welfare and Skill Development"
-
-[contacts]
-email = "minister_labour@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

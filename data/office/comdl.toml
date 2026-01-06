@@ -1,4 +1,0 @@
-name = "Delhi Council of Ministers"
-
-[supervisors]
-head = "cmodl"

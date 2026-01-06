@@ -1,7 +1,0 @@
-name = "Minister for Tourism"
-
-[contacts]
-email = "minister_tourism@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

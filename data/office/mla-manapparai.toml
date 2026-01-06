@@ -1,7 +1,0 @@
-name = "MLA (Manapparai)"
-
-[contacts]
-email = "mlamanapparai@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

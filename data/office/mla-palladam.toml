@@ -1,7 +1,0 @@
-name = "MLA (Palladam)"
-
-[contacts]
-email = "mlapalladam@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

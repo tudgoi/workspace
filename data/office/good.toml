@@ -1,9 +1,0 @@
-name = "Governor of Odisha"
-
-[contacts]
-website = "https://www.rajbhavanodisha.gov.in/view/index.php"
-wikipedia = "List_of_governors_of_Odisha"
-
-[supervisors]
-adviser = "comod"
-during_the_pleasure_of = "poi"

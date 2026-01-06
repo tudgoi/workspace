@@ -1,4 +1,0 @@
-name = "Minister for Human Resources Management"
-
-[supervisors]
-member_of = "comtn"

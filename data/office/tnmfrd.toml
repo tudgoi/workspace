@@ -1,7 +1,0 @@
-name = "Minister for Rural Development"
-
-[contacts]
-email = "minister_rdprd@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

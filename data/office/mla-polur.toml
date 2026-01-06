@@ -1,7 +1,0 @@
-name = "MLA (Polur)"
-
-[contacts]
-email = "mlapolur@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

@@ -1,7 +1,0 @@
-name = "MLA (Krishnagiri)"
-
-[contacts]
-email = "mlakrishnagiri@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

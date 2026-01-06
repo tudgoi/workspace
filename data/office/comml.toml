@@ -1,4 +1,0 @@
-name = "Meghalaya Council of Ministers"
-
-[supervisors]
-head = "cmoml"

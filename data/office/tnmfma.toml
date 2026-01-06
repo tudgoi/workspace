@@ -1,7 +1,0 @@
-name = "Minister for Municipal Administration"
-
-[contacts]
-email = "minister_mard@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

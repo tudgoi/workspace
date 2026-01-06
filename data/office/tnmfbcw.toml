@@ -1,7 +1,0 @@
-name = "Minister for Backward Classes Welfare"
-
-[contacts]
-email = "minister_bcmw@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

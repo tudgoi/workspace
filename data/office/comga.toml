@@ -1,4 +1,0 @@
-name = "Goa Council of Ministers"
-
-[supervisors]
-head = "cmoga"

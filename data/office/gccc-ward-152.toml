@@ -1,7 +1,0 @@
-name = "Greater Chennai Corporation Councillor Ward 152"
-
-[contacts]
-email = "ward152@chennaicorporation.gov.in"
-
-[supervisors]
-member_of = "gccc"

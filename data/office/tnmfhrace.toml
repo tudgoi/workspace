@@ -1,7 +1,0 @@
-name = "Minister for Hindu Religious and Charitable Endowments"
-
-[contacts]
-email = "minister_hrce@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

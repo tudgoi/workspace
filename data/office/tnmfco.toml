@@ -1,7 +1,0 @@
-name = "Minister for Co-operation"
-
-[contacts]
-email = "minister_coop@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

@@ -1,7 +1,0 @@
-name = "MLA (Velachery)"
-
-[contacts]
-email = "mlavelachery@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

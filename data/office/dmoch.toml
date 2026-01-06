@@ -1,7 +1,0 @@
-name = "Deputy Mayor of Chennai"
-
-[contacts]
-email = "ward169@chennaicorporation.gov.in"
-
-[supervisors]
-member_of = "gccc"

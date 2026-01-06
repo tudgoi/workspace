@@ -1,4 +1,0 @@
-name = "Sikkim Council of Ministers"
-
-[supervisors]
-head = "cmosk"

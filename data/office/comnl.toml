@@ -1,4 +1,0 @@
-name = "Nagaland Council of Ministers"
-
-[supervisors]
-head = "cmonl"

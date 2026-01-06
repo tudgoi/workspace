@@ -1,4 +1,0 @@
-name = "Greater Chennai Corporation Commissioner"
-
-[supervisors]
-member_of = "gccc"

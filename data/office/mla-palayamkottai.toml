@@ -1,7 +1,0 @@
-name = "MLA (Palayamkottai)"
-
-[contacts]
-email = "mlapalayamkottai@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

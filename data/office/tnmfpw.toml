@@ -1,7 +1,0 @@
-name = "Minister for Public Works"
-
-[contacts]
-email = "minister_pwd@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

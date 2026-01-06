@@ -1,4 +1,0 @@
-name = "Bihar Council of Ministers"
-
-[supervisors]
-head = "cmobr"

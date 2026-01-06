@@ -1,7 +1,0 @@
-name = "Minister for Agriculture and Farmer’s Welfare"
-
-[contacts]
-email = "minister_agri@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

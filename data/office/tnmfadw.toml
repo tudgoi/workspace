@@ -1,7 +1,0 @@
-name = "Minister for Adi Dravidar Welfare"
-
-[contacts]
-email = "minister_adtw@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

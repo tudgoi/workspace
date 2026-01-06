@@ -1,7 +1,0 @@
-name = "Minister for Food and Civil Supplies"
-
-[contacts]
-email = "minister_food@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"

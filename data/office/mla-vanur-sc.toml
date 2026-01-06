@@ -1,7 +1,0 @@
-name = "MLA (Vanur (SC))"
-
-[contacts]
-email = "mlavanur@tn.gov.in"
-
-[supervisors]
-member_of = "tn-la"

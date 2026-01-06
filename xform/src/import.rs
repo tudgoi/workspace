@@ -11,15 +11,18 @@ use crate::{LibrarySql, dto};
 use super::data;
 use super::from_toml_file;
 
-fn get_commit_date(file_path: &Path) -> Result<Option<NaiveDate>> {
-    let path_str = file_path
+fn get_commit_date(repo_path: &Path, file_path: &Path) -> Result<Option<NaiveDate>> {
+
+        let path_str = file_path.strip_prefix(repo_path)?
         .to_str()
         .context("failed to convert path to string")?;
 
     // First, check for local or staged changes.
     let status_output = Command::new("git")
+        .current_dir(repo_path)
         .arg("status")
         .arg("--porcelain")
+        .arg("--")
         .arg(path_str)
         .output()
         .with_context(|| format!("could not get git status for {:?}", file_path))?;
@@ -41,6 +44,7 @@ fn get_commit_date(file_path: &Path) -> Result<Option<NaiveDate>> {
         .arg("-1")
         .arg("--format=%ad")
         .arg("--date=short")
+        .arg("--")
         .arg(path_str)
         .output();
     let output =
@@ -99,9 +103,10 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             file_stem
         ))?;
 
-        let commit_date = get_commit_date(file_entry.path().as_path()).with_context(|| {
-            format!("could not get last commit date for {:?}", file_entry.path())
-        })?;
+        let commit_date =
+            get_commit_date(source, file_entry.path().as_path()).with_context(|| {
+                format!("could not get last commit date for {:?}", file_entry.path())
+            })?;
 
         let office: data::Office =
             from_toml_file(file_entry.path()).context("could not load office")?;
@@ -126,9 +131,10 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             file_stem
         ))?;
 
-        let commit_date = get_commit_date(file_entry.path().as_path()).with_context(|| {
-            format!("could not get last commit date for {:?}", file_entry.path())
-        })?;
+        let commit_date =
+            get_commit_date(source, file_entry.path().as_path()).with_context(|| {
+                format!("could not get last commit date for {:?}", file_entry.path())
+            })?;
 
         let person: data::Person =
             from_toml_file(file_entry.path()).context("could not load person")?;

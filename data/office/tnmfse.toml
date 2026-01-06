@@ -1,7 +1,0 @@
-name = "Minister for School Education"
-
-[contacts]
-email = "minister_schedu@tn.gov.in"
-
-[supervisors]
-member_of = "comtn"
