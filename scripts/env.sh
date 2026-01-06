@@ -2,24 +2,27 @@ TUDGOI_DATA=../tudgoi-data
 
 import () {
     rm -rf output && mkdir output &&
-    cargo run --manifest-path xform/Cargo.toml import $TUDGOI_DATA output/directory.db
+    cargo run import $TUDGOI_DATA output/directory.db
 }
 
 export-data () {
-    if [ -n "$(git status --porcelain $TUDGOI_DATA)" ]; then
+(
+    cd $TUDGOI_DATA
+    if [ -n "$(git status --porcelain)" ]; then
         echo "Error: There are uncommitted changes in the 'data' directory."
         echo "Please commit your changes before running the export."
         return 1
     fi
+)
     
-    cargo run --manifest-path xform/Cargo.toml export output/directory.db $TUDGOI_DATA
+    cargo run export output/directory.db $TUDGOI_DATA
 }
 
 render() {
     (
         set -e
         rm -rf output/html output/search
-        cargo run --manifest-path xform/Cargo.toml render output/directory.db output/html
+        cargo run render output/directory.db output/html
     )
 }
 
@@ -35,7 +38,7 @@ all () {
     import && render 
 }
 
-release () {
+check-main() {
     if [ "$(git branch --show-current)" != "main" ]; then
         echo "Error: You must be on the 'main' branch to release."
         return 1
@@ -52,6 +55,15 @@ release () {
         echo "Please sync with the latest changes before releasing."
         return 1
     fi
+}
+
+release () {
+    check-main || return 1
+    
+    (
+        cd $TUDGOI_DATA
+        check-main
+    ) || return 1
 
     # Run the core release process in a subshell.
     # `set -e` will cause the subshell to exit immediately if a command fails,
