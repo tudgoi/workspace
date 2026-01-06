@@ -5,8 +5,26 @@ use super::{Repo, RepoError, Backend};
 #[cfg(test)]
 mod tests;
 
-pub trait Key: Ord {
-    fn level(&self) -> u32;
+pub trait Key: Ord + AsRef<[u8]> {}
+impl<T: Ord + AsRef<[u8]>> Key for T {}
+
+pub fn key_level(key: &impl AsRef<[u8]>) -> u32 {
+    let hash = blake3::hash(key.as_ref());
+    let bytes = hash.as_bytes();
+    let mut level = 0;
+    
+    // Each leading zero nybble (hex digit) increments level by 1.
+    for byte in bytes {
+        if *byte == 0 {
+            level += 2;
+        } else {
+            if *byte & 0xF0 == 0 {
+                level += 1;
+            }
+            break;
+        }
+    }
+    level
 }
 
 /// Stores a (K, V) pair and optionally hash of a subtree with keys greater
@@ -49,7 +67,7 @@ where
         key: K,
         value: V,
     ) -> Result<[u8; 32], RepoError> {
-        let req_level = key.level();
+        let req_level = key_level(&key);
         let node_level = self.estimate_level().unwrap_or(req_level);
 
         if req_level == node_level {
@@ -224,7 +242,7 @@ where
     /// We can decide to store the level within the node to avoid recomputation if needed.
     fn estimate_level(&self) -> Option<u32> {
         if let Some(item) = self.items.first() {
-            return Some(item.key.level());
+            return Some(key_level(&item.key));
         }
         None
     }
