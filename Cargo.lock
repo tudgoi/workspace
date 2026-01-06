@@ -3182,6 +3182,46 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "tudgoi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "askama_web",
+ "async-trait",
+ "axum",
+ "axum-embed",
+ "blake3",
+ "chrono",
+ "clap",
+ "displaydoc",
+ "gemini-rust",
+ "include-sqlite-sql",
+ "md5",
+ "r2d2",
+ "r2d2_sqlite",
+ "regex",
+ "rusqlite",
+ "rust-embed",
+ "schemars 1.0.4",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_variant",
+ "serde_with",
+ "static-toml",
+ "strum",
+ "strum_macros",
+ "tera",
+ "thiserror",
+ "tokio",
+ "toml 0.9.5",
+ "tower-http",
+ "tower-livereload",
+ "wikibase",
+]
+
+[[package]]
 name = "typenum"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3761,46 +3801,6 @@ name = "writeable"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea2f10b9bb0928dfb1b42b65e1f9e36f7f54dbdf08457afefb38afcdec4fa2bb"
-
-[[package]]
-name = "xform"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "askama",
- "askama_web",
- "async-trait",
- "axum",
- "axum-embed",
- "blake3",
- "chrono",
- "clap",
- "displaydoc",
- "gemini-rust",
- "include-sqlite-sql",
- "md5",
- "r2d2",
- "r2d2_sqlite",
- "regex",
- "rusqlite",
- "rust-embed",
- "schemars 1.0.4",
- "serde",
- "serde_derive",
- "serde_json",
- "serde_variant",
- "serde_with",
- "static-toml",
- "strum",
- "strum_macros",
- "tera",
- "thiserror",
- "tokio",
- "toml 0.9.5",
- "tower-http",
- "tower-livereload",
- "wikibase",
-]
 
 [[package]]
 name = "yaml-rust2"
