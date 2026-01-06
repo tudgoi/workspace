@@ -264,3 +264,16 @@ WHERE entity_type = 'person'
 END;
 COMMIT;
 /
+-- name: create_repo_tables &
+-- Create tables for storing repo data.
+BEGIN;
+CREATE TABLE repo (
+  hash BLOB NOT NULL PRIMARY KEY,
+  blob BLOB NOT NULL
+);
+CREATE TABLE refs (
+  name TEXT NOT NULL PRIMARY KEY,
+  hash BLOB NOT NULL
+);
+COMMIT;
+/

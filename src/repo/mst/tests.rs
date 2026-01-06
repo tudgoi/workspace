@@ -1,7 +1,8 @@
-use crate::repo::mst::{Key, MstNode, Repo};
+use crate::repo::mst::{Key, MstNode};
+use crate::repo::{Backend, Repo, RepoError};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use thiserror::Error;
+use std::sync::{Arc, Mutex};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TestKey {
@@ -44,66 +45,39 @@ impl Key for TestKey {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum TestRepoError {
-    #[error("could not serialize")]
-    SerializeError(#[from] toml::ser::Error),
-
-    #[error("could not deserialize")]
-    DeserializeError(#[from] toml::de::Error),
-
-    #[error("hash {0:?} not found")]
-    HashNotFound(<TestRepo as Repo>::Hash),
+#[derive(Clone)]
+pub struct TestBackend {
+    store: Arc<Mutex<BTreeMap<[u8; 32], Vec<u8>>>>,
 }
 
-pub struct TestRepo {
-    store: BTreeMap<[u8; 32], String>,
-}
-
-impl TestRepo {
+impl TestBackend {
     pub fn new() -> Self {
-        TestRepo {
-            store: BTreeMap::new(),
+        TestBackend {
+            store: Arc::new(Mutex::new(BTreeMap::new())),
         }
     }
 }
 
-impl Repo for TestRepo {
-    type Error = TestRepoError;
-    type Key = TestKey;
-    type Value = String;
-    type Hash = [u8; 32];
-
-    fn write_node(&mut self, node: &super::MstNode<Self>) -> Result<Self::Hash, Self::Error>
-    where
-        Self: Sized,
-    {
-        let str = toml::to_string(node)?;
-        let hash = blake3::hash(str.as_bytes());
-        let hash_bytes = *hash.as_bytes();
-        self.store.insert(hash_bytes, str);
-
-        Ok(hash_bytes)
+impl Backend for TestBackend {
+    fn read(&self, hash: &[u8; 32]) -> Result<Vec<u8>, RepoError> {
+        let store = self.store.lock().unwrap();
+        store
+            .get(hash)
+            .cloned()
+            .ok_or_else(|| RepoError::Backend("hash not found".to_string()))
     }
 
-    fn read_node(&self, hash: &Self::Hash) -> Result<super::MstNode<Self>, Self::Error>
-    where
-        Self: Sized,
-    {
-        let str = self
-            .store
-            .get(hash)
-            .ok_or(TestRepoError::HashNotFound(*hash))?;
-
-        let node = toml::from_str(str)?;
-
-        Ok(node)
+    fn write(&self, hash: &[u8; 32], blob: &Vec<u8>) -> Result<(), RepoError> {
+        let mut store = self.store.lock().unwrap();
+        store.insert(*hash, blob.clone());
+        Ok(())
     }
 }
 
 #[test]
 fn test_upsert_empty_tree() {
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     let root_hash = repo.write_node(&root_node).unwrap();
 
@@ -126,7 +100,8 @@ fn test_upsert_empty_tree() {
 
 #[test]
 fn test_upsert_existing_changed_value() {
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     let mut root_hash = repo.write_node(&root_node).unwrap();
     
@@ -156,7 +131,8 @@ fn test_upsert_existing_changed_value() {
 
 #[test]
 fn test_upsert_same_level_beginning() {
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     let mut root_hash = repo.write_node(&root_node).unwrap();
     
@@ -190,7 +166,8 @@ fn test_upsert_same_level_beginning() {
 
 #[test]
 fn test_upsert_same_level_ending() {
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     let mut root_hash = repo.write_node(&root_node).unwrap();
     
@@ -224,7 +201,8 @@ fn test_upsert_same_level_ending() {
 
 #[test]
 fn test_upsert_same_level_between() {
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     let mut root_hash = repo.write_node(&root_node).unwrap();
     
@@ -272,7 +250,8 @@ fn test_upsert_same_level_between() {
 
 #[test]
 fn test_upsert_lower_level() {
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     
     // Insert level 1 item
@@ -307,7 +286,8 @@ fn test_upsert_lower_level() {
 
 #[test]
 fn test_upsert_lower_level_right_child() {
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     
     // Insert level 1 item
@@ -336,7 +316,8 @@ fn test_upsert_lower_level_right_child() {
 
 #[test]
 fn test_upsert_higher_level_split() {
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     
     // Insert level 0 items
@@ -369,7 +350,8 @@ fn test_upsert_higher_level_split() {
 #[test]
 fn test_recursive_split() {
     // A complex case where a higher level key splits a deep tree
-    let mut repo = TestRepo::new();
+    let backend = TestBackend::new();
+    let mut repo = Repo::<TestKey, String, TestBackend>::new(backend);
     let mut root_node = MstNode::empty();
     
     // Level 0: a, c, e, g

@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde::Serialize;
+use super::{Repo, RepoError, Backend};
 
 #[cfg(test)]
 mod tests;
@@ -11,10 +12,10 @@ pub trait Key: Ord {
 /// Stores a (K, V) pair and optionally hash of a subtree with keys greater
 /// than current item.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct MstItem<K: Key, V, H> {
+pub struct MstItem<K: Key, V> {
     key: K,
     value: V,
-    right: Option<H>,
+    right: Option<[u8; 32]>,
 }
 
 /// A node in the Merkle Search Tree.
@@ -23,12 +24,16 @@ pub struct MstItem<K: Key, V, H> {
 ///
 /// left stores the left subtree with keys < keys of all items.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct MstNode<R: Repo> {
-    pub left: Option<R::Hash>,
-    pub items: Vec<MstItem<R::Key, R::Value, R::Hash>>,
+pub struct MstNode<K: Key, V> {
+    pub left: Option<[u8; 32]>,
+    pub items: Vec<MstItem<K, V>>,
 }
 
-impl<R: Repo> MstNode<R> {
+impl<K, V> MstNode<K, V> 
+where 
+    K: Key + Serialize + for<'de> Deserialize<'de> + Clone,
+    V: Serialize + for<'de> Deserialize<'de> + Clone,
+{
     /// Creates a new, empty MST node.
     pub fn empty() -> Self {
         MstNode {
@@ -38,12 +43,12 @@ impl<R: Repo> MstNode<R> {
     }
 
     /// Inserts or updates a key-value pair in the MST rooted at this node.
-    pub fn upsert(
+    pub fn upsert<B: Backend>(
         &mut self,
-        repo: &mut R,
-        key: R::Key,
-        value: R::Value,
-    ) -> Result<R::Hash, R::Error> {
+        repo: &mut Repo<K, V, B>,
+        key: K,
+        value: V,
+    ) -> Result<[u8; 32], RepoError> {
         let req_level = key.level();
         let node_level = self.estimate_level().unwrap_or(req_level);
 
@@ -92,12 +97,12 @@ impl<R: Repo> MstNode<R> {
     }
 
     /// Inserts a key-value pair directly into the current node.
-    fn upsert_local(
+    fn upsert_local<B: Backend>(
         &mut self,
-        repo: &mut R,
-        key: R::Key,
-        value: R::Value,
-    ) -> Result<(), R::Error> {
+        repo: &mut Repo<K, V, B>,
+        key: K,
+        value: V,
+    ) -> Result<(), RepoError> {
         match self.items.binary_search_by(|item| item.key.cmp(&key)) {
             Ok(idx) => {
                 self.items[idx].value = value;
@@ -134,11 +139,11 @@ impl<R: Repo> MstNode<R> {
         Ok(())
     }
 
-    fn split(
+    fn split<B: Backend>(
         &mut self,
-        repo: &mut R,
-        split_key: &R::Key,
-    ) -> Result<(Option<R::Hash>, Option<R::Hash>), R::Error> {
+        repo: &mut Repo<K, V, B>,
+        split_key: &K,
+    ) -> Result<(Option<[u8; 32]>, Option<[u8; 32]>), RepoError> {
         // Find index where keys become > split_key
         let idx = self
             .items
@@ -199,11 +204,11 @@ impl<R: Repo> MstNode<R> {
         Ok((l_hash, r_hash))
     }
 
-    fn split_hash(
-        repo: &mut R,
-        hash: Option<R::Hash>,
-        split_key: &R::Key,
-    ) -> Result<(Option<R::Hash>, Option<R::Hash>), R::Error> {
+    fn split_hash<B: Backend>(
+        repo: &mut Repo<K, V, B>,
+        hash: Option<[u8; 32]>,
+        split_key: &K,
+    ) -> Result<(Option<[u8; 32]>, Option<[u8; 32]>), RepoError> {
         match hash {
             None => Ok((None, None)),
             Some(h) => {
@@ -223,17 +228,4 @@ impl<R: Repo> MstNode<R> {
         }
         None
     }
-}
-
-pub trait Repo {
-    type Error;
-    type Key: for<'a> Deserialize<'a> + Key + Clone + Serialize;
-    type Value: for<'a> Deserialize<'a> + Clone + Serialize;
-    type Hash: for<'a> Deserialize<'a> + Clone + Serialize;
-    fn write_node(&mut self, node: &MstNode<Self>) -> Result<Self::Hash, Self::Error>
-    where
-        Self: Sized;
-    fn read_node(&self, hash: &Self::Hash) -> Result<MstNode<Self>, Self::Error>
-    where
-        Self: Sized;
 }
