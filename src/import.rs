@@ -6,14 +6,16 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::SchemaSql;
+use crate::record::{Key, OfficePath, PersonPath, RecordRepo};
+use crate::repo::sqlitebe::SqliteBackend;
 use crate::{LibrarySql, dto};
 
 use super::data;
 use super::from_toml_file;
 
 fn get_commit_date(repo_path: &Path, file_path: &Path) -> Result<Option<NaiveDate>> {
-
-        let path_str = file_path.strip_prefix(repo_path)?
+    let path_str = file_path
+        .strip_prefix(repo_path)?
         .to_str()
         .context("failed to convert path to string")?;
 
@@ -155,9 +157,15 @@ pub fn insert_person_data(
     person: &data::Person,
     commit_date: Option<&NaiveDate>,
 ) -> Result<()> {
+    let mut repo = RecordRepo::new(SqliteBackend::new(tx));
+    let person_path = Key::<PersonPath, ()>::new(id);
+
+    repo.save(person_path.name(), &person.name)?;
     tx.new_entity(&dto::EntityType::Person, id, &person.name)?;
 
-    if let Some(data::Photo { url, attribution }) = &person.photo {
+    if let Some(photo) = &person.photo {
+        repo.save(person_path.photo(), photo)?;
+        let data::Photo { url, attribution } = photo;
         tx.save_entity_photo(
             &dto::EntityType::Person,
             id,
@@ -168,6 +176,7 @@ pub fn insert_person_data(
     // Insert contacts if they exist
     if let Some(contacts) = &person.contacts {
         for (contact_type, value) in contacts {
+            repo.save(person_path.contact(contact_type.clone()), value)?;
             tx.save_entity_contact(&dto::EntityType::Person, id, contact_type, value)?;
         }
     }
@@ -175,22 +184,18 @@ pub fn insert_person_data(
     // Insert tenures if they exist
     if let Some(tenures) = &person.tenures {
         for tenure in tenures {
-            tx.save_tenure(
-                id,
-                &tenure.office_id,
-                tenure
-                    .start
-                    .as_ref()
-                    .map(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d"))
-                    .transpose()?
-                    .as_ref(),
-                tenure
-                    .end
-                    .as_ref()
-                    .map(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d"))
-                    .transpose()?
-                    .as_ref(),
-            )?;
+            let start = tenure
+                .start
+                .as_ref()
+                .map(|d| d.parse::<NaiveDate>())
+                .transpose()?;
+            let end = tenure
+                .end
+                .as_ref()
+                .map(|d| d.parse::<NaiveDate>())
+                .transpose()?;
+            repo.save(person_path.tenure(&tenure.office_id, start), &end)?;
+            tx.save_tenure(id, &tenure.office_id, start.as_ref(), end.as_ref())?;
         }
     }
 
@@ -207,9 +212,15 @@ fn insert_office_data(
     office: &data::Office,
     commit_date: Option<&NaiveDate>,
 ) -> Result<()> {
+    let mut repo = RecordRepo::new(SqliteBackend::new(tx));
+    let office_path = Key::<OfficePath, ()>::new(id);
+
+    repo.save(office_path.name(), &office.name)?;
     tx.new_entity(&dto::EntityType::Office, id, &office.name)?;
 
-    if let Some(data::Photo { url, attribution }) = &office.photo {
+    if let Some(photo) = &office.photo {
+        repo.save(office_path.photo(), photo)?;
+        let data::Photo { url, attribution } = photo;
         tx.save_entity_photo(
             &dto::EntityType::Office,
             id,
@@ -221,6 +232,10 @@ fn insert_office_data(
     // Insert supervisors if they exist
     if let Some(supervisors) = &office.supervisors {
         for (relation, supervisor_office_id) in supervisors {
+            repo.save(
+                office_path.supervisor(relation.clone()),
+                supervisor_office_id,
+            )?;
             tx.save_office_supervisor(id, relation, supervisor_office_id)?;
         }
     }
@@ -228,6 +243,7 @@ fn insert_office_data(
     // Insert contacts if they exist
     if let Some(contacts) = &office.contacts {
         for (contact_type, value) in contacts {
+            repo.save(office_path.contact(contact_type.clone()), value)?;
             tx.save_entity_contact(&dto::EntityType::Office, id, contact_type, value)
                 .with_context(|| {
                     format!(

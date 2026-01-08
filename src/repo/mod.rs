@@ -7,12 +7,15 @@ mod mst;
 pub mod sqlitebe;
 
 #[cfg(test)]
+pub mod test_backend;
+
+#[cfg(test)]
 mod tests;
 
 const ROOT_REF: &str = "root";
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
-pub struct Hash([u8; 32]);
+pub struct Hash(pub [u8; 32]);
 
 #[derive(Error, Debug)]
 pub enum RepoError {

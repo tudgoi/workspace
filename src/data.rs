@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde_derive::{Deserialize, Serialize};
 use strum_macros::VariantArray;
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 pub struct Person {
     pub name: String,
     pub photo: Option<Photo>,
@@ -13,7 +13,8 @@ pub struct Person {
     pub tenures: Option<Vec<Tenure>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Photo {
     pub url: String,
     pub attribution: Option<String>,
@@ -128,14 +129,15 @@ impl FromSql for ContactType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct Tenure {
     pub office_id: String,
     pub start: Option<String>,
     pub end: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Office {
     pub name: String,
     pub photo: Option<Photo>,

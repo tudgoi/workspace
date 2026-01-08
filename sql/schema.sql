@@ -263,14 +263,13 @@ WHERE entity_type = 'person'
   AND entity_id = old.person_id;
 END;
 COMMIT;
-/
--- name: create_repo_tables &
--- Create tables for storing repo data.
+-- [repo]
 BEGIN;
 CREATE TABLE repo (
   hash BLOB NOT NULL PRIMARY KEY,
   blob BLOB NOT NULL
 );
+-- [refs]
 CREATE TABLE refs (
   name TEXT NOT NULL PRIMARY KEY,
   hash BLOB NOT NULL
