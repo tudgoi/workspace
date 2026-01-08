@@ -1,18 +1,14 @@
+use crate::repo::Store;
 use serde::Deserialize;
 use serde::Serialize;
-use super::{Repo, RepoError, Backend};
 
-#[cfg(test)]
-mod tests;
+use super::{Hash, RepoError};
 
-pub trait Key: Ord + AsRef<[u8]> {}
-impl<T: Ord + AsRef<[u8]>> Key for T {}
-
-pub fn key_level(key: &impl AsRef<[u8]>) -> u32 {
-    let hash = blake3::hash(key.as_ref());
+pub fn key_level(key: &[u8]) -> u32 {
+    let hash = blake3::hash(key);
     let bytes = hash.as_bytes();
     let mut level = 0;
-    
+
     // Each leading zero nybble (hex digit) increments level by 1.
     for byte in bytes {
         if *byte == 0 {
@@ -30,10 +26,10 @@ pub fn key_level(key: &impl AsRef<[u8]>) -> u32 {
 /// Stores a (K, V) pair and optionally hash of a subtree with keys greater
 /// than current item.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct MstItem<K: Key, V> {
-    key: K,
-    value: V,
-    right: Option<[u8; 32]>,
+pub struct MstItem {
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
+    pub right: Option<Hash>,
 }
 
 /// A node in the Merkle Search Tree.
@@ -42,16 +38,12 @@ pub struct MstItem<K: Key, V> {
 ///
 /// left stores the left subtree with keys < keys of all items.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct MstNode<K: Key, V> {
-    pub left: Option<[u8; 32]>,
-    pub items: Vec<MstItem<K, V>>,
+pub struct MstNode {
+    pub left: Option<Hash>,
+    pub items: Vec<MstItem>,
 }
 
-impl<K, V> MstNode<K, V> 
-where 
-    K: Key + Serialize + for<'de> Deserialize<'de> + Clone,
-    V: Serialize + for<'de> Deserialize<'de> + Clone,
-{
+impl MstNode {
     /// Creates a new, empty MST node.
     pub fn empty() -> Self {
         MstNode {
@@ -61,18 +53,18 @@ where
     }
 
     /// Inserts or updates a key-value pair in the MST rooted at this node.
-    pub fn upsert<B: Backend>(
+    pub fn upsert<S: Store>(
         &mut self,
-        repo: &mut Repo<K, V, B>,
-        key: K,
-        value: V,
-    ) -> Result<[u8; 32], RepoError> {
+        store: &mut S,
+        key: Vec<u8>,
+        value: Vec<u8>,
+    ) -> Result<Hash, RepoError> {
         let req_level = key_level(&key);
         let node_level = self.estimate_level().unwrap_or(req_level);
 
         if req_level == node_level {
             // same level
-            self.upsert_local(repo, key, value)?;
+            self.upsert_local(store, key, value)?;
         } else if req_level < node_level {
             // lower level
             let idx = self
@@ -88,11 +80,11 @@ where
             };
 
             let mut child_node = match child_hash {
-                Some(ref h) => repo.read_node(h)?,
+                Some(ref h) => store.read_node(h)?,
                 None => MstNode::empty(),
             };
 
-            let new_child_hash = child_node.upsert(repo, key, value)?;
+            let new_child_hash = child_node.upsert(store, key, value)?;
 
             if idx == 0 {
                 self.left = Some(new_child_hash);
@@ -101,7 +93,7 @@ where
             }
         } else {
             // higher level
-            let (l_hash, r_hash) = self.split(repo, &key)?;
+            let (l_hash, r_hash) = self.split(store, &key)?;
             self.items.clear();
             self.left = l_hash;
             self.items.push(MstItem {
@@ -111,15 +103,39 @@ where
             });
         }
 
-        repo.write_node(self)
+        store.write_node(self)
+    }
+
+    pub fn get<S: Store>(&self, store: &S, key: &[u8]) -> Result<Option<Vec<u8>>, RepoError> {
+        match self
+            .items
+            .binary_search_by(|item| item.key.as_slice().cmp(key))
+        {
+            Ok(idx) => Ok(Some(self.items[idx].value.clone())),
+            Err(idx) => {
+                let child_hash = if idx == 0 {
+                    self.left.as_ref()
+                } else {
+                    self.items[idx - 1].right.as_ref()
+                };
+
+                match child_hash {
+                    Some(h) => {
+                        let child_node = store.read_node(h)?;
+                        child_node.get(store, key)
+                    }
+                    None => Ok(None),
+                }
+            }
+        }
     }
 
     /// Inserts a key-value pair directly into the current node.
-    fn upsert_local<B: Backend>(
+    fn upsert_local<S: Store>(
         &mut self,
-        repo: &mut Repo<K, V, B>,
-        key: K,
-        value: V,
+        store: &mut S,
+        key: Vec<u8>,
+        value: Vec<u8>,
     ) -> Result<(), RepoError> {
         match self.items.binary_search_by(|item| item.key.cmp(&key)) {
             Ok(idx) => {
@@ -134,7 +150,7 @@ where
                     self.items[idx - 1].right.clone()
                 };
 
-                let (l_hash, r_hash) = Self::split_hash(repo, child_hash, &key)?;
+                let (l_hash, r_hash) = Self::split_hash(store, child_hash, &key)?;
 
                 // Update left neighbor
                 if idx == 0 {
@@ -157,16 +173,16 @@ where
         Ok(())
     }
 
-    fn split<B: Backend>(
+    fn split<S: Store>(
         &mut self,
-        repo: &mut Repo<K, V, B>,
-        split_key: &K,
-    ) -> Result<(Option<[u8; 32]>, Option<[u8; 32]>), RepoError> {
+        store: &mut S,
+        split_key: &[u8],
+    ) -> Result<(Option<Hash>, Option<Hash>), RepoError> {
         // Find index where keys become > split_key
         let idx = self
             .items
             .iter()
-            .position(|item| item.key > *split_key)
+            .position(|item| item.key.as_slice() > split_key)
             .unwrap_or(self.items.len());
 
         // The child that needs splitting is at idx-1 (right of previous) or self.left if idx==0
@@ -177,7 +193,7 @@ where
             self.items[idx - 1].right.take()
         };
 
-        let (mid_l, mid_r) = Self::split_hash(repo, child_hash_to_split, split_key)?;
+        let (mid_l, mid_r) = Self::split_hash(store, child_hash_to_split, split_key)?;
 
         // Construct Right Node first by splitting off from self.items
         // split_off moves elements at [idx, end) to a new Vec
@@ -210,32 +226,31 @@ where
         let l_hash = if left_node.items.is_empty() && left_node.left.is_none() {
             None
         } else {
-            Some(repo.write_node(&left_node)?)
+            Some(store.write_node(&left_node)?)
         };
 
         let r_hash = if right_node.items.is_empty() && right_node.left.is_none() {
             None
         } else {
-            Some(repo.write_node(&right_node)?)
+            Some(store.write_node(&right_node)?)
         };
 
         Ok((l_hash, r_hash))
     }
 
-    fn split_hash<B: Backend>(
-        repo: &mut Repo<K, V, B>,
-        hash: Option<[u8; 32]>,
-        split_key: &K,
-    ) -> Result<(Option<[u8; 32]>, Option<[u8; 32]>), RepoError> {
+    fn split_hash<S: Store>(
+        store: &mut S,
+        hash: Option<Hash>,
+        split_key: &[u8],
+    ) -> Result<(Option<Hash>, Option<Hash>), RepoError> {
         match hash {
             None => Ok((None, None)),
             Some(h) => {
-                let mut node = repo.read_node(&h)?;
-                node.split(repo, split_key)
+                let mut node = store.read_node(&h)?;
+                node.split(store, split_key)
             }
         }
     }
-
 
     /// Estimates the level of the current node based on the keys it contains.
     ///
@@ -247,3 +262,6 @@ where
         None
     }
 }
+
+#[cfg(test)]
+pub mod tests;

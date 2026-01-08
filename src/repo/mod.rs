@@ -1,10 +1,18 @@
-use rusqlite::Connection;
-use rusqlite::OptionalExtension;
-use std::marker::PhantomData;
-use thiserror::Error;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+use crate::repo::mst::MstNode;
 
 mod mst;
+pub mod sqlitebe;
+
+#[cfg(test)]
+mod tests;
+
+const ROOT_REF: &str = "root";
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct Hash([u8; 32]);
 
 #[derive(Error, Debug)]
 pub enum RepoError {
@@ -17,90 +25,64 @@ pub enum RepoError {
 }
 
 pub trait Backend {
-    fn read(&self, hash: &[u8; 32]) -> Result<Vec<u8>, RepoError>;
-    fn write(&self, hash: &[u8; 32], blob: &Vec<u8>) -> Result<(), RepoError>;
+    fn read(&self, hash: &Hash) -> Result<Vec<u8>, RepoError>;
+    fn write(&self, hash: &Hash, blob: &[u8]) -> Result<(), RepoError>;
+    fn set_ref(&self, name: &str, hash: &Hash) -> Result<(), RepoError>;
+    fn get_ref(&self, name: &str) -> Result<Option<Hash>, RepoError>;
 }
 
-pub struct SqliteBackend<'a> {
-    conn: &'a Connection,
-}
-
-impl<'a> SqliteBackend<'a> {
-    pub fn new(conn: &'a Connection) -> Self {
-        Self { conn }
-    }
-}
-
-impl<'a> Backend for SqliteBackend<'a> {
-    fn read(&self, hash: &[u8; 32]) -> Result<Vec<u8>, RepoError> {
-        self.conn
-            .query_row("SELECT blob FROM repo WHERE hash = ?1", [hash], |row| {
-                row.get(0)
-            })
-            .map_err(RepoError::from)
-    }
-
-    fn write(&self, hash: &[u8; 32], blob: &Vec<u8>) -> Result<(), RepoError> {
-        self.conn.execute(
-            "INSERT OR IGNORE INTO repo (hash, blob) VALUES (?1, ?2)",
-            (hash, blob),
-        )?;
-        Ok(())
-    }
-}
-
-pub struct Repo<K, V, B> {
+pub struct Repo<B: Backend> {
     backend: B,
-    _k: PhantomData<K>,
-    _v: PhantomData<V>,
 }
 
-impl<K, V, B: Backend> Repo<K, V, B> {
+impl<B: Backend> Repo<B> {
     pub fn new(backend: B) -> Self {
         Self {
             backend,
-            _k: PhantomData,
-            _v: PhantomData,
         }
     }
-}
-
-impl<'a, K, V> Repo<K, V, SqliteBackend<'a>> {
-    pub fn get_root(&self, name: &str) -> Result<Option<Vec<u8>>, RepoError> {
-        self.backend.conn
-            .query_row("SELECT hash FROM refs WHERE name = ?1", [name], |row| {
-                row.get(0)
-            })
-            .optional()
-            .map_err(RepoError::from)
+    
+    pub fn read(&self, key: &[u8]) -> Result<Option<Vec<u8>>, RepoError> {
+        let root_hash = self.backend.get_ref(ROOT_REF)?;
+        match root_hash {
+            Some(h) => {
+                let root_node = self.read_node(&h)?;
+                root_node.get(self, key)
+            }
+            None => Ok(None),
+        }
     }
+    
+    pub fn write(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), RepoError> {
+        let root_hash = self.backend.get_ref(ROOT_REF)?;
+        let mut root_node = match root_hash {
+            Some(h) => self.read_node(&h)?,
+            None => MstNode::empty(),
+        };
 
-    pub fn set_root(&self, name: &str, hash: &[u8]) -> Result<(), RepoError> {
-        self.backend.conn.execute(
-            "INSERT OR REPLACE INTO refs (name, hash) VALUES (?1, ?2)",
-            (name, hash),
-        )?;
+        let new_root_hash = root_node.upsert(self, key, value)?;
+        self.backend.set_ref(ROOT_REF, &new_root_hash)?;
         Ok(())
     }
 }
 
-impl<K, V, B> Repo<K, V, B>
-where
-    B: Backend,
-    K: mst::Key + Serialize + for<'de> Deserialize<'de> + Clone,
-    V: Serialize + for<'de> Deserialize<'de> + Clone,
-{
-    pub fn write_node(&mut self, node: &mst::MstNode<K, V>) -> Result<[u8; 32], RepoError> {
+pub trait Store {
+    fn write_node(&mut self, node: &MstNode) -> Result<Hash, RepoError>;
+    fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError>;
+}
+
+impl<B: Backend> Store for Repo<B> {
+    fn write_node(&mut self, node: &MstNode) -> Result<Hash, RepoError> {
         let json = serde_json::to_vec(node)?;
-        let hash = blake3::hash(&json);
-        let hash_bytes = *hash.as_bytes();
+        let hasher = blake3::hash(&json);
+        let hash = Hash(*hasher.as_bytes());
 
-        self.backend.write(&hash_bytes, &json)?;
+        self.backend.write(&hash, &json)?;
 
-        Ok(hash_bytes)
+        Ok(hash)
     }
 
-    pub fn read_node(&self, hash: &[u8; 32]) -> Result<mst::MstNode<K, V>, RepoError> {
+    fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError> {
         let json = self.backend.read(hash)?;
         let node = serde_json::from_slice(&json)?;
         Ok(node)

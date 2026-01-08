@@ -1,0 +1,2 @@
+* Can the API for Repo simply deal with array of bytes, instead of concrete structure?
+  Anyway, it doesn't provide schema enforcement nor key value type enforcement.
