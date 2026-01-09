@@ -15,10 +15,10 @@ pub fn mk_key(level: u32, prefix: &str) -> Vec<u8> {
         ("c", 0) => 0,
         ("e", 0) => 0,
         ("g", 0) => 0,
-        ("d", 1) => 0,
-        ("b", 1) => 13,
-        ("middle", 1) => 9,
-        ("f", 2) => 148,
+        ("d", 1) => 194,
+        ("b", 1) => 39,
+        ("middle", 1) => 192,
+        ("f", 2) => 16982,
         _ => panic!(
             "Unknown test key configuration: prefix={}, level={}",
             prefix, level

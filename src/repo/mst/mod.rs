@@ -11,7 +11,7 @@ pub fn key_level(key: &[u8]) -> u32 {
 
     for &byte in hash.as_bytes() {
         let lz = byte.leading_zeros();
-        level += lz / 4;
+        level += lz / 6;
         if lz < 8 {
             break;
         }
