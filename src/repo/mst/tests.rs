@@ -45,12 +45,12 @@ impl TestStore {
 
 impl Store for TestStore {
     fn write_node(&mut self, node: &MstNode) -> Result<Hash, RepoError> {
-        let json = serde_json::to_vec(node)?;
-        let hasher = blake3::hash(&json);
+        let bytes = postcard::to_stdvec(node)?;
+        let hasher = blake3::hash(&bytes);
         let hash = Hash(*hasher.as_bytes());
 
         let mut data = self.data.lock().unwrap();
-        data.insert(hash.0, json);
+        data.insert(hash.0, bytes);
 
         Ok(hash)
     }
@@ -62,7 +62,7 @@ impl Store for TestStore {
             .cloned()
             .ok_or_else(|| RepoError::Backend("hash not found".to_string()))?;
         
-        let node = serde_json::from_slice(&bytes)?;
+        let node = postcard::from_bytes(&bytes)?;
         Ok(node)
     }
 }

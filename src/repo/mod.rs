@@ -21,6 +21,8 @@ pub struct Hash(pub [u8; 32]);
 pub enum RepoError {
     #[error("serde error: {0}")]
     Serde(#[from] serde_json::Error),
+    #[error("postcard error: {0}")]
+    Postcard(#[from] postcard::Error),
     #[error("sqlite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
     #[error("backend error: {0}")]
@@ -76,18 +78,18 @@ pub trait Store {
 
 impl<B: Backend> Store for Repo<B> {
     fn write_node(&mut self, node: &MstNode) -> Result<Hash, RepoError> {
-        let json = serde_json::to_vec(node)?;
-        let hasher = blake3::hash(&json);
+        let bytes = postcard::to_stdvec(node)?;
+        let hasher = blake3::hash(&bytes);
         let hash = Hash(*hasher.as_bytes());
 
-        self.backend.write(&hash, &json)?;
+        self.backend.write(&hash, &bytes)?;
 
         Ok(hash)
     }
 
     fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError> {
-        let json = self.backend.read(hash)?;
-        let node = serde_json::from_slice(&json)?;
+        let bytes = self.backend.read(hash)?;
+        let node = postcard::from_bytes(&bytes)?;
         Ok(node)
     }
 }
