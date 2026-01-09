@@ -25,6 +25,8 @@ pub enum RepoError {
     Postcard(#[from] postcard::Error),
     #[error("sqlite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
+    #[error("lz4 error: {0}")]
+    Lz4(#[from] lz4_flex::block::DecompressError),
     #[error("backend error: {0}")]
     Backend(String),
 }
@@ -192,17 +194,19 @@ pub trait Store {
 impl<B: Backend> Store for Repo<B> {
     fn write_node(&mut self, node: &MstNode) -> Result<Hash, RepoError> {
         let bytes = postcard::to_stdvec(node)?;
-        let hasher = blake3::hash(&bytes);
+        let compressed = lz4_flex::compress_prepend_size(&bytes);
+        let hasher = blake3::hash(&compressed);
         let hash = Hash(*hasher.as_bytes());
 
-        self.backend.write(&hash, &bytes)?;
+        self.backend.write(&hash, &compressed)?;
 
         Ok(hash)
     }
 
     fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError> {
-        let bytes = self.backend.read(hash)?;
-        let node = postcard::from_bytes(&bytes)?;
+        let compressed = self.backend.read(hash)?;
+        let decompressed = lz4_flex::decompress_size_prepended(&compressed)?;
+        let node = postcard::from_bytes(&decompressed)?;
         Ok(node)
     }
 }
