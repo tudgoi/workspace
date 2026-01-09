@@ -1,22 +1,18 @@
 use crate::repo::Store;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{Hash, RepoError};
 
+/// Calculates the level of a key based on its hash.
+/// The level is the number of leading zero nibbles in the BLAKE3 hash.
 pub fn key_level(key: &[u8]) -> u32 {
     let hash = blake3::hash(key);
-    let bytes = hash.as_bytes();
     let mut level = 0;
 
-    // Each leading zero nybble (hex digit) increments level by 1.
-    for byte in bytes {
-        if *byte == 0 {
-            level += 2;
-        } else {
-            if *byte & 0xF0 == 0 {
-                level += 1;
-            }
+    for &byte in hash.as_bytes() {
+        let lz = byte.leading_zeros();
+        level += lz / 4;
+        if lz < 8 {
             break;
         }
     }
@@ -25,7 +21,7 @@ pub fn key_level(key: &[u8]) -> u32 {
 
 /// Stores a (K, V) pair and optionally hash of a subtree with keys greater
 /// than current item.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct MstItem {
     pub key: Vec<u8>,
     pub value: Vec<u8>,
@@ -34,10 +30,10 @@ pub struct MstItem {
 
 /// A node in the Merkle Search Tree.
 ///
-/// It's purpose it maintain a list of (K, V) ordered by K.
+/// Its purpose is to maintain a list of (K, V) pairs ordered by K.
 ///
-/// left stores the left subtree with keys < keys of all items.
-#[derive(Serialize, Deserialize, Clone)]
+/// `left` stores the left subtree with keys smaller than the keys of all items in this node.
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct MstNode {
     pub left: Option<Hash>,
     pub items: Vec<MstItem>,
@@ -46,9 +42,25 @@ pub struct MstNode {
 impl MstNode {
     /// Creates a new, empty MST node.
     pub fn empty() -> Self {
-        MstNode {
-            left: None,
-            items: Vec::new(),
+        Self::default()
+    }
+
+    /// Gets the hash of the child node at the given index.
+    /// Index 0 is the `left` child, index `i > 0` is the `right` child of `items[i-1]`.
+    fn get_child_hash(&self, idx: usize) -> Option<&Hash> {
+        if idx == 0 {
+            self.left.as_ref()
+        } else {
+            self.items.get(idx - 1).and_then(|item| item.right.as_ref())
+        }
+    }
+
+    /// Sets the hash of the child node at the given index.
+    fn set_child_hash(&mut self, idx: usize, hash: Option<Hash>) {
+        if idx == 0 {
+            self.left = hash;
+        } else if let Some(item) = self.items.get_mut(idx - 1) {
+            item.right = hash;
         }
     }
 
@@ -62,45 +74,37 @@ impl MstNode {
         let req_level = key_level(&key);
         let node_level = self.estimate_level().unwrap_or(req_level);
 
-        if req_level == node_level {
-            // same level
-            self.upsert_local(store, key, value)?;
-        } else if req_level < node_level {
-            // lower level
-            let idx = self
-                .items
-                .iter()
-                .position(|item| item.key > key)
-                .unwrap_or(self.items.len());
-
-            let child_hash = if idx == 0 {
-                self.left.clone()
-            } else {
-                self.items[idx - 1].right.clone()
-            };
-
-            let mut child_node = match child_hash {
-                Some(ref h) => store.read_node(h)?,
-                None => MstNode::empty(),
-            };
-
-            let new_child_hash = child_node.upsert(store, key, value)?;
-
-            if idx == 0 {
-                self.left = Some(new_child_hash);
-            } else {
-                self.items[idx - 1].right = Some(new_child_hash);
+        match req_level.cmp(&node_level) {
+            std::cmp::Ordering::Equal => {
+                self.upsert_local(store, key, value)?;
             }
-        } else {
-            // higher level
-            let (l_hash, r_hash) = self.split(store, &key)?;
-            self.items.clear();
-            self.left = l_hash;
-            self.items.push(MstItem {
-                key,
-                value,
-                right: r_hash,
-            });
+            std::cmp::Ordering::Less => {
+                // Find where the key should go
+                let idx = self
+                    .items
+                    .binary_search_by(|item| item.key.as_slice().cmp(&key))
+                    .unwrap_err();
+
+                let child_hash = self.get_child_hash(idx).cloned();
+                let mut child_node = match child_hash {
+                    Some(h) => store.read_node(&h)?,
+                    None => MstNode::empty(),
+                };
+
+                let new_child_hash = child_node.upsert(store, key, value)?;
+                self.set_child_hash(idx, Some(new_child_hash));
+            }
+            std::cmp::Ordering::Greater => {
+                // Higher level: split current node around the new key
+                let (l_hash, r_hash) = self.split(store, &key)?;
+                self.items.clear();
+                self.left = l_hash;
+                self.items.push(MstItem {
+                    key,
+                    value,
+                    right: r_hash,
+                });
+            }
         }
 
         store.write_node(self)
@@ -112,21 +116,13 @@ impl MstNode {
             .binary_search_by(|item| item.key.as_slice().cmp(key))
         {
             Ok(idx) => Ok(Some(self.items[idx].value.clone())),
-            Err(idx) => {
-                let child_hash = if idx == 0 {
-                    self.left.as_ref()
-                } else {
-                    self.items[idx - 1].right.as_ref()
-                };
-
-                match child_hash {
-                    Some(h) => {
-                        let child_node = store.read_node(h)?;
-                        child_node.get(store, key)
-                    }
-                    None => Ok(None),
+            Err(idx) => match self.get_child_hash(idx) {
+                Some(h) => {
+                    let child_node = store.read_node(h)?;
+                    child_node.get(store, key)
                 }
-            }
+                None => Ok(None),
+            },
         }
     }
 
@@ -142,24 +138,11 @@ impl MstNode {
                 self.items[idx].value = value;
             }
             Err(idx) => {
-                // Insert new
-                // Split child at idx
-                let child_hash = if idx == 0 {
-                    self.left.clone()
-                } else {
-                    self.items[idx - 1].right.clone()
-                };
-
+                // Split child at insertion point
+                let child_hash = self.get_child_hash(idx).cloned();
                 let (l_hash, r_hash) = Self::split_hash(store, child_hash, &key)?;
 
-                // Update left neighbor
-                if idx == 0 {
-                    self.left = l_hash;
-                } else {
-                    self.items[idx - 1].right = l_hash;
-                }
-
-                // Insert item
+                self.set_child_hash(idx, l_hash);
                 self.items.insert(
                     idx,
                     MstItem {
@@ -173,56 +156,40 @@ impl MstNode {
         Ok(())
     }
 
+    /// Splits the node into two nodes based on a split key.
     fn split<S: Store>(
         &mut self,
         store: &mut S,
         split_key: &[u8],
     ) -> Result<(Option<Hash>, Option<Hash>), RepoError> {
-        // Find index where keys become > split_key
         let idx = self
             .items
-            .iter()
-            .position(|item| item.key.as_slice() > split_key)
-            .unwrap_or(self.items.len());
+            .binary_search_by(|item| item.key.as_slice().cmp(split_key))
+            .unwrap_err();
 
-        // The child that needs splitting is at idx-1 (right of previous) or self.left if idx==0
-        // We take the hash out because we are about to destructively modify the node anyway.
-        let child_hash_to_split = if idx == 0 {
-            self.left.take()
-        } else {
-            self.items[idx - 1].right.take()
-        };
-
+        let child_hash_to_split = self.get_child_hash(idx).cloned();
         let (mid_l, mid_r) = Self::split_hash(store, child_hash_to_split, split_key)?;
 
-        // Construct Right Node first by splitting off from self.items
-        // split_off moves elements at [idx, end) to a new Vec
         let right_items = self.items.split_off(idx);
+        let left_items = std::mem::take(&mut self.items);
 
-        // Construct Left Node
-        // self.items now contains [0, idx)
         let mut left_node = MstNode {
-            left: self.left.take(), // This might be None (if idx=0 we took it, if idx>0 we want to move it here)
-            items: std::mem::take(&mut self.items),
+            left: self.left.take(),
+            items: left_items,
         };
 
-        // Fix the rightmost pointer of left_node to be mid_l
+        // Fix the rightmost pointer of left_node
         if idx == 0 {
             left_node.left = mid_l;
-        } else {
-            // idx > 0, so items[idx-1] exists.
-            if let Some(last) = left_node.items.last_mut() {
-                last.right = mid_l;
-            }
+        } else if let Some(last) = left_node.items.last_mut() {
+            last.right = mid_l;
         }
 
-        // Construct Right Node
         let right_node = MstNode {
-            left: mid_r, // inherits split result as left
+            left: mid_r,
             items: right_items,
         };
 
-        // Write nodes
         let l_hash = if left_node.items.is_empty() && left_node.left.is_none() {
             None
         } else {
@@ -253,13 +220,8 @@ impl MstNode {
     }
 
     /// Estimates the level of the current node based on the keys it contains.
-    ///
-    /// We can decide to store the level within the node to avoid recomputation if needed.
     fn estimate_level(&self) -> Option<u32> {
-        if let Some(item) = self.items.first() {
-            return Some(key_level(&item.key));
-        }
-        None
+        self.items.first().map(|item| key_level(&item.key))
     }
 }
 
