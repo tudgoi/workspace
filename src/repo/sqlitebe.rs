@@ -47,6 +47,52 @@ impl<'a> Backend for SqliteBackend<'a> {
         Ok(())
     }
 
+    fn list_refs(&self) -> Result<Vec<(String, Hash)>, RepoError> {
+        let mut stmt = self.conn.prepare("SELECT name, hash FROM refs")?;
+        let rows = stmt.query_map([], |row| {
+            let name: String = row.get(0)?;
+            let hash_bytes: [u8; 32] = row.get(1)?;
+            Ok((name, Hash(hash_bytes)))
+        })?;
+
+        let mut refs = Vec::new();
+        for r in rows {
+            refs.push(r?);
+        }
+        Ok(refs)
+    }
+
+    fn delete_nodes(&self, hashes: &[Hash]) -> Result<usize, RepoError> {
+        let mut deleted = 0;
+        // rusqlite doesn't support list of blobs easily in IN clause without some work.
+        // For simplicity, we delete one by one or in small batches.
+        // Given GC is infrequent, one by one is safe for now.
+        let mut stmt = self.conn.prepare("DELETE FROM repo WHERE hash = ?1")?;
+        for hash in hashes {
+            deleted += stmt.execute([hash.0])?;
+        }
+        Ok(deleted)
+    }
+
+    fn list_all_node_hashes(&self) -> Result<Vec<Hash>, RepoError> {
+        let mut stmt = self.conn.prepare("SELECT hash FROM repo")?;
+        let rows = stmt.query_map([], |row| {
+            let hash_bytes: [u8; 32] = row.get(0)?;
+            Ok(Hash(hash_bytes))
+        })?;
+
+        let mut hashes = Vec::new();
+        for h in rows {
+            hashes.push(h?);
+        }
+        Ok(hashes)
+    }
+
+    fn vacuum(&self) -> Result<(), RepoError> {
+        self.conn.execute("VACUUM", [])?;
+        Ok(())
+    }
+
     fn stats(&self) -> Result<(usize, std::collections::BTreeMap<usize, usize>), RepoError> {
         let mut stmt = self.conn.prepare("SELECT length(blob) as size FROM repo")?;
         let rows = stmt.query_map([], |row| row.get::<_, usize>(0))?;

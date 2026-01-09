@@ -14,7 +14,7 @@ mod tests;
 
 const ROOT_REF: &str = "root";
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Hash(pub [u8; 32]);
 
 #[derive(Error, Debug)]
@@ -43,6 +43,10 @@ pub trait Backend {
     fn write(&self, hash: &Hash, blob: &[u8]) -> Result<(), RepoError>;
     fn set_ref(&self, name: &str, hash: &Hash) -> Result<(), RepoError>;
     fn get_ref(&self, name: &str) -> Result<Option<Hash>, RepoError>;
+    fn list_refs(&self) -> Result<Vec<(String, Hash)>, RepoError>;
+    fn delete_nodes(&self, hashes: &[Hash]) -> Result<usize, RepoError>;
+    fn list_all_node_hashes(&self) -> Result<Vec<Hash>, RepoError>;
+    fn vacuum(&self) -> Result<(), RepoError>;
     fn stats(&self) -> Result<(usize, std::collections::BTreeMap<usize, usize>), RepoError>;
 }
 
@@ -101,6 +105,56 @@ impl<B: Backend> Repo<B> {
             total_node_size,
             node_size_distribution: node_sizes,
         })
+    }
+
+    pub fn gc(&self) -> Result<usize, RepoError> {
+        let mut reachable = std::collections::HashSet::new();
+        let refs = self.backend.list_refs()?;
+
+        for (_, hash) in refs {
+            self.traverse_reachable(&hash, &mut reachable)?;
+        }
+
+        let all_hashes = self.backend.list_all_node_hashes()?;
+        let to_delete: Vec<Hash> = all_hashes
+            .into_iter()
+            .filter(|h| !reachable.contains(h))
+            .collect();
+
+        let deleted = if to_delete.is_empty() {
+            0
+        } else {
+            self.backend.delete_nodes(&to_delete)?
+        };
+
+        self.backend.vacuum()?;
+
+        Ok(deleted)
+    }
+
+    fn traverse_reachable(
+        &self,
+        hash: &Hash,
+        reachable: &mut std::collections::HashSet<Hash>,
+    ) -> Result<(), RepoError> {
+        if reachable.contains(hash) {
+            return Ok(());
+        }
+
+        reachable.insert(hash.clone());
+        let node = self.read_node(hash)?;
+
+        if let Some(ref h) = node.left {
+            self.traverse_reachable(h, reachable)?;
+        }
+
+        for item in node.items {
+            if let Some(ref h) = item.right {
+                self.traverse_reachable(h, reachable)?;
+            }
+        }
+
+        Ok(())
     }
 
     fn traverse_stats(

@@ -42,6 +42,34 @@ impl Backend for TestBackend {
         Ok(refs.get(name).cloned())
     }
 
+    fn list_refs(&self) -> Result<Vec<(String, Hash)>, RepoError> {
+        let refs = self.refs.lock().unwrap();
+        Ok(refs
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect())
+    }
+
+    fn delete_nodes(&self, hashes: &[Hash]) -> Result<usize, RepoError> {
+        let mut store = self.store.lock().unwrap();
+        let mut deleted = 0;
+        for h in hashes {
+            if store.remove(&h.0).is_some() {
+                deleted += 1;
+            }
+        }
+        Ok(deleted)
+    }
+
+    fn list_all_node_hashes(&self) -> Result<Vec<Hash>, RepoError> {
+        let store = self.store.lock().unwrap();
+        Ok(store.keys().map(|k| Hash(*k)).collect())
+    }
+
+    fn vacuum(&self) -> Result<(), RepoError> {
+        Ok(())
+    }
+
     fn stats(&self) -> Result<(usize, std::collections::BTreeMap<usize, usize>), RepoError> {
         let store = self.store.lock().unwrap();
         let mut distribution = std::collections::BTreeMap::new();

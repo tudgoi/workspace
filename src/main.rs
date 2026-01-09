@@ -107,6 +107,10 @@ enum Commands {
     Stats {
         db: PathBuf,
     },
+
+    Gc {
+        db: PathBuf,
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -174,6 +178,17 @@ fn main() -> Result<()> {
             println!("Total nodes size: {}", stats.total_node_size);
             println!("Node size distribution:");
             print_binned_distribution(stats.node_size_distribution);
+
+            Ok(())
+        }
+
+        Commands::Gc { db } => {
+            let conn = rusqlite::Connection::open(db)?;
+            let backend = repo::sqlitebe::SqliteBackend::new(&conn);
+            let repo = repo::Repo::new(backend);
+            let deleted = repo.gc()?;
+
+            println!("Garbage collection finished. Deleted {} nodes.", deleted);
 
             Ok(())
         }
