@@ -46,4 +46,20 @@ impl<'a> Backend for SqliteBackend<'a> {
         )?;
         Ok(())
     }
+
+    fn stats(&self) -> Result<(usize, std::collections::BTreeMap<usize, usize>), RepoError> {
+        let mut stmt = self.conn.prepare("SELECT length(blob) as size FROM repo")?;
+        let rows = stmt.query_map([], |row| row.get::<_, usize>(0))?;
+
+        let mut count = 0;
+        let mut distribution = std::collections::BTreeMap::new();
+
+        for size in rows {
+            let size = size?;
+            count += 1;
+            *distribution.entry(size).or_insert(0) += 1;
+        }
+
+        Ok((count, distribution))
+    }
 }

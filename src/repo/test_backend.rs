@@ -41,4 +41,13 @@ impl Backend for TestBackend {
         let refs = self.refs.lock().unwrap();
         Ok(refs.get(name).cloned())
     }
+
+    fn stats(&self) -> Result<(usize, std::collections::BTreeMap<usize, usize>), RepoError> {
+        let store = self.store.lock().unwrap();
+        let mut distribution = std::collections::BTreeMap::new();
+        for blob in store.values() {
+            *distribution.entry(blob.len()).or_insert(0) += 1;
+        }
+        Ok((store.len(), distribution))
+    }
 }

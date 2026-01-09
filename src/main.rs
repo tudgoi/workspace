@@ -103,6 +103,10 @@ enum Commands {
         #[arg(short = 'p', long)]
         port: Option<String>,
     },
+
+    Stats {
+        db: PathBuf,
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -152,6 +156,47 @@ fn main() -> Result<()> {
             db,
             port,
         } => serve::run(db, port.as_deref()).with_context(|| "failed to run `serve`"),
+
+        Commands::Stats { db } => {
+            let conn = rusqlite::Connection::open(db)?;
+            let backend = repo::sqlitebe::SqliteBackend::new(&conn);
+            let repo = repo::Repo::new(backend);
+            let stats = repo.stats()?;
+
+            println!("Repository Statistics:");
+            println!("----------------------");
+            println!("Total Key-Value pairs: {}", stats.key_value_count);
+            println!("Total value size: {}", stats.total_value_size);
+            println!("Value size distribution:");
+            print_binned_distribution(stats.value_size_distribution);
+            println!("");
+            println!("Total nodes in DB: {}", stats.node_count);
+            println!("Total nodes size: {}", stats.total_node_size);
+            println!("Node size distribution:");
+            print_binned_distribution(stats.node_size_distribution);
+
+            Ok(())
+        }
+    }
+}
+
+fn print_binned_distribution(dist: std::collections::BTreeMap<usize, usize>) {
+    if dist.is_empty() {
+        return;
+    }
+
+    let mut binned = std::collections::BTreeMap::new();
+
+    for (size, count) in dist {
+        let n = ((size as f64 / 4.0) + 1.0).log2().floor() as i32;
+        let n = n.max(0) as u32;
+        let left = 4 * ((1 << n) - 1);
+        let right = 4 * ((1 << (n + 1)) - 1);
+        *binned.entry((left, right)).or_insert(0) += count;
+    }
+
+    for ((left, right), count) in binned {
+        println!("  {:>6} - {:>6} bytes: {:>5}", left, right - 1, count);
     }
 }
 

@@ -29,11 +29,21 @@ pub enum RepoError {
     Backend(String),
 }
 
+pub struct RepoStats {
+    pub key_value_count: usize,
+    pub total_value_size: usize,
+    pub value_size_distribution: std::collections::BTreeMap<usize, usize>,
+    pub node_count: usize,
+    pub total_node_size: usize,
+    pub node_size_distribution: std::collections::BTreeMap<usize, usize>,
+}
+
 pub trait Backend {
     fn read(&self, hash: &Hash) -> Result<Vec<u8>, RepoError>;
     fn write(&self, hash: &Hash, blob: &[u8]) -> Result<(), RepoError>;
     fn set_ref(&self, name: &str, hash: &Hash) -> Result<(), RepoError>;
     fn get_ref(&self, name: &str) -> Result<Option<Hash>, RepoError>;
+    fn stats(&self) -> Result<(usize, std::collections::BTreeMap<usize, usize>), RepoError>;
 }
 
 pub struct Repo<B: Backend> {
@@ -67,6 +77,55 @@ impl<B: Backend> Repo<B> {
 
         let new_root_hash = root_node.upsert(self, key, value)?;
         self.backend.set_ref(ROOT_REF, &new_root_hash)?;
+        Ok(())
+    }
+
+    pub fn stats(&self) -> Result<RepoStats, RepoError> {
+        let root_hash = self.backend.get_ref(ROOT_REF)?;
+        let mut kv_count = 0;
+        let mut total_value_size = 0;
+        let mut value_sizes = std::collections::BTreeMap::new();
+
+        if let Some(h) = root_hash {
+            self.traverse_stats(&h, &mut kv_count, &mut total_value_size, &mut value_sizes)?;
+        }
+
+        let (node_count, node_sizes) = self.backend.stats()?;
+        let total_node_size = node_sizes.iter().map(|(s, c)| s * c).sum();
+
+        Ok(RepoStats {
+            key_value_count: kv_count,
+            total_value_size,
+            value_size_distribution: value_sizes,
+            node_count,
+            total_node_size,
+            node_size_distribution: node_sizes,
+        })
+    }
+
+    fn traverse_stats(
+        &self,
+        hash: &Hash,
+        kv_count: &mut usize,
+        total_value_size: &mut usize,
+        value_sizes: &mut std::collections::BTreeMap<usize, usize>,
+    ) -> Result<(), RepoError> {
+        let node = self.read_node(hash)?;
+        if let Some(ref h) = node.left {
+            self.traverse_stats(h, kv_count, total_value_size, value_sizes)?;
+        }
+
+        for item in node.items {
+            *kv_count += 1;
+            let size = item.value.len();
+            *total_value_size += size;
+            *value_sizes.entry(size).or_insert(0) += 1;
+
+            if let Some(ref h) = item.right {
+                self.traverse_stats(h, kv_count, total_value_size, value_sizes)?;
+            }
+        }
+
         Ok(())
     }
 }
