@@ -19,6 +19,11 @@ pub fn key_level(key: &[u8]) -> u32 {
     level
 }
 
+/// Returns the length of the shared prefix between two byte slices.
+fn shared_prefix_len(a: &[u8], b: &[u8]) -> usize {
+    a.iter().zip(b.iter()).take_while(|(x, y)| x == y).count()
+}
+
 /// Stores a (K, V) pair and optionally hash of a subtree with keys greater
 /// than current item.
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -36,6 +41,7 @@ pub struct MstItem {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct MstNode {
     pub left: Option<Hash>,
+    #[serde(with = "serde_impl")]
     pub items: Vec<MstItem>,
 }
 
@@ -222,6 +228,67 @@ impl MstNode {
     /// Estimates the level of the current node based on the keys it contains.
     fn estimate_level(&self) -> Option<u32> {
         self.items.first().map(|item| key_level(&item.key))
+    }
+}
+
+mod serde_impl {
+    use super::*;
+    use serde::ser::SerializeSeq;
+    use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(items: &[MstItem], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        struct CompressedItemRef<'a> {
+            prefix_len: u32,
+            suffix: &'a [u8],
+            value: &'a [u8],
+            right: Option<&'a Hash>,
+        }
+
+        let mut seq = serializer.serialize_seq(Some(items.len()))?;
+        let mut last_key: &[u8] = &[];
+        for item in items {
+            let p_len = shared_prefix_len(last_key, &item.key);
+            let compressed = CompressedItemRef {
+                prefix_len: p_len as u32,
+                suffix: &item.key[p_len..],
+                value: &item.value,
+                right: item.right.as_ref(),
+            };
+            seq.serialize_element(&compressed)?;
+            last_key = &item.key;
+        }
+        seq.end()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<MstItem>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct CompressedItem {
+            prefix_len: u32,
+            suffix: Vec<u8>,
+            value: Vec<u8>,
+            right: Option<Hash>,
+        }
+
+        let compressed_items: Vec<CompressedItem> = Vec::deserialize(deserializer)?;
+        let mut items = Vec::with_capacity(compressed_items.len());
+        let mut last_key = Vec::new();
+        for c in compressed_items {
+            last_key.truncate(c.prefix_len as usize);
+            last_key.extend_from_slice(&c.suffix);
+            items.push(MstItem {
+                key: last_key.clone(),
+                value: c.value,
+                right: c.right,
+            });
+        }
+        Ok(items)
     }
 }
 
