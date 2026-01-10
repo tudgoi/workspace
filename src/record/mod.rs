@@ -18,8 +18,8 @@ pub enum RecordRepoError {
     #[error("record error: {0}")]
     Repo(#[from] RepoError),
 
-    #[error("serde_json error: {0}")]
-    SerdeJson(#[from] serde_json::Error),
+    #[error("postcard error: {0}")]
+    Postcard(#[from] postcard::Error),
 
     #[error("sqlite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
@@ -221,7 +221,7 @@ impl<'a> RecordRepo<'a> {
     where
         Key<P, T>: TableUpdater<T>,
     {
-        let bytes = serde_json::to_vec(value)?;
+        let bytes = postcard::to_stdvec(value)?;
         self.repo.write(key.path.as_bytes().to_vec(), bytes)?;
         key.update_tables(self.repo.backend.conn, value)?;
 
@@ -233,7 +233,7 @@ impl<'a> RecordRepo<'a> {
         key: Key<P, T>,
     ) -> Result<Option<T>, RecordRepoError> {
         let value = if let Some(bytes) = self.repo.read(&key.path.as_bytes())? {
-            serde_json::from_slice(&bytes)?
+            postcard::from_bytes(&bytes)?
         } else {
             None
         };
