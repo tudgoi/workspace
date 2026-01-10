@@ -12,6 +12,7 @@ use serde::Deserialize;
 
 use crate::{
     LibrarySql, data,
+    record::{Key, PersonPath, RecordRepo},
     serve::{AppError, AppState},
 };
 
@@ -74,11 +75,10 @@ pub async fn save(
     Form(form): Form<TenureEntry>,
 ) -> Result<ViewTenurePartial, AppError> {
     let conn = state.get_conn()?;
-    conn.save_tenure(
-        &person_id,
-        &form.office_id,
-        form.start.as_ref(),
-        form.end.as_ref(),
+    let mut repo = RecordRepo::new(&conn);
+    repo.save(
+        Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, form.start),
+        &form.end,
     )?;
 
     ViewTenurePartial::new(&conn, person_id)

@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::{Field, LibrarySql, Source, context, data, dto};
+use crate::{
+    Field, LibrarySql, Source, context, data, dto,
+    record::{Key, PersonPath, RecordRepo},
+};
 use anyhow::{Result, bail};
 use async_trait::async_trait;
 use rusqlite::Connection;
@@ -224,6 +227,8 @@ impl WikidataAugmentor {
 }
 
 async fn augment_photo(conn: &mut Connection, source: &dyn Augmentor) -> Result<()> {
+    let mut repo = RecordRepo::new(conn);
+
     let mut map: HashMap<String, String> = HashMap::new();
     conn.get_entities_with_contact_without_photo(
         &dto::EntityType::Person,
@@ -239,12 +244,7 @@ async fn augment_photo(conn: &mut Connection, source: &dyn Augmentor) -> Result<
         let photo = source.query_photo(&wikidata_id).await?;
         if let Some(photo) = photo {
             println!("- found {}", photo.url);
-            conn.save_entity_photo(
-                &dto::EntityType::Person,
-                &person_id,
-                &photo.url,
-                photo.attribution.as_deref(),
-            )?;
+            repo.save(Key::<PersonPath, ()>::new(&person_id).photo(), &photo)?;
         } else {
             println!("- no photo found");
         }
@@ -253,6 +253,7 @@ async fn augment_photo(conn: &mut Connection, source: &dyn Augmentor) -> Result<
 }
 
 async fn augment_wikidata_id(conn: &mut Connection, source: &dyn Augmentor) -> Result<()> {
+    let mut repo = RecordRepo::new(conn);
     let mut persons_to_augment: Vec<context::Person> = Vec::new();
     conn.get_entities_without_contact(
         &dto::EntityType::Person,
@@ -275,10 +276,8 @@ async fn augment_wikidata_id(conn: &mut Connection, source: &dyn Augmentor) -> R
         let wikidata_id = source.query_wikidata_id(&person.name).await?;
         if let Some(wikidata_id) = wikidata_id {
             println!("- found {}", wikidata_id);
-            conn.save_entity_contact(
-                &dto::EntityType::Person,
-                &person.id,
-                &data::ContactType::Wikidata,
+            repo.save(
+                Key::<PersonPath, ()>::new(&person.id).contact(data::ContactType::Wikidata),
                 &wikidata_id,
             )?;
         } else {
@@ -289,6 +288,7 @@ async fn augment_wikidata_id(conn: &mut Connection, source: &dyn Augmentor) -> R
 }
 
 async fn augment_wikipedia(conn: &mut Connection, source: &dyn Augmentor) -> Result<()> {
+    let mut repo = RecordRepo::new(conn);
     let mut map: HashMap<String, String> = HashMap::new();
     conn.get_entities_with_contact_without_contact(
         &dto::EntityType::Person,
@@ -306,10 +306,8 @@ async fn augment_wikipedia(conn: &mut Connection, source: &dyn Augmentor) -> Res
         let wikipedia_url = source.query_wikipedia(&wikidata_id).await?;
         if let Some(wikipedia_url) = wikipedia_url {
             println!("- found {}", wikipedia_url);
-            conn.save_entity_contact(
-                &dto::EntityType::Person,
-                &person_id,
-                &data::ContactType::Wikipedia,
+            repo.save(
+                Key::<PersonPath, ()>::new(&person_id).contact(data::ContactType::Wikipedia),
                 &wikipedia_url,
             )?;
         } else {

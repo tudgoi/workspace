@@ -52,7 +52,7 @@ pub trait Backend {
 }
 
 pub struct Repo<B: Backend> {
-    backend: B,
+    pub backend: B,
 }
 
 impl<B: Backend> Repo<B> {

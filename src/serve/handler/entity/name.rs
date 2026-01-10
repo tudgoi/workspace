@@ -11,6 +11,7 @@ use serde::Deserialize;
 
 use crate::LibrarySql;
 use crate::dto;
+use crate::record::{Key, PersonPath, OfficePath, RecordRepo};
 use crate::serve::{AppError, AppState};
 
 #[derive(Template, WebTemplate)]
@@ -77,7 +78,15 @@ pub async fn save(
     Form(form): Form<EditNameForm>,
 ) -> Result<ViewNamePartial, AppError> {
     let conn = state.get_conn()?;
-    conn.save_entity_name(&typ, &id, &form.name)?;
+    let mut repo = RecordRepo::new(&conn);
+    match typ {
+        dto::EntityType::Person => {
+            repo.save(Key::<PersonPath, ()>::new(&id).name(), &form.name)?;
+        }
+        dto::EntityType::Office => {
+            repo.save(Key::<OfficePath, ()>::new(&id).name(), &form.name)?;
+        }
+    }
 
     ViewNamePartial::new(&conn, typ, id)
 }

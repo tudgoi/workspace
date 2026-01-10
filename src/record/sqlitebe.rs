@@ -3,7 +3,7 @@ use rusqlite::{Connection, OptionalExtension};
 use crate::repo::{Backend, Hash, RepoError};
 
 pub struct SqliteBackend<'a> {
-    conn: &'a Connection,
+    pub conn: &'a Connection,
 }
 
 impl<'a> SqliteBackend<'a> {

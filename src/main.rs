@@ -21,8 +21,9 @@ mod repo;
 mod serve;
 mod record;
 
-include_sql!("sql/library.sql");
 include_sql!("sql/schema.sql");
+include_sql!("sql/library.sql");
+include_sql!("sql/write.sql");
 
 static_toml! {
     pub static CONFIG = include_toml!("config.toml");

@@ -16,6 +16,8 @@ use r2d2_sqlite::SqliteConnectionManager;
 use r2d2::Error as R2D2Error;
 use thiserror::Error;
 
+use crate::record::RecordRepoError;
+
 use tower_livereload::LiveReloadLayer;
 
 #[derive(Embed, Clone)]
@@ -36,6 +38,8 @@ pub enum AppError {
     R2D2(#[from] R2D2Error),
     #[error(transparent)]
     Rusqlite(#[from] rusqlite::Error),
+    #[error(transparent)]
+    RecordRepo(#[from] RecordRepoError),
     #[error(transparent)]
     Internal(#[from] InvalidHeaderValue),
 }

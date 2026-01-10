@@ -160,23 +160,14 @@ pub fn insert_person_data(
     let person_path = Key::<PersonPath, ()>::new(id);
 
     repo.save(person_path.name(), &person.name)?;
-    tx.new_entity(&dto::EntityType::Person, id, &person.name)?;
 
     if let Some(photo) = &person.photo {
         repo.save(person_path.photo(), photo)?;
-        let data::Photo { url, attribution } = photo;
-        tx.save_entity_photo(
-            &dto::EntityType::Person,
-            id,
-            url,
-            attribution.as_ref().map(String::as_str),
-        )?;
     }
     // Insert contacts if they exist
     if let Some(contacts) = &person.contacts {
         for (contact_type, value) in contacts {
             repo.save(person_path.contact(contact_type.clone()), value)?;
-            tx.save_entity_contact(&dto::EntityType::Person, id, contact_type, value)?;
         }
     }
 
@@ -194,7 +185,6 @@ pub fn insert_person_data(
                 .map(|d| d.parse::<NaiveDate>())
                 .transpose()?;
             repo.save(person_path.tenure(&tenure.office_id, start), &end)?;
-            tx.save_tenure(id, &tenure.office_id, start.as_ref(), end.as_ref())?;
         }
     }
 
@@ -215,17 +205,9 @@ fn insert_office_data(
     let office_path = Key::<OfficePath, ()>::new(id);
 
     repo.save(office_path.name(), &office.name)?;
-    tx.new_entity(&dto::EntityType::Office, id, &office.name)?;
 
     if let Some(photo) = &office.photo {
         repo.save(office_path.photo(), photo)?;
-        let data::Photo { url, attribution } = photo;
-        tx.save_entity_photo(
-            &dto::EntityType::Office,
-            id,
-            url,
-            attribution.as_ref().map(String::as_str),
-        )?;
     }
 
     // Insert supervisors if they exist
@@ -235,7 +217,6 @@ fn insert_office_data(
                 office_path.supervisor(relation.clone()),
                 supervisor_office_id,
             )?;
-            tx.save_office_supervisor(id, relation, supervisor_office_id)?;
         }
     }
 
@@ -243,13 +224,6 @@ fn insert_office_data(
     if let Some(contacts) = &office.contacts {
         for (contact_type, value) in contacts {
             repo.save(office_path.contact(contact_type.clone()), value)?;
-            tx.save_entity_contact(&dto::EntityType::Office, id, contact_type, value)
-                .with_context(|| {
-                    format!(
-                        "could not insert contact {}:{} for office id: {}",
-                        contact_type, value, id
-                    )
-                })?;
         }
     }
 

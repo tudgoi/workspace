@@ -15,6 +15,7 @@ use strum::VariantArray;
 
 use crate::{
     LibrarySql, data, dto,
+    record::{Key, PersonPath, OfficePath, RecordRepo},
     serve::{AppError, AppState},
 };
 
@@ -98,7 +99,21 @@ pub async fn save(
     Form(contact_form): Form<ContactEntry>,
 ) -> Result<ViewContactPartial, AppError> {
     let conn = state.get_conn()?;
-    conn.save_entity_contact(&typ, &id, &contact_form.contact_type, &contact_form.value)?;
+    let mut repo = RecordRepo::new(&conn);
+    match typ {
+        dto::EntityType::Person => {
+            repo.save(
+                Key::<PersonPath, ()>::new(&id).contact(contact_form.contact_type),
+                &contact_form.value,
+            )?;
+        }
+        dto::EntityType::Office => {
+            repo.save(
+                Key::<OfficePath, ()>::new(&id).contact(contact_form.contact_type),
+                &contact_form.value,
+            )?;
+        }
+    }
 
     ViewContactPartial::new(&conn, typ, id)
 }

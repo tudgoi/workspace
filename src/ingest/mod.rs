@@ -7,6 +7,7 @@ use crate::{
     dto::{self, Entity},
     graph,
     ingest::{derive::derive_id, old::OldIngestor},
+    record::{Key, PersonPath, OfficePath, RecordRepo},
 };
 use rusqlite::OptionalExtension;
 
@@ -85,17 +86,45 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
                     office.get_name(),
                 )
                 .await?;
-                conn.save_tenure(&id, &office_id, None, None)?;
+                RecordRepo::new(conn).save(
+                    Key::<PersonPath, ()>::new(&id).tenure(&office_id, None),
+                    &None,
+                )?;
             }
             graph::Property::Photo { url, attribution } => {
                 if !conn.exists_entity_photo(&entity_type, &id, |row| row.get(0))? {
-                    conn.save_entity_photo(&entity_type, &id, url, attribution.as_deref())
-                        .context("Failed to ingest photo")?;
+                    let photo = crate::data::Photo {
+                        url: url.clone(),
+                        attribution: attribution.clone(),
+                    };
+                    let mut repo = RecordRepo::new(conn);
+                    match entity_type {
+                        dto::EntityType::Person => {
+                            repo.save(Key::<PersonPath, ()>::new(&id).photo(), &photo)?;
+                        }
+                        dto::EntityType::Office => {
+                            repo.save(Key::<OfficePath, ()>::new(&id).photo(), &photo)?;
+                        }
+                    }
                 }
             }
             graph::Property::Contact(contact_type, value) => {
                 if !conn.exists_entity_contact(&entity_type, &id, contact_type, |row| row.get(0))? {
-                    conn.save_entity_contact(&entity_type, &id, contact_type, value)?;
+                    let mut repo = RecordRepo::new(conn);
+                    match entity_type {
+                        dto::EntityType::Person => {
+                            repo.save(
+                                Key::<PersonPath, ()>::new(&id).contact(contact_type.clone()),
+                                value,
+                            )?;
+                        }
+                        dto::EntityType::Office => {
+                            repo.save(
+                                Key::<OfficePath, ()>::new(&id).contact(contact_type.clone()),
+                                value,
+                            )?;
+                        }
+                    }
                 }
             }
             graph::Property::Supervisor(relation, supervising_office) => {
@@ -116,7 +145,10 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
                     )
                     .await?;
 
-                    conn.save_office_supervisor(&id, relation, &supervising_office_id)?;
+                    RecordRepo::new(conn).save(
+                        Key::<OfficePath, ()>::new(&id).supervisor(relation.clone()),
+                        &supervising_office_id,
+                    )?;
                 }
             }
         }
@@ -151,7 +183,15 @@ async fn ingest_entity_id_or_name(
             let name = name
                 .with_context(|| format!("entity {:?}:{} doesn't have a name", entity_type, id))?;
 
-            conn.save_entity_name(entity_type, id, name)?;
+            let mut repo = RecordRepo::new(conn);
+            match entity_type {
+                dto::EntityType::Person => {
+                    repo.save(Key::<PersonPath, ()>::new(id).name(), &name.to_string())?;
+                }
+                dto::EntityType::Office => {
+                    repo.save(Key::<OfficePath, ()>::new(id).name(), &name.to_string())?;
+                }
+            }
         }
 
         Ok(id.to_string())
@@ -172,8 +212,15 @@ async fn ingest_entity_id_or_name(
             Ok(entity.id)
         } else {
             let id = derive_id(entity_type, name);
-            conn.save_entity_name(entity_type, &id, name)
-                .with_context(|| format!("could not insert entity {:?}:{}", entity_type, id))?;
+            let mut repo = RecordRepo::new(conn);
+            match entity_type {
+                dto::EntityType::Person => {
+                    repo.save(Key::<PersonPath, ()>::new(&id).name(), &name.to_string())?;
+                }
+                dto::EntityType::Office => {
+                    repo.save(Key::<OfficePath, ()>::new(&id).name(), &name.to_string())?;
+                }
+            }
 
             Ok(id)
         }

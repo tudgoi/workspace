@@ -17,6 +17,7 @@ use crate::{
     LibrarySql, context,
     data::{self, SupervisingRelation},
     dto,
+    record::{Key, OfficePath, RecordRepo},
     serve::{AppError, AppState},
 };
 
@@ -105,7 +106,11 @@ pub async fn save(
     Form(form): Form<SupervisorEntry>,
 ) -> Result<ViewSupervisorPartial, AppError> {
     let conn = state.get_conn()?;
-    conn.save_office_supervisor(&office_id, &form.relation, &form.office_id)?;
+    let mut repo = RecordRepo::new(&conn);
+    repo.save(
+        Key::<OfficePath, ()>::new(&office_id).supervisor(form.relation),
+        &form.office_id,
+    )?;
 
     ViewSupervisorPartial::new(&conn, office_id)
 }

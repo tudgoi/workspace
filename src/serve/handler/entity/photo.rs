@@ -9,6 +9,7 @@ use axum::{
 use rusqlite::{Connection, OptionalExtension};
 
 use crate::{LibrarySql, dto};
+use crate::record::{Key, PersonPath, OfficePath, RecordRepo};
 use crate::{
     data,
     serve::{AppError, AppState},
@@ -94,12 +95,15 @@ pub async fn save(
     Form(photo_form): Form<data::Photo>, // Renamed to avoid conflict with `photo` variable below
 ) -> Result<ViewPhotoPartial, AppError> {
     let conn = state.get_conn()?;
-    conn.save_entity_photo(
-        &typ,
-        &id,
-        &photo_form.url,
-        photo_form.attribution.as_deref(),
-    )?;
+    let mut repo = RecordRepo::new(&conn);
+    match typ {
+        dto::EntityType::Person => {
+            repo.save(Key::<PersonPath, ()>::new(&id).photo(), &photo_form)?;
+        }
+        dto::EntityType::Office => {
+            repo.save(Key::<OfficePath, ()>::new(&id).photo(), &photo_form)?;
+        }
+    }
 
     ViewPhotoPartial::new(&conn, typ, id)
 }
