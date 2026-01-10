@@ -79,9 +79,7 @@
 {% endblock content %}
 
 {% block updated %}
-{% if let Some(commit_date) = metadata.commit_date %}
-Last updated on {{ commit_date }}
-{% else %}
-Local version
-{% endif %}
+<span title="{{ metadata.commit_id }}">
+    <b>Commit:</b> {{ metadata.commit_id | truncate(8) }}
+</span>
 {% endblock updated %}

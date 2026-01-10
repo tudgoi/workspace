@@ -21,3 +21,17 @@ fn test_repo() {
     repo.write(k1.clone(), "val1_updated".as_bytes().to_vec()).unwrap();
     assert_eq!(repo.read(&k1).unwrap(), Some("val1_updated".as_bytes().to_vec()));
 }
+
+#[test]
+fn test_hash_display() {
+    use crate::repo::Hash;
+    let mut data = [0u8; 32];
+    data[0] = 0x12;
+    data[1] = 0xab;
+    data[31] = 0xff;
+    let hash = Hash(data);
+    let s = hash.to_string();
+    assert!(s.starts_with("12ab00"));
+    assert!(s.ends_with("ff"));
+    assert_eq!(s.len(), 64);
+}

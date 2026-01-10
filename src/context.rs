@@ -54,7 +54,7 @@ pub struct Page {
 
 #[derive(Serialize, Debug)]
 pub struct Metadata {
-    pub commit_date: Option<String>,
+    pub commit_id: String,
     pub maintenance: Maintenance,
 }
 

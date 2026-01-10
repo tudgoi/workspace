@@ -1,75 +1,13 @@
-use anyhow::bail;
 use anyhow::{Context, Result, ensure};
 use chrono::NaiveDate;
 use rusqlite::Transaction;
 use std::path::Path;
-use std::process::Command;
 
 use crate::SchemaSql;
 use crate::record::{Key, OfficePath, PersonPath, RecordRepo};
-use crate::{LibrarySql, dto};
 
 use super::data;
 use super::from_toml_file;
-
-fn get_commit_date(repo_path: &Path, file_path: &Path) -> Result<Option<NaiveDate>> {
-    let path_str = file_path
-        .strip_prefix(repo_path)?
-        .to_str()
-        .context("failed to convert path to string")?;
-
-    // First, check for local or staged changes.
-    let status_output = Command::new("git")
-        .current_dir(repo_path)
-        .arg("status")
-        .arg("--porcelain")
-        .arg("--")
-        .arg(path_str)
-        .output()
-        .with_context(|| format!("could not get git status for {:?}", file_path))?;
-
-    if !status_output.status.success() {
-        let error_message = std::str::from_utf8(&status_output.stderr)
-            .unwrap_or("Unknown git status error")
-            .to_string();
-        bail!("Git status command failed with error: {}", error_message);
-    }
-
-    // If there is any output, it means there are uncommitted changes.
-    if !status_output.stdout.is_empty() {
-        return Ok(None);
-    }
-
-    let result = Command::new("git")
-        .arg("log")
-        .arg("-1")
-        .arg("--format=%ad")
-        .arg("--date=short")
-        .arg("--")
-        .arg(path_str)
-        .output();
-    let output =
-        result.with_context(|| format!("could not get last commit date for {:?}", file_path))?;
-    if !output.status.success() {
-        let error_message = std::str::from_utf8(&output.stderr)
-            .unwrap_or("Unknown error")
-            .to_string();
-
-        bail!("Git command failed with error: {}", error_message);
-    }
-    let date_str = str::from_utf8(&output.stdout)
-        .context("could not read output of git command")?
-        .trim();
-
-    if date_str.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(NaiveDate::parse_from_str(
-            date_str.trim(),
-            "%Y-%m-%d",
-        )?))
-    }
-}
 
 pub fn run(source: &Path, output: &Path) -> Result<()> {
     ensure!(!output.exists(), "output DB already exists at {:?}", output);
@@ -104,14 +42,9 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             file_stem
         ))?;
 
-        let commit_date =
-            get_commit_date(source, file_entry.path().as_path()).with_context(|| {
-                format!("could not get last commit date for {:?}", file_entry.path())
-            })?;
-
         let office: data::Office =
             from_toml_file(file_entry.path()).context("could not load office")?;
-        insert_office_data(&mut tx, id, &office, commit_date.as_ref())?;
+        insert_office_data(&mut tx, id, &office)?;
     }
 
     // process person
@@ -132,30 +65,17 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
             file_stem
         ))?;
 
-        let commit_date =
-            get_commit_date(source, file_entry.path().as_path()).with_context(|| {
-                format!("could not get last commit date for {:?}", file_entry.path())
-            })?;
-
         let person: data::Person =
             from_toml_file(file_entry.path()).context("could not load person")?;
-        insert_person_data(&mut tx, id, &person, commit_date.as_ref())?;
+        insert_person_data(&mut tx, id, &person)?;
     }
-
-    tx.enable_commit_tracking()
-        .context("could not enable commit tracking")?;
 
     tx.commit()?;
 
     Ok(())
 }
 
-pub fn insert_person_data(
-    tx: &mut Transaction,
-    id: &str,
-    person: &data::Person,
-    commit_date: Option<&NaiveDate>,
-) -> Result<()> {
+pub fn insert_person_data(tx: &mut Transaction, id: &str, person: &data::Person) -> Result<()> {
     let mut repo = RecordRepo::new(tx);
     let person_path = Key::<PersonPath, ()>::new(id);
 
@@ -188,19 +108,10 @@ pub fn insert_person_data(
         }
     }
 
-    if let Some(date) = commit_date {
-        tx.save_entity_commit(&dto::EntityType::Person, id, date)?;
-    }
-
     Ok(())
 }
 
-fn insert_office_data(
-    tx: &mut Transaction,
-    id: &str,
-    office: &data::Office,
-    commit_date: Option<&NaiveDate>,
-) -> Result<()> {
+fn insert_office_data(tx: &mut Transaction, id: &str, office: &data::Office) -> Result<()> {
     let mut repo = RecordRepo::new(tx);
     let office_path = Key::<OfficePath, ()>::new(id);
 
@@ -225,10 +136,6 @@ fn insert_office_data(
         for (contact_type, value) in contacts {
             repo.save(office_path.contact(contact_type.clone()), value)?;
         }
-    }
-
-    if let Some(date) = commit_date {
-        tx.save_entity_commit(&dto::EntityType::Office, id, date)?;
     }
 
     Ok(())

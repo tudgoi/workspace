@@ -1,3 +1,4 @@
+use crate::record::RecordRepo;
 use crate::{CONFIG, LibrarySql};
 use crate::config::Config;
 use crate::serve::handler::filters;
@@ -37,6 +38,7 @@ pub async fn page(
 ) -> Result<OfficePageTemplate, AppError> {
     let id = id_with_ext.trim_end_matches(".html");
     let conn = state.get_conn()?;
+    let repo = RecordRepo::new(&conn);
 
     let name = conn
         .get_entity_name(&dto::EntityType::Office, id, |row| row.get(0))
@@ -102,12 +104,7 @@ pub async fn page(
         Ok(())
     })?;
 
-    let commit_date = conn
-        .get_entity_commit_date(&dto::EntityType::Office, id, |row| {
-            row.get::<_, chrono::NaiveDate>(0)
-        })
-        .optional()?
-        .map(|d| d.to_string());
+    let commit_id = repo.commit_id()?;
 
     // page
     let page = context::Page {
@@ -118,7 +115,7 @@ pub async fn page(
     // metadata
     let metadata = context::Metadata {
         maintenance: context::Maintenance { incomplete: false },
-        commit_date,
+        commit_id,
     };
 
     Ok(OfficePageTemplate {

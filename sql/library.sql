@@ -5,36 +5,6 @@ SELECT
     COUNT(CASE WHEN type = 'office' THEN 1 END) AS offices
 FROM entity;
 /
--- name: enable_commit_tracking!
-INSERT OR IGNORE INTO commit_tracking (id, enabled) VALUES (1, 1)
-/
--- name: save_entity_commit!
--- Inserts a commit entry for an entity.
--- # Parameters
--- param: entity_type: &dto::EntityType - entity type
--- param: entity_id: &str - entity ID
--- param: date: &chrono::NaiveDate - commit date
-INSERT INTO entity_commit (entity_type, entity_id, date)
-VALUES (:entity_type, :entity_id, :date);
-/
--- name: get_entity_uncommitted?
--- Returns the entities that are local to the DB and not yet committed to git
-SELECT e.type, e.id, e.name
-FROM entity AS e
-LEFT JOIN entity_commit AS c
-ON e.id=c.entity_id AND e.type = c.entity_type
-WHERE c.date IS NULL
-ORDER BY e.name;
-/
--- name: get_entity_commit_date->
--- # Parameter
--- param: typ: &crate::dto::EntityType
--- param: id: &str
-SELECT
-    date
-FROM entity_commit
-WHERE entity_type = :typ AND entity_id = :id
-/
 -- name: exists_entity->
 -- param: typ: &dto::EntityType
 -- param: id: &str

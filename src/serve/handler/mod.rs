@@ -64,16 +64,7 @@ pub async fn uncommitted(
 ) -> Result<UncommittedTemplate, AppError> {
     let conn = state.get_conn()?;
     let mut entities = Vec::new();
-    conn.get_entity_uncommitted(|row| {
-        let entity = dto::Entity {
-            typ: row.get(0)?,
-            id: row.get(1)?,
-            name: row.get(2)?,
-        };
-        entities.push(entity);
-
-        Ok(())
-    })?;
+    // TODO figure out how to do commit tracking
 
     Ok(UncommittedTemplate {
         entities,

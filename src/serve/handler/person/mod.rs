@@ -1,6 +1,7 @@
-use crate::{CONFIG, LibrarySql};
 use crate::config::Config;
+use crate::record::RecordRepo;
 use crate::serve::handler::filters;
+use crate::{CONFIG, LibrarySql};
 use crate::{
     context, data, dto,
     serve::{AppError, AppState},
@@ -35,6 +36,7 @@ pub async fn page(
 ) -> Result<PersonPageTemplate, AppError> {
     let id = id_with_ext.trim_end_matches(".html");
     let conn = state.get_conn()?;
+    let repo = RecordRepo::new(&conn);
 
     let name = conn.get_entity_name(&dto::EntityType::Person, id, |row| row.get(0))?;
     let photo = conn
@@ -156,9 +158,7 @@ pub async fn page(
 
         Ok(())
     })?;
-    let commit_date = conn
-        .get_entity_commit_date(&dto::EntityType::Person, id, |row| row.get(0))
-        .optional()?;
+    let commit_id = repo.commit_id()?;
     Ok(PersonPageTemplate {
         person: context::Person {
             id: id.to_string(),
@@ -187,7 +187,7 @@ pub async fn page(
             dynamic: state.dynamic,
         },
         metadata: context::Metadata {
-            commit_date,
+            commit_id,
             maintenance: context::Maintenance { incomplete: false },
         },
     })

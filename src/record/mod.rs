@@ -240,4 +240,8 @@ impl<'a> RecordRepo<'a> {
 
         Ok(value)
     }
+    
+    pub fn commit_id(&self) -> Result<String, RecordRepoError> {
+        Ok(self.repo.commit_id()?)
+    }
 }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -16,6 +18,15 @@ const ROOT_REF: &str = "root";
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Hash(pub [u8; 32]);
 
+impl Display for Hash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for byte in self.0 {
+            write!(f, "{:02x}", byte)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum RepoError {
     #[error("serde error: {0}")]
@@ -28,6 +39,8 @@ pub enum RepoError {
     Lz4(#[from] lz4_flex::block::DecompressError),
     #[error("backend error: {0}")]
     Backend(String),
+    #[error("root ref not found")]
+    RootNotFound,
 }
 
 pub struct RepoStats {
@@ -57,11 +70,9 @@ pub struct Repo<B: Backend> {
 
 impl<B: Backend> Repo<B> {
     pub fn new(backend: B) -> Self {
-        Self {
-            backend,
-        }
+        Self { backend }
     }
-    
+
     pub fn read(&self, key: &[u8]) -> Result<Option<Vec<u8>>, RepoError> {
         let root_hash = self.backend.get_ref(ROOT_REF)?;
         match root_hash {
@@ -72,7 +83,7 @@ impl<B: Backend> Repo<B> {
             None => Ok(None),
         }
     }
-    
+
     pub fn write(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), RepoError> {
         let root_hash = self.backend.get_ref(ROOT_REF)?;
         let mut root_node = match root_hash {
@@ -83,6 +94,13 @@ impl<B: Backend> Repo<B> {
         let new_root_hash = root_node.upsert(self, key, value)?;
         self.backend.set_ref(ROOT_REF, &new_root_hash)?;
         Ok(())
+    }
+
+    pub fn commit_id(&self) -> Result<String, RepoError> {
+        self.backend
+            .get_ref(ROOT_REF)?
+            .ok_or(RepoError::RootNotFound)
+            .map(|h| h.to_string())
     }
 
     pub fn stats(&self) -> Result<RepoStats, RepoError> {
