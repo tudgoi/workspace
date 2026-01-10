@@ -63,14 +63,18 @@ impl<'a> Backend for SqliteBackend<'a> {
     }
 
     fn delete_nodes(&self, hashes: &[Hash]) -> Result<usize, RepoError> {
-        let mut deleted = 0;
-        // rusqlite doesn't support list of blobs easily in IN clause without some work.
-        // For simplicity, we delete one by one or in small batches.
-        // Given GC is infrequent, one by one is safe for now.
-        let mut stmt = self.conn.prepare("DELETE FROM repo WHERE hash = ?1")?;
-        for hash in hashes {
-            deleted += stmt.execute([hash.0])?;
+        if hashes.is_empty() {
+            return Ok(0);
         }
+        let tx = self.conn.unchecked_transaction()?;
+        let mut deleted = 0;
+        {
+            let mut stmt = tx.prepare("DELETE FROM repo WHERE hash = ?1")?;
+            for hash in hashes {
+                deleted += stmt.execute([hash.0])?;
+            }
+        }
+        tx.commit()?;
         Ok(deleted)
     }
 
