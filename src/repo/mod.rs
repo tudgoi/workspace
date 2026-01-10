@@ -4,7 +4,6 @@ use thiserror::Error;
 use crate::repo::mst::MstNode;
 
 mod mst;
-pub mod sqlitebe;
 
 #[cfg(test)]
 pub mod test_backend;

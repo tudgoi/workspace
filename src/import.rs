@@ -7,7 +7,6 @@ use std::process::Command;
 
 use crate::SchemaSql;
 use crate::record::{Key, OfficePath, PersonPath, RecordRepo};
-use crate::repo::sqlitebe::SqliteBackend;
 use crate::{LibrarySql, dto};
 
 use super::data;
@@ -157,7 +156,7 @@ pub fn insert_person_data(
     person: &data::Person,
     commit_date: Option<&NaiveDate>,
 ) -> Result<()> {
-    let mut repo = RecordRepo::new(SqliteBackend::new(tx));
+    let mut repo = RecordRepo::new(tx);
     let person_path = Key::<PersonPath, ()>::new(id);
 
     repo.save(person_path.name(), &person.name)?;
@@ -212,7 +211,7 @@ fn insert_office_data(
     office: &data::Office,
     commit_date: Option<&NaiveDate>,
 ) -> Result<()> {
-    let mut repo = RecordRepo::new(SqliteBackend::new(tx));
+    let mut repo = RecordRepo::new(tx);
     let office_path = Key::<OfficePath, ()>::new(id);
 
     repo.save(office_path.name(), &office.name)?;

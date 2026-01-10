@@ -6,6 +6,8 @@ use static_toml::static_toml;
 use std::fs;
 use std::path::PathBuf;
 
+use crate::record::sqlitebe::SqliteBackend;
+
 mod augment;
 mod context;
 mod data;
@@ -163,7 +165,7 @@ fn main() -> Result<()> {
 
         Commands::Stats { db } => {
             let conn = rusqlite::Connection::open(db)?;
-            let backend = repo::sqlitebe::SqliteBackend::new(&conn);
+            let backend = SqliteBackend::new(&conn);
             let repo = repo::Repo::new(backend);
             let stats = repo.stats()?;
 
@@ -184,7 +186,7 @@ fn main() -> Result<()> {
 
         Commands::Gc { db } => {
             let conn = rusqlite::Connection::open(db)?;
-            let backend = repo::sqlitebe::SqliteBackend::new(&conn);
+            let backend = SqliteBackend::new(&conn);
             let repo = repo::Repo::new(backend);
             let deleted = repo.gc()?;
 

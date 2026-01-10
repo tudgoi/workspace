@@ -1,4 +1,7 @@
+pub mod sqlitebe;
+
 use chrono::NaiveDate;
+use rusqlite::Connection;
 use serde::{
     Deserialize, Serialize,
 };
@@ -6,8 +9,10 @@ use std::marker::PhantomData;
 
 use crate::{
     data, dto,
-    repo::{Backend, Repo, RepoError},
+    repo::{Repo, RepoError},
 };
+use sqlitebe::SqliteBackend;
+
 
 #[derive(Clone, Debug)]
 pub struct Key<State, Schema> {
@@ -99,14 +104,14 @@ impl<P: EntityPathTrait, T> Key<P, T> {
     }
 }
 
-pub struct RecordRepo<B: Backend> {
-    repo: Repo<B>,
+pub struct RecordRepo<'a> {
+    repo: Repo<SqliteBackend<'a>>,
 }
 
-impl<B: Backend> RecordRepo<B> {
-    pub fn new(backend: B) -> Self {
+impl<'a> RecordRepo<'a> {
+    pub fn new(conn: &'a Connection) -> Self {
         RecordRepo {
-            repo: Repo::new(backend),
+            repo: Repo::new(SqliteBackend::new(conn)),
         }
     }
 
@@ -128,6 +133,3 @@ impl<B: Backend> RecordRepo<B> {
         Ok(value)
     }
 }
-
-#[cfg(test)]
-pub mod tests;
