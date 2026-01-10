@@ -2,10 +2,9 @@ pub mod sqlitebe;
 
 use chrono::NaiveDate;
 use rusqlite::Connection;
-use serde::{
-    Deserialize, Serialize,
-};
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use thiserror::Error;
 
 use crate::{
     data, dto,
@@ -13,6 +12,14 @@ use crate::{
 };
 use sqlitebe::SqliteBackend;
 
+#[derive(Error, Debug)]
+pub enum RecordRepoError {
+    #[error("record error: {0}")]
+    Repo(#[from] RepoError),
+
+    #[error("serde_json error: {0}")]
+    SerdeJson(#[from] serde_json::Error),
+}
 
 #[derive(Clone, Debug)]
 pub struct Key<State, Schema> {
@@ -115,15 +122,21 @@ impl<'a> RecordRepo<'a> {
         }
     }
 
-    pub fn save<P, T: Serialize>(&mut self, key: Key<P, T>, value: &T) -> Result<(), RepoError> {
+    pub fn save<P, T: Serialize>(
+        &mut self,
+        key: Key<P, T>,
+        value: &T,
+    ) -> Result<(), RecordRepoError> {
         let bytes = serde_json::to_vec(value)?;
-        self.repo.write(key.path.as_bytes().to_vec(), bytes)
+        self.repo.write(key.path.as_bytes().to_vec(), bytes)?;
+
+        Ok(())
     }
 
     pub fn load<P, T: for<'de> Deserialize<'de>>(
         &self,
         key: Key<P, T>,
-    ) -> Result<Option<T>, RepoError> {
+    ) -> Result<Option<T>, RecordRepoError> {
         let value = if let Some(bytes) = self.repo.read(&key.path.as_bytes())? {
             serde_json::from_slice(&bytes)?
         } else {
