@@ -59,10 +59,14 @@ pub struct Key<State, Schema> {
     _marker: PhantomData<Schema>,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct PersonPath;
-#[derive(Clone, Copy, Debug)]
-pub struct OfficePath;
+#[derive(Clone, Debug)]
+pub struct PersonPath {
+    pub id: Option<String>,
+}
+#[derive(Clone, Debug)]
+pub struct OfficePath {
+    pub id: Option<String>,
+}
 #[derive(Clone, Copy, Debug)]
 pub struct NamePath;
 #[derive(Clone, Copy, Debug)]
@@ -87,13 +91,13 @@ pub trait ParseKeyState: Sized {
 
 impl ParseKeyState for PersonPath {
     fn parse(_parts: &[&str]) -> Result<Self, RecordRepoError> {
-        Ok(PersonPath)
+        Ok(PersonPath { id: None })
     }
 }
 
 impl ParseKeyState for OfficePath {
     fn parse(_parts: &[&str]) -> Result<Self, RecordRepoError> {
-        Ok(OfficePath)
+        Ok(OfficePath { id: None })
     }
 }
 
@@ -156,7 +160,19 @@ impl Key<PersonPath, ()> {
             entity_type: dto::EntityType::Person,
             entity_id: id.to_string(),
             path: format!("{}/{}", dto::EntityType::Person, id),
-            state: PersonPath,
+            state: PersonPath {
+                id: Some(id.to_string()),
+            },
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn all() -> Self {
+        Self {
+            entity_type: dto::EntityType::Person,
+            entity_id: String::new(),
+            path: format!("{}/", dto::EntityType::Person),
+            state: PersonPath { id: None },
             _marker: PhantomData,
         }
     }
@@ -192,7 +208,19 @@ impl Key<OfficePath, ()> {
             entity_type: dto::EntityType::Office,
             entity_id: id.to_string(),
             path: format!("{}/{}", dto::EntityType::Office, id),
-            state: OfficePath,
+            state: OfficePath {
+                id: Some(id.to_string()),
+            },
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn all() -> Self {
+        Self {
+            entity_type: dto::EntityType::Office,
+            entity_id: String::new(),
+            path: format!("{}/", dto::EntityType::Office),
+            state: OfficePath { id: None },
             _marker: PhantomData,
         }
     }
