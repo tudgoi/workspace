@@ -430,6 +430,10 @@ impl<'a> RecordRepo<'a> {
     pub fn commit_id(&self) -> Result<String, RecordRepoError> {
         Ok(self.repo.commit_id()?)
     }
+
+    pub fn commit(&mut self) -> Result<(), RecordRepoError> {
+        Ok(self.repo.commit()?)
+    }
 }
 
 #[cfg(test)]

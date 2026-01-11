@@ -15,6 +15,7 @@ pub mod test_backend;
 mod tests;
 
 const ROOT_REF: &str = "root";
+const COMMITTED_REF: &str = "committed";
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Hash(pub [u8; 32]);
@@ -111,6 +112,14 @@ impl<B: Backend> Repo<B> {
             .get_ref(ROOT_REF)?
             .ok_or(RepoError::RootNotFound)
             .map(|h| h.to_string())
+    }
+
+    pub fn commit(&mut self) -> Result<(), RepoError> {
+        let root_hash = self.backend.get_ref(ROOT_REF)?;
+        if let Some(h) = root_hash {
+            self.backend.set_ref(COMMITTED_REF, &h)?;
+        }
+        Ok(())
     }
 
     pub fn stats(&self) -> Result<RepoStats, RepoError> {

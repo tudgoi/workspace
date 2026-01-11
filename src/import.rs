@@ -70,6 +70,8 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         insert_person_data(&mut tx, id, &person)?;
     }
 
+    RecordRepo::new(&tx).commit()?;
+
     tx.commit()?;
 
     Ok(())

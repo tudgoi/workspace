@@ -1,4 +1,4 @@
-use crate::repo::{Repo, test_backend::TestBackend};
+use crate::repo::{Repo, test_backend::TestBackend, Backend};
 
 #[test]
 fn test_repo() {
@@ -80,4 +80,29 @@ fn test_iter_prefix() {
         visited.push(k);
     }
     assert!(visited.is_empty());
+}
+
+#[test]
+fn test_committed_ref() {
+    use crate::repo::{ROOT_REF, COMMITTED_REF};
+    let backend = TestBackend::new();
+    let mut repo = Repo::new(backend);
+
+    repo.write(b"k1".to_vec(), b"v1".to_vec()).unwrap();
+    let root_hash = repo.backend.get_ref(ROOT_REF).unwrap();
+    let committed_hash = repo.backend.get_ref(COMMITTED_REF).unwrap();
+    
+    assert!(root_hash.is_some());
+    assert!(committed_hash.is_none());
+
+    repo.commit().unwrap();
+    let committed_hash = repo.backend.get_ref(COMMITTED_REF).unwrap();
+    assert_eq!(root_hash, committed_hash);
+
+    repo.write(b"k2".to_vec(), b"v2".to_vec()).unwrap();
+    let new_root_hash = repo.backend.get_ref(ROOT_REF).unwrap();
+    let committed_hash_after = repo.backend.get_ref(COMMITTED_REF).unwrap();
+    
+    assert_ne!(new_root_hash, committed_hash);
+    assert_eq!(committed_hash_after, committed_hash);
 }
