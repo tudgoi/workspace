@@ -75,6 +75,7 @@ pub async fn run(
         .route("/office/{id}", get(handler::office::page))
         .route("/search.db", get(handler::search_db))
         .route("/uncommitted", get(handler::uncommitted))
+        .route("/commit", post(handler::commit))
         .route("/new/{typ}", get(handler::entity::new_form))
         .route("/new/{typ}", post(handler::entity::new))
         .route("/{typ}/{id}/edit", get(handler::entity::edit))

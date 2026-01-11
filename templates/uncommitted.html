@@ -1,7 +1,12 @@
 {% extends "dynamic.html" %}
 
 {% block content %}
-<h2>Uncommitted</h2>
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>Uncommitted</h2>
+    {% if !changes.is_empty() %}
+    <button hx-post="/commit" hx-confirm="Are you sure you want to commit these changes?">Commit Changes</button>
+    {% endif %}
+</div>
 <ul>
     {% for change in changes %}
     <li>
