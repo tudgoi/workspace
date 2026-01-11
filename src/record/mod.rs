@@ -50,6 +50,18 @@ pub enum RecordKey {
     Tenure(Key<TenurePath, Option<NaiveDate>>),
 }
 
+impl RecordKey {
+    pub fn entity_info(&self) -> (dto::EntityType, String) {
+        match self {
+            RecordKey::Name(k) => (k.entity_type, k.entity_id.clone()),
+            RecordKey::Photo(k) => (k.entity_type, k.entity_id.clone()),
+            RecordKey::Contact(k) => (k.entity_type, k.entity_id.clone()),
+            RecordKey::Supervisor(k) => (k.entity_type, k.entity_id.clone()),
+            RecordKey::Tenure(k) => (k.entity_type, k.entity_id.clone()),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum RecordDiff {
     Added(RecordKey, RecordValue),

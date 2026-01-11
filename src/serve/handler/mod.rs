@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use askama::Template;
@@ -11,6 +12,7 @@ use crate::SchemaSql;
 use crate::config::Config;
 use crate::context::Metadata;
 use crate::dto;
+use crate::record::RecordDiff;
 use crate::record::RecordRepo;
 use crate::{
     context::{self, Page},
@@ -59,10 +61,33 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ChangeType {
+    Added,
+    Changed,
+    Removed,
+}
+
+impl ChangeType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ChangeType::Added => "Added",
+            ChangeType::Changed => "Changed",
+            ChangeType::Removed => "Removed",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EntityChange {
+    pub entity: dto::Entity,
+    pub change_type: ChangeType,
+}
+
 #[derive(Template, WebTemplate)]
 #[template(path = "uncommitted.html")]
 pub struct UncommittedTemplate {
-    pub entities: Vec<dto::Entity>,
+    pub changes: Vec<EntityChange>,
     pub config: &'static Config,
     pub page: context::Page,
 }
@@ -72,11 +97,48 @@ pub async fn uncommitted(
     State(state): State<Arc<AppState>>,
 ) -> Result<UncommittedTemplate, AppError> {
     let conn = state.get_conn()?;
-    let mut entities = Vec::new();
-    // TODO figure out how to do commit tracking
+    let repo = RecordRepo::new(&conn);
+    let mut changes = Vec::new();
+
+    let mut entity_changes = HashMap::new();
+    if let Ok(diff_iter) = repo.iterate_diff() {
+        for diff_result in diff_iter {
+            if let Ok(diff) = diff_result {
+                let (info, change_type) = match diff {
+                    RecordDiff::Added(rk, _) => (rk.entity_info(), ChangeType::Added),
+                    RecordDiff::Changed(rk, _, _) => (rk.entity_info(), ChangeType::Changed),
+                    RecordDiff::Removed(rk, _) => (rk.entity_info(), ChangeType::Removed),
+                };
+                
+                let current_change = entity_changes.entry(info).or_insert(change_type);
+                
+                match (*current_change, change_type) {
+                    (ChangeType::Added, ChangeType::Removed) => {
+                        *current_change = ChangeType::Removed;
+                    }
+                    (ChangeType::Removed, ChangeType::Added) => {
+                         *current_change = ChangeType::Added;
+                    }
+                    (ChangeType::Changed, ChangeType::Added) => *current_change = ChangeType::Added,
+                    (ChangeType::Changed, ChangeType::Removed) => *current_change = ChangeType::Removed,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    for ((typ, id), change_type) in entity_changes {
+        let name = conn.get_entity_name(&typ, &id, |row| row.get(0)).unwrap_or_else(|_| id.clone());
+        changes.push(EntityChange {
+            entity: dto::Entity { typ, id, name },
+            change_type,
+        });
+    }
+
+    changes.sort_by(|a, b| a.entity.name.cmp(&b.entity.name));
 
     Ok(UncommittedTemplate {
-        entities,
+        changes,
         config: &CONFIG,
         page: Page {
             base: String::from("./"),

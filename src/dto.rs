@@ -13,14 +13,14 @@ pub struct Office {
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Entity {
     pub typ: EntityType,
     pub id: String,
     pub name: String,
 }
 
-#[derive(Debug, Serialize, Eq, PartialEq, Clone, Copy, serde::Deserialize)]
+#[derive(Debug, Serialize, Eq, PartialEq, Hash, Clone, Copy, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EntityType {
     Person,

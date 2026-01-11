@@ -3,8 +3,15 @@
 {% block content %}
 <h2>Uncommitted</h2>
 <ul>
-    {% for entity in entities %}
-    <li><a href="{{ entity.typ }}/{{ entity.id }}.html">{{ entity.name }}</a></li>
+    {% for change in changes %}
+    <li>
+        [{{ change.change_type.as_str() }}]
+        {% if change.change_type.as_str() == "Removed" %}
+        {{ change.entity.name }}
+        {% else %}
+        <a href="{{ change.entity.typ }}/{{ change.entity.id }}.html">{{ change.entity.name }}</a>
+        {% endif %}
+    </li>
     {% endfor %}
 </ul>
 {% endblock content %}
