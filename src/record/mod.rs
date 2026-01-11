@@ -363,32 +363,31 @@ impl<'a> RecordRepo<'a> {
         }
     }
 
-    pub fn save<P, T: Serialize>(
-        &mut self,
-        key: Key<P, T>,
-        value: &T,
-    ) -> Result<(), RecordRepoError>
-    where
-        Key<P, T>: TableUpdater<T>,
-    {
-        let bytes = postcard::to_stdvec(value)?;
-        self.repo.root()?.write(key.path.as_bytes().to_vec(), bytes)?;
-        key.update_tables(self.repo.backend.conn, value)?;
-
-        Ok(())
+    pub fn root(&self) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
+        Ok(RecordRepoRef {
+            repo_ref: self.repo.root()?,
+        })
     }
 
-    pub fn load<P, T: for<'de> Deserialize<'de>>(
-        &self,
-        key: Key<P, T>,
-    ) -> Result<Option<T>, RecordRepoError> {
-        let value = if let Some(bytes) = self.repo.root()?.read(key.path.as_bytes())? {
-            postcard::from_bytes(&bytes)?
-        } else {
-            None
-        };
+    pub fn committed(&self) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
+        Ok(RecordRepoRef {
+            repo_ref: self.repo.committed()?,
+        })
+    }
 
-        Ok(value)
+    pub fn commit(&mut self) -> Result<(), RecordRepoError> {
+        Ok(self.repo.commit()?)
+    }
+
+    pub fn iterate_diff(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = Result<RecordDiff, RecordRepoError>> + '_>, RecordRepoError>
+    {
+        let root = self.root()?;
+        let committed = self.committed()?;
+        
+        let diffs: Vec<Result<RecordDiff, RecordRepoError>> = committed.iterate_diff(&root)?.collect();
+        Ok(Box::new(diffs.into_iter()))
     }
 
     fn parse_key<P: ParseKeyState, T>(path: &str) -> Result<Key<P, T>, RecordRepoError> {
@@ -419,6 +418,40 @@ impl<'a> RecordRepo<'a> {
             _marker: PhantomData,
         })
     }
+}
+
+pub struct RecordRepoRef<'a, 'b> {
+    repo_ref: crate::repo::RepoRef<'a, SqliteBackend<'b>>,
+}
+
+impl<'a, 'b> RecordRepoRef<'a, 'b> {
+    pub fn save<P, T: Serialize>(
+        &mut self,
+        key: Key<P, T>,
+        value: &T,
+    ) -> Result<(), RecordRepoError>
+    where
+        Key<P, T>: TableUpdater<T>,
+    {
+        let bytes = postcard::to_stdvec(value)?;
+        self.repo_ref.write(key.path.as_bytes().to_vec(), bytes)?;
+        key.update_tables(self.repo_ref.repo.backend.conn, value)?;
+
+        Ok(())
+    }
+
+    pub fn load<P, T: for<'de> Deserialize<'de>>(
+        &self,
+        key: Key<P, T>,
+    ) -> Result<Option<T>, RecordRepoError> {
+        let value = if let Some(bytes) = self.repo_ref.read(key.path.as_bytes())? {
+            postcard::from_bytes(&bytes)?
+        } else {
+            None
+        };
+
+        Ok(value)
+    }
 
     pub fn scan<P, T>(
         &self,
@@ -427,8 +460,8 @@ impl<'a> RecordRepo<'a> {
         impl Iterator<Item = Result<(RecordKey, RecordValue), RecordRepoError>> + '_,
         RecordRepoError,
     > {
-        let prefix = key.path.into_bytes();
-        let iter = self.repo.root()?.iter_prefix(&prefix)?;
+        let prefix = key.path.as_bytes().to_vec();
+        let iter = self.repo_ref.iter_prefix(&prefix)?;
 
         Ok(iter.map(|item| {
             let (k, v) = item?;
@@ -441,21 +474,16 @@ impl<'a> RecordRepo<'a> {
     }
 
     pub fn commit_id(&self) -> Result<String, RecordRepoError> {
-        Ok(self.repo.root()?.commit_id()?)
-    }
-
-    pub fn commit(&mut self) -> Result<(), RecordRepoError> {
-        Ok(self.repo.commit()?)
+        Ok(self.repo_ref.commit_id()?)
     }
 
     pub fn iterate_diff(
         &self,
+        other: &RecordRepoRef<'a, 'b>,
     ) -> Result<impl Iterator<Item = Result<RecordDiff, RecordRepoError>> + '_, RecordRepoError>
     {
         use crate::repo::Diff;
-        let root = self.repo.root()?;
-        let committed = self.repo.committed()?;
-        let iter = committed.iterate_diff(&root)?;
+        let iter = self.repo_ref.iterate_diff(&other.repo_ref)?;
 
         Ok(iter.map(|item| {
             let diff = item?;
@@ -499,23 +527,23 @@ impl<'a> RecordRepo<'a> {
     ) -> Result<(RecordKey, RecordValue), RecordRepoError> {
         if path.ends_with("/name") {
             let value: String = postcard::from_bytes(v)?;
-            let key = Self::parse_key::<NamePath, String>(path)?;
+            let key = RecordRepo::parse_key::<NamePath, String>(path)?;
             Ok((RecordKey::Name(key), RecordValue::Name(value)))
         } else if path.ends_with("/photo") {
             let value: data::Photo = postcard::from_bytes(v)?;
-            let key = Self::parse_key::<PhotoPath, data::Photo>(path)?;
+            let key = RecordRepo::parse_key::<PhotoPath, data::Photo>(path)?;
             Ok((RecordKey::Photo(key), RecordValue::Photo(value)))
         } else if path.contains("/contact/") {
             let value: String = postcard::from_bytes(v)?;
-            let key = Self::parse_key::<ContactPath, String>(path)?;
+            let key = RecordRepo::parse_key::<ContactPath, String>(path)?;
             Ok((RecordKey::Contact(key), RecordValue::Contact(value)))
         } else if path.contains("/supervisor/") {
             let value: String = postcard::from_bytes(v)?;
-            let key = Self::parse_key::<SupervisorPath, String>(path)?;
+            let key = RecordRepo::parse_key::<SupervisorPath, String>(path)?;
             Ok((RecordKey::Supervisor(key), RecordValue::Supervisor(value)))
         } else if path.contains("/tenure/") {
             let value: Option<NaiveDate> = postcard::from_bytes(v)?;
-            let key = Self::parse_key::<TenurePath, Option<NaiveDate>>(path)?;
+            let key = RecordRepo::parse_key::<TenurePath, Option<NaiveDate>>(path)?;
             Ok((RecordKey::Tenure(key), RecordValue::Tenure(value)))
         } else {
             Err(RecordRepoError::UnknownRecordType(path.to_string()))
@@ -571,19 +599,20 @@ mod tests {
         let mut repo = RecordRepo::new(&conn);
         let p1 = Key::<PersonPath, ()>::new("p1");
 
-        repo.save(p1.name(), &"Person One".to_string()).unwrap();
+        repo.root().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
 
         let photo = data::Photo {
             url: "http://example.com/p1.jpg".to_string(),
             attribution: Some("Attr".to_string()),
         };
-        repo.save(p1.photo(), &photo).unwrap();
+        repo.root().unwrap().save(p1.photo(), &photo).unwrap();
 
         let t1 = p1.tenure("o1", None);
-        repo.save(t1, &Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()))
+        repo.root().unwrap().save(t1, &Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()))
             .unwrap();
 
         let items: Vec<_> = repo
+            .root().unwrap()
             .scan(p1)
             .expect("Scan failed")
             .collect::<Result<Vec<_>, _>>()
@@ -628,13 +657,13 @@ mod tests {
 
         let mut repo = RecordRepo::new(&conn);
         let p1 = Key::<PersonPath, ()>::new("p1");
-        repo.save(p1.name(), &"Person One".to_string()).unwrap();
+        repo.root().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
         repo.commit().unwrap();
 
-        repo.save(p1.name(), &"Person One Updated".to_string())
+        repo.root().unwrap().save(p1.name(), &"Person One Updated".to_string())
             .unwrap();
         let p2 = Key::<PersonPath, ()>::new("p2");
-        repo.save(p2.name(), &"Person Two".to_string()).unwrap();
+        repo.root().unwrap().save(p2.name(), &"Person Two".to_string()).unwrap();
 
         let diffs: Vec<_> = repo
             .iterate_diff()

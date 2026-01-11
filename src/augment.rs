@@ -244,7 +244,7 @@ async fn augment_photo(conn: &mut Connection, source: &dyn Augmentor) -> Result<
         let photo = source.query_photo(&wikidata_id).await?;
         if let Some(photo) = photo {
             println!("- found {}", photo.url);
-            repo.save(Key::<PersonPath, ()>::new(&person_id).photo(), &photo)?;
+            repo.root()?.save(Key::<PersonPath, ()>::new(&person_id).photo(), &photo)?;
         } else {
             println!("- no photo found");
         }
@@ -276,7 +276,7 @@ async fn augment_wikidata_id(conn: &mut Connection, source: &dyn Augmentor) -> R
         let wikidata_id = source.query_wikidata_id(&person.name).await?;
         if let Some(wikidata_id) = wikidata_id {
             println!("- found {}", wikidata_id);
-            repo.save(
+            repo.root()?.save(
                 Key::<PersonPath, ()>::new(&person.id).contact(data::ContactType::Wikidata),
                 &wikidata_id,
             )?;
@@ -306,7 +306,7 @@ async fn augment_wikipedia(conn: &mut Connection, source: &dyn Augmentor) -> Res
         let wikipedia_url = source.query_wikipedia(&wikidata_id).await?;
         if let Some(wikipedia_url) = wikipedia_url {
             println!("- found {}", wikipedia_url);
-            repo.save(
+            repo.root()?.save(
                 Key::<PersonPath, ()>::new(&person_id).contact(data::ContactType::Wikipedia),
                 &wikipedia_url,
             )?;

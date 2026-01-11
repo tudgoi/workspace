@@ -81,15 +81,15 @@ pub fn insert_person_data(tx: &mut Transaction, id: &str, person: &data::Person)
     let mut repo = RecordRepo::new(tx);
     let person_path = Key::<PersonPath, ()>::new(id);
 
-    repo.save(person_path.name(), &person.name)?;
+    repo.root()?.save(person_path.name(), &person.name)?;
 
     if let Some(photo) = &person.photo {
-        repo.save(person_path.photo(), photo)?;
+        repo.root()?.save(person_path.photo(), photo)?;
     }
     // Insert contacts if they exist
     if let Some(contacts) = &person.contacts {
         for (contact_type, value) in contacts {
-            repo.save(person_path.contact(contact_type.clone()), value)?;
+            repo.root()?.save(person_path.contact(contact_type.clone()), value)?;
         }
     }
 
@@ -106,7 +106,7 @@ pub fn insert_person_data(tx: &mut Transaction, id: &str, person: &data::Person)
                 .as_ref()
                 .map(|d| d.parse::<NaiveDate>())
                 .transpose()?;
-            repo.save(person_path.tenure(&tenure.office_id, start), &end)?;
+            repo.root()?.save(person_path.tenure(&tenure.office_id, start), &end)?;
         }
     }
 
@@ -117,16 +117,16 @@ fn insert_office_data(tx: &mut Transaction, id: &str, office: &data::Office) -> 
     let mut repo = RecordRepo::new(tx);
     let office_path = Key::<OfficePath, ()>::new(id);
 
-    repo.save(office_path.name(), &office.name)?;
+    repo.root()?.save(office_path.name(), &office.name)?;
 
     if let Some(photo) = &office.photo {
-        repo.save(office_path.photo(), photo)?;
+        repo.root()?.save(office_path.photo(), photo)?;
     }
 
     // Insert supervisors if they exist
     if let Some(supervisors) = &office.supervisors {
         for (relation, supervisor_office_id) in supervisors {
-            repo.save(
+            repo.root()?.save(
                 office_path.supervisor(relation.clone()),
                 supervisor_office_id,
             )?;
@@ -136,7 +136,7 @@ fn insert_office_data(tx: &mut Transaction, id: &str, office: &data::Office) -> 
     // Insert contacts if they exist
     if let Some(contacts) = &office.contacts {
         for (contact_type, value) in contacts {
-            repo.save(office_path.contact(contact_type.clone()), value)?;
+            repo.root()?.save(office_path.contact(contact_type.clone()), value)?;
         }
     }
 

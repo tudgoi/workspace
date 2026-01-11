@@ -107,7 +107,7 @@ pub async fn save(
 ) -> Result<ViewSupervisorPartial, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
-    repo.save(
+    repo.root()?.save(
         Key::<OfficePath, ()>::new(&office_id).supervisor(form.relation),
         &form.office_id,
     )?;

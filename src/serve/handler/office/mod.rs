@@ -104,7 +104,7 @@ pub async fn page(
         Ok(())
     })?;
 
-    let commit_id = repo.commit_id()?;
+    let commit_id = repo.root()?.commit_id()?;
 
     // page
     let page = context::Page {

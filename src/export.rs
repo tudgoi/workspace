@@ -25,6 +25,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     let conn = rusqlite::Connection::open(db)
         .with_context(|| format!("could not open database at {:?}", db))?;
     let repo = RecordRepo::new(&conn);
+    let repo_ref = repo.root()?;
 
     // Export persons
     struct PersonBuilder {
@@ -65,7 +66,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     let mut current_id: Option<String> = None;
     let mut current_person: Option<PersonBuilder> = None;
 
-    for item in repo.scan(Key::<PersonPath, ()>::all())? {
+    for item in repo_ref.scan(Key::<PersonPath, ()>::all())? {
         let (key, value) = item?;
         
         let id = match &key {
@@ -152,7 +153,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     let mut current_id: Option<String> = None;
     let mut current_office: Option<OfficeBuilder> = None;
 
-    for item in repo.scan(Key::<OfficePath, ()>::all())? {
+    for item in repo_ref.scan(Key::<OfficePath, ()>::all())? {
         let (key, value) = item?;
 
         let id = match &key {
