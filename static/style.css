@@ -7,8 +7,9 @@ footer .attribution {
 }
 
 footer .updated {
-    text-align:right;
+    text-align: right;
     font-size: small;
+    color: gray;
 }
 
 dd::before {

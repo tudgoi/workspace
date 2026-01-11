@@ -9,7 +9,9 @@ use crate::CONFIG;
 use crate::LibrarySql;
 use crate::SchemaSql;
 use crate::config::Config;
+use crate::context::Metadata;
 use crate::dto;
+use crate::record::RecordRepo;
 use crate::{
     context::{self, Page},
     serve::{AppError, AppState},
@@ -27,10 +29,12 @@ pub struct IndexTemplate {
     pub offices: u32,
     pub config: &'static Config,
     pub page: context::Page,
+    pub metadata: context::Metadata,
 }
 
 pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, AppError> {
     let conn = state.get_conn()?;
+    let repo = RecordRepo::new(&conn);
 
     let (persons, offices) = conn.get_entity_counts(|row| {
         let persons: u32 = row.get(0)?;
@@ -38,6 +42,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
 
         Ok((persons, offices))
     })?;
+    let commit_id = repo.commit_id()?;
 
     Ok(IndexTemplate {
         persons,
@@ -47,6 +52,10 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
             dynamic: state.dynamic,
             base: String::from("./"),
         },
+        metadata: Metadata {
+            commit_id: commit_id.chars().take(8).collect(),
+            maintenance: context::Maintenance { incomplete: false },
+        }
     })
 }
 

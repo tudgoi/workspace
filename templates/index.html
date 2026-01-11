@@ -142,3 +142,9 @@ the <a href="https://github.com/tudgoi/workspace">project source code</a>.
   </script>
 
 {% endblock content %}
+
+{% block updated %}
+<span title="{{ metadata.commit_id }}">
+    {{ metadata.commit_id }}
+</span>
+{% endblock updated %}

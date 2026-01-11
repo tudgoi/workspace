@@ -77,9 +77,3 @@
     </div>
 </main>
 {% endblock content %}
-
-{% block updated %}
-<span title="{{ metadata.commit_id }}">
-    <b>Commit:</b> {{ metadata.commit_id | truncate(8) }}
-</span>
-{% endblock updated %}
