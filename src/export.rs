@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use rusqlite::OptionalExtension;
 use std::{
     collections::BTreeMap,
     fs::{self, File},
@@ -8,9 +7,8 @@ use std::{
 };
 
 use crate::{
-    LibrarySql,
-    data::{self, ContactType, Tenure},
-    dto,
+    data::{self, ContactType, Office, Person, SupervisingRelation, Tenure},
+    record::{Key, OfficePath, PersonPath, RecordKey, RecordRepo, RecordValue},
 };
 
 pub fn run(db: &Path, output: &Path) -> Result<()> {
@@ -26,116 +24,175 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     // Open repository
     let conn = rusqlite::Connection::open(db)
         .with_context(|| format!("could not open database at {:?}", db))?;
+    let repo = RecordRepo::new(&conn);
 
     // Export persons
-    let mut ids: Vec<String> = Vec::new();
-    conn.get_entity_ids(&dto::EntityType::Person, |row| {
-        ids.push(row.get(0)?);
+    struct PersonBuilder {
+        name: Option<String>,
+        photo: Option<data::Photo>,
+        tenures: Vec<Tenure>,
+        contacts: BTreeMap<ContactType, String>,
+    }
+
+    let flush_person = |id: &str, builder: PersonBuilder, dir: &Path| -> Result<()> {
+        if let Some(name) = builder.name {
+            let person_data = Person {
+                name,
+                photo: builder.photo,
+                contacts: if builder.contacts.is_empty() {
+                    None
+                } else {
+                    Some(builder.contacts)
+                },
+                tenures: if builder.tenures.is_empty() {
+                    None
+                } else {
+                    Some(builder.tenures)
+                },
+            };
+            let toml_string = toml::to_string_pretty(&person_data)
+                .context("could not serialize person to TOML")?;
+
+            let file_path = dir.join(format!("{}.toml", id));
+            let mut file = File::create(&file_path)
+                .with_context(|| format!("could not create {:?}", file_path))?;
+            file.write_all(toml_string.as_bytes())
+                .with_context(|| format!("could not write to {:?}", file_path))?;
+        }
         Ok(())
-    })?;
+    };
 
-    for id in ids {
-        let name = conn.get_entity_name(&dto::EntityType::Person, &id, |row| row.get(0))?;
-        let photo = conn
-            .get_entity_photo(&dto::EntityType::Person, &id, |row| {
-                Ok(data::Photo {
-                    url: row.get(0)?,
-                    attribution: row.get(1)?,
-                })
-            })
-            .optional()?;
-        let mut tenures = Vec::new();
-        conn.get_tenures(&id, |row| {
-            tenures.push(Tenure {
-                office_id: row.get(0)?,
-                start: row.get(1)?,
-                end: row.get(2)?,
-            });
+    let mut current_id: Option<String> = None;
+    let mut current_person: Option<PersonBuilder> = None;
 
-            Ok(())
-        })?;
-        let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-        conn.get_entity_contacts(&dto::EntityType::Person, &id, |row| {
-            contacts.insert(row.get(0)?, row.get(1)?);
-
-            Ok(())
-        })?;
-        let person_data = data::Person {
-            name,
-            photo,
-            contacts: if contacts.is_empty() {
-                None
-            } else {
-                Some(contacts)
-            },
-            tenures: if tenures.is_empty() {
-                None
-            } else {
-                Some(tenures)
-            },
+    for item in repo.scan(Key::<PersonPath, ()>::all())? {
+        let (key, value) = item?;
+        
+        let id = match &key {
+            RecordKey::Name(k) => &k.entity_id,
+            RecordKey::Photo(k) => &k.entity_id,
+            RecordKey::Contact(k) => &k.entity_id,
+            RecordKey::Tenure(k) => &k.entity_id,
+            _ => continue, 
         };
-        let toml_string =
-            toml::to_string_pretty(&person_data).context("could not serialize person to TOML")?;
 
-        let file_path = person_dir.join(format!("{}.toml", id));
-        let mut file = File::create(&file_path)
-            .with_context(|| format!("could not create {:?}", file_path))?;
-        file.write_all(toml_string.as_bytes())
-            .with_context(|| format!("could not write to {:?}", file_path))?;
+        if current_id.as_deref() != Some(id) {
+            if let (Some(cid), Some(builder)) = (current_id.take(), current_person.take()) {
+                flush_person(&cid, builder, &person_dir)?;
+            }
+            current_id = Some(id.clone());
+            current_person = Some(PersonBuilder {
+                name: None,
+                photo: None,
+                tenures: Vec::new(),
+                contacts: BTreeMap::new(),
+            });
+        }
+
+        let builder = current_person.as_mut().unwrap();
+
+        match (key, value) {
+            (RecordKey::Name(_), RecordValue::Name(v)) => builder.name = Some(v),
+            (RecordKey::Photo(_), RecordValue::Photo(v)) => builder.photo = Some(v),
+            (RecordKey::Contact(k), RecordValue::Contact(v)) => {
+                builder.contacts.insert(k.state.typ, v);
+            }
+            (RecordKey::Tenure(k), RecordValue::Tenure(v)) => {
+                builder.tenures.push(Tenure {
+                    office_id: k.state.office_id,
+                    start: k.state.start.map(|d| d.to_string()),
+                    end: v.map(|d| d.to_string()),
+                });
+            }
+            _ => {}
+        }
+    }
+    
+    if let (Some(cid), Some(builder)) = (current_id, current_person) {
+        flush_person(&cid, builder, &person_dir)?;
     }
 
     // Export offices
-    let mut ids: Vec<String> = Vec::new();
-    conn.get_entity_ids(&dto::EntityType::Office, |row| {
-        ids.push(row.get(0)?);
+    struct OfficeBuilder {
+        name: Option<String>,
+        photo: Option<data::Photo>,
+        supervisors: BTreeMap<SupervisingRelation, String>,
+        contacts: BTreeMap<ContactType, String>,
+    }
+
+    let flush_office = |id: &str, builder: OfficeBuilder, dir: &Path| -> Result<()> {
+        if let Some(name) = builder.name {
+            let office_data = Office {
+                name,
+                photo: builder.photo,
+                contacts: if builder.contacts.is_empty() {
+                    None
+                } else {
+                    Some(builder.contacts)
+                },
+                supervisors: if builder.supervisors.is_empty() {
+                    None
+                } else {
+                    Some(builder.supervisors)
+                },
+            };
+
+            let toml_string = toml::to_string_pretty(&office_data)
+                .context("could not serialize office to TOML")?;
+
+            let file_path = dir.join(format!("{}.toml", id));
+            let mut file = File::create(&file_path)
+                .with_context(|| format!("could not create {:?}", file_path))?;
+            file.write_all(toml_string.as_bytes())
+                .with_context(|| format!("could not write to {:?}", file_path))?;
+        }
         Ok(())
-    })?;
+    };
 
-    for id in ids {
-        let name = conn.get_entity_name(&dto::EntityType::Office, &id, |row| row.get(0))?;
-        let photo = conn
-            .get_entity_photo(&dto::EntityType::Office, &id, |row| {
-                Ok(data::Photo {
-                    url: row.get(0)?,
-                    attribution: row.get(1)?,
-                })
-            })
-            .optional()?;
-        let mut contacts: BTreeMap<ContactType, String> = BTreeMap::new();
-        conn
-            .get_entity_contacts(&dto::EntityType::Office, &id, |row| {
-                contacts.insert(row.get(0)?, row.get(1)?);
+    let mut current_id: Option<String> = None;
+    let mut current_office: Option<OfficeBuilder> = None;
 
-                Ok(())
-            })?;
-        let mut supervisors: BTreeMap<data::SupervisingRelation, String> = BTreeMap::new();
-        conn.get_office_supervising_offices(&id, |row| {
-            supervisors.insert(row.get(0)?, row.get(1)?);
-            Ok(())
-        })?;
-        let office_data = data::Office {
-            name,
-            photo,
-            contacts: if contacts.is_empty() {
-                None
-            } else {
-                Some(contacts)
-            },
-            supervisors: if supervisors.is_empty() {
-                None
-            } else {
-                Some(supervisors)
-            },
+    for item in repo.scan(Key::<OfficePath, ()>::all())? {
+        let (key, value) = item?;
+
+        let id = match &key {
+            RecordKey::Name(k) => &k.entity_id,
+            RecordKey::Photo(k) => &k.entity_id,
+            RecordKey::Contact(k) => &k.entity_id,
+            RecordKey::Supervisor(k) => &k.entity_id,
+            _ => continue,
         };
 
-        let toml_string =
-            toml::to_string_pretty(&office_data).context("could not serialize office to TOML")?;
+        if current_id.as_deref() != Some(id) {
+            if let (Some(cid), Some(builder)) = (current_id.take(), current_office.take()) {
+                flush_office(&cid, builder, &office_dir)?;
+            }
+            current_id = Some(id.clone());
+            current_office = Some(OfficeBuilder {
+                name: None,
+                photo: None,
+                supervisors: BTreeMap::new(),
+                contacts: BTreeMap::new(),
+            });
+        }
 
-        let file_path = office_dir.join(format!("{}.toml", id));
-        let mut file = File::create(&file_path)
-            .with_context(|| format!("could not create {:?}", file_path))?;
-        file.write_all(toml_string.as_bytes())
-            .with_context(|| format!("could not write to {:?}", file_path))?;
+        let builder = current_office.as_mut().unwrap();
+
+        match (key, value) {
+            (RecordKey::Name(_), RecordValue::Name(v)) => builder.name = Some(v),
+            (RecordKey::Photo(_), RecordValue::Photo(v)) => builder.photo = Some(v),
+            (RecordKey::Contact(k), RecordValue::Contact(v)) => {
+                builder.contacts.insert(k.state.typ, v);
+            }
+            (RecordKey::Supervisor(k), RecordValue::Supervisor(v)) => {
+                builder.supervisors.insert(k.state.relation, v);
+            }
+            _ => {}
+        }
+    }
+
+    if let (Some(cid), Some(builder)) = (current_id, current_office) {
+        flush_office(&cid, builder, &office_dir)?;
     }
 
     println!(

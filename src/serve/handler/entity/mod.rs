@@ -14,7 +14,9 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    CONFIG, LibrarySql, config::Config, context, dto, serve::{
+    CONFIG, config::Config, context, dto,
+    record::{Key, OfficePath, PersonPath, RecordRepo},
+    serve::{
         AppError, AppState,
         handler::{
             entity::{contact::ViewContactPartial, name::ViewNamePartial, photo::ViewPhotoPartial},
@@ -61,7 +63,15 @@ pub async fn new(
     Form(form): Form<NewForm>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    conn.new_entity(&typ, &form.id, &form.name)?;
+    let mut repo = RecordRepo::new(&conn);
+    match typ {
+        dto::EntityType::Person => {
+            repo.save(Key::<PersonPath, ()>::new(&form.id).name(), &form.name)?;
+        }
+        dto::EntityType::Office => {
+            repo.save(Key::<OfficePath, ()>::new(&form.id).name(), &form.name)?;
+        }
+    }
 
     hx_redirect(&format!("/{}/{}/edit", typ, &form.id))
 }

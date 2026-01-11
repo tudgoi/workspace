@@ -12,14 +12,6 @@ SELECT EXISTS(
      SELECT 1 FROM entity WHERE type = :typ AND id = :id
  )
 /
--- name: new_entity!
--- Adds a new entity of the given type
--- param: typ: &dto::EntityType - entity type
--- param: id: &str - entity ID
--- param: name: &str - name
-INSERT INTO entity (type, id, name)
-VALUES (:typ, :id, :name);
-/
 -- name: get_entity_ids?
 -- Get all entity IDs of the given type
 -- param: typ: &dto::EntityType
