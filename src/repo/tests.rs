@@ -106,3 +106,47 @@ fn test_committed_ref() {
     assert_ne!(new_root_hash, committed_hash);
     assert_eq!(committed_hash_after, committed_hash);
 }
+
+#[test]
+fn test_iterate_diff() {
+    use crate::repo::{Diff};
+    let backend = TestBackend::new();
+    let mut repo = Repo::new(backend);
+
+    // Initial state
+    repo.write(b"a".to_vec(), b"1".to_vec()).unwrap();
+    repo.write(b"b".to_vec(), b"2".to_vec()).unwrap();
+    repo.commit().unwrap();
+
+    // Modifications
+    repo.write(b"b".to_vec(), b"22".to_vec()).unwrap(); // Changed
+    repo.write(b"c".to_vec(), b"3".to_vec()).unwrap();  // Added
+    // MST doesn't support deletion yet, so we only test Added and Changed.
+    
+    let diffs: Vec<_> = repo.iterate_diff().unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+    
+    assert_eq!(diffs.len(), 2);
+    
+    let mut found_added = false;
+    let mut found_changed = false;
+    
+    for diff in diffs {
+        match diff {
+            Diff::Added(k, v) => {
+                assert_eq!(k, b"c");
+                assert_eq!(v, b"3");
+                found_added = true;
+            }
+            Diff::Changed(k, old_v, new_v) => {
+                assert_eq!(k, b"b");
+                assert_eq!(old_v, b"2");
+                assert_eq!(new_v, b"22");
+                found_changed = true;
+            }
+            Diff::Removed(_, _) => panic!("Unexpected removal"),
+        }
+    }
+    
+    assert!(found_added);
+    assert!(found_changed);
+}
