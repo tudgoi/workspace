@@ -25,7 +25,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     let conn = rusqlite::Connection::open(db)
         .with_context(|| format!("could not open database at {:?}", db))?;
     let repo = RecordRepo::new(&conn);
-    let repo_ref = repo.root()?;
+    let repo_ref = repo.committed()?;
 
     // Export persons
     struct PersonBuilder {
