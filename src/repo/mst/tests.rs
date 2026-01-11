@@ -52,7 +52,7 @@ impl TestStore {
 }
 
 impl Store for TestStore {
-    fn write_node(&mut self, node: &MstNode) -> Result<Hash, RepoError> {
+    fn write_node(&self, node: &MstNode) -> Result<Hash, RepoError> {
         let bytes = postcard::to_stdvec(node)?;
         let hasher = blake3::hash(&bytes);
         let hash = Hash(*hasher.as_bytes());
@@ -113,7 +113,7 @@ fn test_upsert_empty_tree() {
     let root_hash = store.write_node(&root_node).unwrap();
 
     let new_root_hash = root_node
-        .upsert(&mut store, mk_key(0, "name"), "value".as_bytes().to_vec())
+        .upsert(&store, mk_key(0, "name"), "value".as_bytes().to_vec())
         .unwrap();
 
     assert_ne!(root_hash, new_root_hash);
@@ -134,11 +134,11 @@ fn test_upsert_existing_changed_value() {
     let key = mk_key(0, "name");
 
     let root_hash = root_node
-        .upsert(&mut store, key.clone(), "value".as_bytes().to_vec())
+        .upsert(&store, key.clone(), "value".as_bytes().to_vec())
         .unwrap();
 
     let new_root_hash = root_node
-        .upsert(&mut store, key.clone(), "new value".as_bytes().to_vec())
+        .upsert(&store, key.clone(), "new value".as_bytes().to_vec())
         .unwrap();
 
     assert_ne!(root_hash, new_root_hash);
@@ -168,11 +168,11 @@ fn test_upsert_same_level_beginning() {
     };
 
     let root_hash = root_node
-        .upsert(&mut store, second.clone(), "value".as_bytes().to_vec())
+        .upsert(&store, second.clone(), "value".as_bytes().to_vec())
         .unwrap();
 
     let new_root_hash = root_node
-        .upsert(&mut store, first.clone(), "value".as_bytes().to_vec())
+        .upsert(&store, first.clone(), "value".as_bytes().to_vec())
         .unwrap();
 
     assert_ne!(root_hash, new_root_hash);
@@ -204,11 +204,11 @@ fn test_upsert_same_level_ending() {
     };
 
     let root_hash = root_node
-        .upsert(&mut store, first.clone(), "value".as_bytes().to_vec())
+        .upsert(&store, first.clone(), "value".as_bytes().to_vec())
         .unwrap();
 
     let new_root_hash = root_node
-        .upsert(&mut store, second.clone(), "value".as_bytes().to_vec())
+        .upsert(&store, second.clone(), "value".as_bytes().to_vec())
         .unwrap();
 
     assert_ne!(root_hash, new_root_hash);
@@ -240,15 +240,15 @@ fn test_upsert_same_level_between() {
     let (first, middle, last) = (keys[0].clone(), keys[1].clone(), keys[2].clone());
 
     let root_hash = root_node
-        .upsert(&mut store, first.clone(), "value".as_bytes().to_vec())
+        .upsert(&store, first.clone(), "value".as_bytes().to_vec())
         .unwrap();
 
     let _root_hash = root_node
-        .upsert(&mut store, last.clone(), "value".as_bytes().to_vec())
+        .upsert(&store, last.clone(), "value".as_bytes().to_vec())
         .unwrap();
 
     let new_root_hash = root_node
-        .upsert(&mut store, middle.clone(), "value".as_bytes().to_vec())
+        .upsert(&store, middle.clone(), "value".as_bytes().to_vec())
         .unwrap();
 
     assert_ne!(root_hash, new_root_hash);
@@ -276,7 +276,7 @@ fn test_upsert_lower_level() {
     // Insert level 1 item
     let high = mk_key(1, "middle");
     let root_hash = root_node
-        .upsert(&mut store, high.clone(), "val1".as_bytes().to_vec())
+        .upsert(&store, high.clone(), "val1".as_bytes().to_vec())
         .unwrap();
 
     // Insert level 0 item (should go to child)
@@ -286,7 +286,7 @@ fn test_upsert_lower_level() {
     assert!(low < high);
 
     let new_root_hash = root_node
-        .upsert(&mut store, low.clone(), "val2".as_bytes().to_vec())
+        .upsert(&store, low.clone(), "val2".as_bytes().to_vec())
         .unwrap();
 
     assert_ne!(root_hash, new_root_hash);
@@ -310,7 +310,7 @@ fn test_upsert_lower_level_right_child() {
     // Insert level 1 item
     let high = mk_key(1, "middle");
     root_node
-        .upsert(&mut store, high.clone(), "val1".as_bytes().to_vec())
+        .upsert(&store, high.clone(), "val1".as_bytes().to_vec())
         .unwrap();
 
     // Insert level 0 item > high
@@ -319,7 +319,7 @@ fn test_upsert_lower_level_right_child() {
     assert!(low > high);
 
     root_node
-        .upsert(&mut store, low.clone(), "val2".as_bytes().to_vec())
+        .upsert(&store, low.clone(), "val2".as_bytes().to_vec())
         .unwrap();
 
     // Check root
@@ -347,15 +347,15 @@ fn test_upsert_higher_level_split() {
 
     // Insert level 0 items
     root_node
-        .upsert(&mut store, k_a.clone(), "v".as_bytes().to_vec())
+        .upsert(&store, k_a.clone(), "v".as_bytes().to_vec())
         .unwrap();
     root_node
-        .upsert(&mut store, k_c.clone(), "v".as_bytes().to_vec())
+        .upsert(&store, k_c.clone(), "v".as_bytes().to_vec())
         .unwrap();
 
     // Insert level 1 item "b". Should split "a" and "c".
     root_node
-        .upsert(&mut store, k_b.clone(), "higher".as_bytes().to_vec())
+        .upsert(&store, k_b.clone(), "higher".as_bytes().to_vec())
         .unwrap();
 
     assert_eq!(root_node.items.len(), 1);
@@ -393,21 +393,21 @@ fn test_recursive_split() {
 
     // Level 0: a, c, e, g
     root_node
-        .upsert(&mut store, k_a.clone(), "0".as_bytes().to_vec())
+        .upsert(&store, k_a.clone(), "0".as_bytes().to_vec())
         .unwrap();
     root_node
-        .upsert(&mut store, k_c.clone(), "0".as_bytes().to_vec())
+        .upsert(&store, k_c.clone(), "0".as_bytes().to_vec())
         .unwrap();
     root_node
-        .upsert(&mut store, k_e.clone(), "0".as_bytes().to_vec())
+        .upsert(&store, k_e.clone(), "0".as_bytes().to_vec())
         .unwrap();
     root_node
-        .upsert(&mut store, k_g.clone(), "0".as_bytes().to_vec())
+        .upsert(&store, k_g.clone(), "0".as_bytes().to_vec())
         .unwrap();
 
     // Level 1: d (splits c and e) - effectively puts d above them
     root_node
-        .upsert(&mut store, k_d.clone(), "1".as_bytes().to_vec())
+        .upsert(&store, k_d.clone(), "1".as_bytes().to_vec())
         .unwrap();
 
     // Current state (ideal):
@@ -440,7 +440,7 @@ fn test_recursive_split() {
     // [g] > "f" -> goes to new right node of "f".
 
     root_node
-        .upsert(&mut store, k_f.clone(), "2".as_bytes().to_vec())
+        .upsert(&store, k_f.clone(), "2".as_bytes().to_vec())
         .unwrap();
 
     assert_eq!(root_node.items.len(), 1);
@@ -482,7 +482,7 @@ fn test_get() {
 
     // root item
     root_node
-        .upsert(&mut store, k_b.clone(), "val_b".as_bytes().to_vec())
+        .upsert(&store, k_b.clone(), "val_b".as_bytes().to_vec())
         .unwrap();
     assert_eq!(
         root_node.get(&store, &k_b).unwrap(),
@@ -491,10 +491,10 @@ fn test_get() {
 
     // subtree items
     root_node
-        .upsert(&mut store, k_a.clone(), "val_a".as_bytes().to_vec())
+        .upsert(&store, k_a.clone(), "val_a".as_bytes().to_vec())
         .unwrap();
     root_node
-        .upsert(&mut store, k_c.clone(), "val_c".as_bytes().to_vec())
+        .upsert(&store, k_c.clone(), "val_c".as_bytes().to_vec())
         .unwrap();
 
     assert_eq!(

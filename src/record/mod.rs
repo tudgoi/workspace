@@ -372,7 +372,7 @@ impl<'a> RecordRepo<'a> {
         Key<P, T>: TableUpdater<T>,
     {
         let bytes = postcard::to_stdvec(value)?;
-        self.repo.write(key.path.as_bytes().to_vec(), bytes)?;
+        self.repo.root()?.write(key.path.as_bytes().to_vec(), bytes)?;
         key.update_tables(self.repo.backend.conn, value)?;
 
         Ok(())
@@ -382,7 +382,7 @@ impl<'a> RecordRepo<'a> {
         &self,
         key: Key<P, T>,
     ) -> Result<Option<T>, RecordRepoError> {
-        let value = if let Some(bytes) = self.repo.read(&key.path.as_bytes())? {
+        let value = if let Some(bytes) = self.repo.root()?.read(key.path.as_bytes())? {
             postcard::from_bytes(&bytes)?
         } else {
             None
@@ -428,7 +428,7 @@ impl<'a> RecordRepo<'a> {
         RecordRepoError,
     > {
         let prefix = key.path.into_bytes();
-        let iter = self.repo.iter_prefix(&prefix)?;
+        let iter = self.repo.root()?.iter_prefix(&prefix)?;
 
         Ok(iter.map(|item| {
             let (k, v) = item?;
@@ -441,7 +441,7 @@ impl<'a> RecordRepo<'a> {
     }
 
     pub fn commit_id(&self) -> Result<String, RecordRepoError> {
-        Ok(self.repo.commit_id()?)
+        Ok(self.repo.root()?.commit_id()?)
     }
 
     pub fn commit(&mut self) -> Result<(), RecordRepoError> {
@@ -453,7 +453,9 @@ impl<'a> RecordRepo<'a> {
     ) -> Result<impl Iterator<Item = Result<RecordDiff, RecordRepoError>> + '_, RecordRepoError>
     {
         use crate::repo::Diff;
-        let iter = self.repo.iterate_diff()?;
+        let root = self.repo.root()?;
+        let committed = self.repo.committed()?;
+        let iter = committed.iterate_diff(&root)?;
 
         Ok(iter.map(|item| {
             let diff = item?;
@@ -627,6 +629,7 @@ mod tests {
         let mut repo = RecordRepo::new(&conn);
         let p1 = Key::<PersonPath, ()>::new("p1");
         repo.save(p1.name(), &"Person One".to_string()).unwrap();
+        repo.commit().unwrap();
 
         repo.save(p1.name(), &"Person One Updated".to_string())
             .unwrap();

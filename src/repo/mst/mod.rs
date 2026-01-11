@@ -73,7 +73,7 @@ impl MstNode {
     /// Inserts or updates a key-value pair in the MST rooted at this node.
     pub fn upsert<S: Store>(
         &mut self,
-        store: &mut S,
+        store: &S,
         key: Vec<u8>,
         value: Vec<u8>,
     ) -> Result<Hash, RepoError> {
@@ -135,7 +135,7 @@ impl MstNode {
     /// Inserts a key-value pair directly into the current node.
     fn upsert_local<S: Store>(
         &mut self,
-        store: &mut S,
+        store: &S,
         key: Vec<u8>,
         value: Vec<u8>,
     ) -> Result<(), RepoError> {
@@ -165,7 +165,7 @@ impl MstNode {
     /// Splits the node into two nodes based on a split key.
     fn split<S: Store>(
         &mut self,
-        store: &mut S,
+        store: &S,
         split_key: &[u8],
     ) -> Result<(Option<Hash>, Option<Hash>), RepoError> {
         let idx = self
@@ -212,7 +212,7 @@ impl MstNode {
     }
 
     fn split_hash<S: Store>(
-        store: &mut S,
+        store: &S,
         hash: Option<Hash>,
         split_key: &[u8],
     ) -> Result<(Option<Hash>, Option<Hash>), RepoError> {

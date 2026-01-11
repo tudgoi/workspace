@@ -82,43 +82,22 @@ impl<B: Backend> Repo<B> {
         Self { backend }
     }
 
-    pub fn read(&self, key: &[u8]) -> Result<Option<Vec<u8>>, RepoError> {
-        let root_hash = self.backend.get_ref(ROOT_REF)?;
-        match root_hash {
-            Some(h) => {
-                let root_node = self.read_node(&h)?;
-                root_node.get(self, key)
-            }
-            None => Ok(None),
-        }
+    pub fn root(&self) -> Result<RepoRef<'_, B>, RepoError> {
+        let hash = self.backend.get_ref(ROOT_REF)?;
+        Ok(RepoRef {
+            repo: self,
+            hash,
+            name: Some(ROOT_REF),
+        })
     }
 
-    pub fn iter_prefix<'a>(&'a self, prefix: &[u8]) -> Result<PrefixIterator<'a, Self>, RepoError> {
-        let root_hash = self.backend.get_ref(ROOT_REF)?;
-        let root_node = match root_hash {
-            Some(h) => Some(self.read_node(&h)?),
-            None => None,
-        };
-        Ok(PrefixIterator::new(self, prefix, root_node))
-    }
-
-    pub fn write(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), RepoError> {
-        let root_hash = self.backend.get_ref(ROOT_REF)?;
-        let mut root_node = match root_hash {
-            Some(h) => self.read_node(&h)?,
-            None => MstNode::empty(),
-        };
-
-        let new_root_hash = root_node.upsert(self, key, value)?;
-        self.backend.set_ref(ROOT_REF, &new_root_hash)?;
-        Ok(())
-    }
-
-    pub fn commit_id(&self) -> Result<String, RepoError> {
-        self.backend
-            .get_ref(ROOT_REF)?
-            .ok_or(RepoError::RootNotFound)
-            .map(|h| h.to_string())
+    pub fn committed(&self) -> Result<RepoRef<'_, B>, RepoError> {
+        let hash = self.backend.get_ref(COMMITTED_REF)?;
+        Ok(RepoRef {
+            repo: self,
+            hash,
+            name: Some(COMMITTED_REF),
+        })
     }
 
     pub fn commit(&mut self) -> Result<(), RepoError> {
@@ -127,12 +106,6 @@ impl<B: Backend> Repo<B> {
             self.backend.set_ref(COMMITTED_REF, &h)?;
         }
         Ok(())
-    }
-
-    pub fn iterate_diff(&self) -> Result<DiffIterator<'_, B>, RepoError> {
-        let root_hash = self.backend.get_ref(ROOT_REF)?;
-        let committed_hash = self.backend.get_ref(COMMITTED_REF)?;
-        Ok(DiffIterator::new(self, committed_hash, root_hash))
     }
 
     pub fn stats(&self) -> Result<RepoStats, RepoError> {
@@ -235,13 +208,64 @@ impl<B: Backend> Repo<B> {
     }
 }
 
+pub struct RepoRef<'a, B: Backend> {
+    pub repo: &'a Repo<B>,
+    pub hash: Option<Hash>,
+    pub name: Option<&'static str>,
+}
+
+impl<'a, B: Backend> RepoRef<'a, B> {
+    pub fn iterate_diff(&self, other: &RepoRef<'a, B>) -> Result<DiffIterator<'a, B>, RepoError> {
+        Ok(DiffIterator::new(self.repo, self.hash.clone(), other.hash.clone()))
+    }
+
+    pub fn read(&self, key: &[u8]) -> Result<Option<Vec<u8>>, RepoError> {
+        match self.hash {
+            Some(ref h) => {
+                let root_node = self.repo.read_node(h)?;
+                root_node.get(self.repo, key)
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub fn iter_prefix(&self, prefix: &[u8]) -> Result<PrefixIterator<'a, Repo<B>>, RepoError> {
+        let root_node = match self.hash {
+            Some(ref h) => Some(self.repo.read_node(h)?),
+            None => None,
+        };
+        Ok(PrefixIterator::new(self.repo, prefix, root_node))
+    }
+
+    pub fn write(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), RepoError> {
+        let mut root_node = match self.hash {
+            Some(ref h) => self.repo.read_node(h)?,
+            None => MstNode::empty(),
+        };
+
+        let new_root_hash = root_node.upsert(self.repo, key, value)?;
+        if let Some(name) = self.name {
+            self.repo.backend.set_ref(name, &new_root_hash)?;
+        }
+        self.hash = Some(new_root_hash);
+        Ok(())
+    }
+
+    pub fn commit_id(&self) -> Result<String, RepoError> {
+        self.hash
+            .as_ref()
+            .ok_or(RepoError::RootNotFound)
+            .map(|h| h.to_string())
+    }
+}
+
 pub trait Store {
-    fn write_node(&mut self, node: &MstNode) -> Result<Hash, RepoError>;
+    fn write_node(&self, node: &MstNode) -> Result<Hash, RepoError>;
     fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError>;
 }
 
 impl<B: Backend> Store for Repo<B> {
-    fn write_node(&mut self, node: &MstNode) -> Result<Hash, RepoError> {
+    fn write_node(&self, node: &MstNode) -> Result<Hash, RepoError> {
         let bytes = postcard::to_stdvec(node)?;
         let compressed = lz4_flex::compress_prepend_size(&bytes);
         let hasher = blake3::hash(&compressed);
