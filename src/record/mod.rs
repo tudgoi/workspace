@@ -1,12 +1,12 @@
 pub mod sqlitebe;
 
+use crate::WriteSql;
 use chrono::NaiveDate;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::str::FromStr;
 use thiserror::Error;
-use crate::WriteSql;
 
 use crate::{
     data, dto,
@@ -48,6 +48,13 @@ pub enum RecordKey {
     Contact(Key<ContactPath, String>),
     Supervisor(Key<SupervisorPath, String>),
     Tenure(Key<TenurePath, Option<NaiveDate>>),
+}
+
+#[derive(Debug)]
+pub enum RecordDiff {
+    Added(RecordKey, RecordValue),
+    Changed(RecordKey, RecordValue, RecordValue), // key, old_value, new_value
+    Removed(RecordKey, RecordValue),
 }
 
 #[derive(Clone, Debug)]
@@ -116,10 +123,14 @@ impl ParseKeyState for PhotoPath {
 impl ParseKeyState for ContactPath {
     fn parse(parts: &[&str]) -> Result<Self, RecordRepoError> {
         if parts.len() != 2 || parts[0] != "contact" {
-            return Err(RecordRepoError::InvalidPath(format!("Invalid contact path: {:?}", parts)));
+            return Err(RecordRepoError::InvalidPath(format!(
+                "Invalid contact path: {:?}",
+                parts
+            )));
         }
-        let typ = data::ContactType::from_str(parts[1])
-            .map_err(|_| RecordRepoError::InvalidPath(format!("Invalid contact type: {}", parts[1])))?;
+        let typ = data::ContactType::from_str(parts[1]).map_err(|_| {
+            RecordRepoError::InvalidPath(format!("Invalid contact type: {}", parts[1]))
+        })?;
         Ok(ContactPath { typ })
     }
 }
@@ -127,10 +138,14 @@ impl ParseKeyState for ContactPath {
 impl ParseKeyState for SupervisorPath {
     fn parse(parts: &[&str]) -> Result<Self, RecordRepoError> {
         if parts.len() != 2 || parts[0] != "supervisor" {
-            return Err(RecordRepoError::InvalidPath(format!("Invalid supervisor path: {:?}", parts)));
+            return Err(RecordRepoError::InvalidPath(format!(
+                "Invalid supervisor path: {:?}",
+                parts
+            )));
         }
-        let relation = data::SupervisingRelation::from_str(parts[1])
-            .map_err(|_| RecordRepoError::InvalidPath(format!("Invalid supervisor relation: {}", parts[1])))?;
+        let relation = data::SupervisingRelation::from_str(parts[1]).map_err(|_| {
+            RecordRepoError::InvalidPath(format!("Invalid supervisor relation: {}", parts[1]))
+        })?;
         Ok(SupervisorPath { relation })
     }
 }
@@ -138,7 +153,10 @@ impl ParseKeyState for SupervisorPath {
 impl ParseKeyState for TenurePath {
     fn parse(parts: &[&str]) -> Result<Self, RecordRepoError> {
         if parts.len() != 3 || parts[0] != "tenure" {
-            return Err(RecordRepoError::InvalidPath(format!("Invalid tenure path: {:?}", parts)));
+            return Err(RecordRepoError::InvalidPath(format!(
+                "Invalid tenure path: {:?}",
+                parts
+            )));
         }
         let office_id = parts[1].to_string();
         let start = if parts[2].is_empty() {
@@ -376,7 +394,12 @@ impl<'a> RecordRepo<'a> {
             entity_type: match entity_type {
                 "person" => dto::EntityType::Person,
                 "office" => dto::EntityType::Office,
-                _ => return Err(RecordRepoError::InvalidPath(format!("Unknown entity type: {}", entity_type))),
+                _ => {
+                    return Err(RecordRepoError::InvalidPath(format!(
+                        "Unknown entity type: {}",
+                        entity_type
+                    )));
+                }
             },
             entity_id: entity_id.to_string(),
             path: path.to_string(),
@@ -401,38 +424,88 @@ impl<'a> RecordRepo<'a> {
                 RecordRepoError::Repo(RepoError::Backend("Key is not valid UTF-8".to_string()))
             })?;
 
-            if path.ends_with("/name") {
-                let value: String = postcard::from_bytes(&v)?;
-                let key = Self::parse_key::<NamePath, String>(&path)?;
-                Ok((RecordKey::Name(key), RecordValue::Name(value)))
-            } else if path.ends_with("/photo") {
-                let value: data::Photo = postcard::from_bytes(&v)?;
-                let key = Self::parse_key::<PhotoPath, data::Photo>(&path)?;
-                Ok((RecordKey::Photo(key), RecordValue::Photo(value)))
-            } else if path.contains("/contact/") {
-                let value: String = postcard::from_bytes(&v)?;
-                let key = Self::parse_key::<ContactPath, String>(&path)?;
-                Ok((RecordKey::Contact(key), RecordValue::Contact(value)))
-            } else if path.contains("/supervisor/") {
-                let value: String = postcard::from_bytes(&v)?;
-                let key = Self::parse_key::<SupervisorPath, String>(&path)?;
-                Ok((RecordKey::Supervisor(key), RecordValue::Supervisor(value)))
-            } else if path.contains("/tenure/") {
-                let value: Option<NaiveDate> = postcard::from_bytes(&v)?;
-                let key = Self::parse_key::<TenurePath, Option<NaiveDate>>(&path)?;
-                Ok((RecordKey::Tenure(key), RecordValue::Tenure(value)))
-            } else {
-                Err(RecordRepoError::UnknownRecordType(path))
-            }
+            self.parse_record(&path, &v)
         }))
     }
-    
+
     pub fn commit_id(&self) -> Result<String, RecordRepoError> {
         Ok(self.repo.commit_id()?)
     }
 
     pub fn commit(&mut self) -> Result<(), RecordRepoError> {
         Ok(self.repo.commit()?)
+    }
+
+    pub fn iterate_diff(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<RecordDiff, RecordRepoError>> + '_, RecordRepoError>
+    {
+        use crate::repo::Diff;
+        let iter = self.repo.iterate_diff()?;
+
+        Ok(iter.map(|item| {
+            let diff = item?;
+            match diff {
+                Diff::Added(k, v) => {
+                    let path = String::from_utf8(k).map_err(|_| {
+                        RecordRepoError::Repo(RepoError::Backend(
+                            "Key is not valid UTF-8".to_string(),
+                        ))
+                    })?;
+                    let (rk, rv) = self.parse_record(&path, &v)?;
+                    Ok(RecordDiff::Added(rk, rv))
+                }
+                Diff::Changed(k, old_v, new_v) => {
+                    let path = String::from_utf8(k).map_err(|_| {
+                        RecordRepoError::Repo(RepoError::Backend(
+                            "Key is not valid UTF-8".to_string(),
+                        ))
+                    })?;
+                    let (rk, rv_old) = self.parse_record(&path, &old_v)?;
+                    let (_, rv_new) = self.parse_record(&path, &new_v)?;
+                    Ok(RecordDiff::Changed(rk, rv_old, rv_new))
+                }
+                Diff::Removed(k, v) => {
+                    let path = String::from_utf8(k).map_err(|_| {
+                        RecordRepoError::Repo(RepoError::Backend(
+                            "Key is not valid UTF-8".to_string(),
+                        ))
+                    })?;
+                    let (rk, rv) = self.parse_record(&path, &v)?;
+                    Ok(RecordDiff::Removed(rk, rv))
+                }
+            }
+        }))
+    }
+
+    fn parse_record(
+        &self,
+        path: &str,
+        v: &[u8],
+    ) -> Result<(RecordKey, RecordValue), RecordRepoError> {
+        if path.ends_with("/name") {
+            let value: String = postcard::from_bytes(v)?;
+            let key = Self::parse_key::<NamePath, String>(path)?;
+            Ok((RecordKey::Name(key), RecordValue::Name(value)))
+        } else if path.ends_with("/photo") {
+            let value: data::Photo = postcard::from_bytes(v)?;
+            let key = Self::parse_key::<PhotoPath, data::Photo>(path)?;
+            Ok((RecordKey::Photo(key), RecordValue::Photo(value)))
+        } else if path.contains("/contact/") {
+            let value: String = postcard::from_bytes(v)?;
+            let key = Self::parse_key::<ContactPath, String>(path)?;
+            Ok((RecordKey::Contact(key), RecordValue::Contact(value)))
+        } else if path.contains("/supervisor/") {
+            let value: String = postcard::from_bytes(v)?;
+            let key = Self::parse_key::<SupervisorPath, String>(path)?;
+            Ok((RecordKey::Supervisor(key), RecordValue::Supervisor(value)))
+        } else if path.contains("/tenure/") {
+            let value: Option<NaiveDate> = postcard::from_bytes(v)?;
+            let key = Self::parse_key::<TenurePath, Option<NaiveDate>>(path)?;
+            Ok((RecordKey::Tenure(key), RecordValue::Tenure(value)))
+        } else {
+            Err(RecordRepoError::UnknownRecordType(path.to_string()))
+        }
     }
 }
 
@@ -442,7 +515,8 @@ mod tests {
     use rusqlite::Connection;
 
     fn setup_db(conn: &Connection) {
-        conn.execute_batch(r#"
+        conn.execute_batch(
+            r#"
             CREATE TABLE repo (
               hash BLOB NOT NULL PRIMARY KEY,
               blob BLOB NOT NULL
@@ -470,7 +544,9 @@ mod tests {
               start TEXT,
               end TEXT
             );
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -490,9 +566,11 @@ mod tests {
         repo.save(p1.photo(), &photo).unwrap();
 
         let t1 = p1.tenure("o1", None);
-        repo.save(t1, &Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap())).unwrap();
+        repo.save(t1, &Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()))
+            .unwrap();
 
-        let items: Vec<_> = repo.scan(p1)
+        let items: Vec<_> = repo
+            .scan(p1)
             .expect("Scan failed")
             .collect::<Result<Vec<_>, _>>()
             .expect("Iteration failed");
@@ -524,9 +602,55 @@ mod tests {
                 _ => panic!("Unexpected type mismatch or unknown type"),
             }
         }
-
         assert!(found_name);
         assert!(found_photo);
         assert!(found_tenure);
+    }
+
+    #[test]
+    fn test_iterate_diff() {
+        let conn = Connection::open_in_memory().unwrap();
+        setup_db(&conn);
+
+        let mut repo = RecordRepo::new(&conn);
+        let p1 = Key::<PersonPath, ()>::new("p1");
+        repo.save(p1.name(), &"Person One".to_string()).unwrap();
+
+        repo.save(p1.name(), &"Person One Updated".to_string())
+            .unwrap();
+        let p2 = Key::<PersonPath, ()>::new("p2");
+        repo.save(p2.name(), &"Person Two".to_string()).unwrap();
+
+        let diffs: Vec<_> = repo
+            .iterate_diff()
+            .expect("Diff failed")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Iteration failed");
+        assert_eq!(diffs.len(), 2);
+        let mut found_added = false;
+        let mut found_changed = false;
+
+        for diff in diffs {
+            match diff {
+                RecordDiff::Added(RecordKey::Name(k), RecordValue::Name(v)) => {
+                    assert_eq!(k.entity_id, "p2");
+                    assert_eq!(v, "Person Two");
+                    found_added = true;
+                }
+                RecordDiff::Changed(
+                    RecordKey::Name(k),
+                    RecordValue::Name(old_v),
+                    RecordValue::Name(new_v),
+                ) => {
+                    assert_eq!(k.entity_id, "p1");
+                    assert_eq!(old_v, "Person One");
+                    assert_eq!(new_v, "Person One Updated");
+                    found_changed = true;
+                }
+                _ => panic!("Unexpected diff type"),
+            }
+        }
+        assert!(found_added);
+        assert!(found_changed);
     }
 }
