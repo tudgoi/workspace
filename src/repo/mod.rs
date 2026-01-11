@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::repo::mst::MstNode;
+pub use crate::repo::mst::PrefixIterator;
 
 mod mst;
 
@@ -82,6 +83,15 @@ impl<B: Backend> Repo<B> {
             }
             None => Ok(None),
         }
+    }
+
+    pub fn iter_prefix<'a>(&'a self, prefix: &[u8]) -> Result<PrefixIterator<'a, Self>, RepoError> {
+        let root_hash = self.backend.get_ref(ROOT_REF)?;
+        let root_node = match root_hash {
+            Some(h) => Some(self.read_node(&h)?),
+            None => None,
+        };
+        Ok(PrefixIterator::new(self, prefix, root_node))
     }
 
     pub fn write(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), RepoError> {

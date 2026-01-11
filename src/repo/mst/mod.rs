@@ -53,7 +53,7 @@ impl MstNode {
 
     /// Gets the hash of the child node at the given index.
     /// Index 0 is the `left` child, index `i > 0` is the `right` child of `items[i-1]`.
-    fn get_child_hash(&self, idx: usize) -> Option<&Hash> {
+    pub(crate) fn get_child_hash(&self, idx: usize) -> Option<&Hash> {
         if idx == 0 {
             self.left.as_ref()
         } else {
@@ -289,6 +289,123 @@ mod serde_impl {
             });
         }
         Ok(items)
+    }
+}
+
+pub struct PrefixIterator<'a, S> {
+    store: &'a S,
+    prefix: Vec<u8>,
+    stack: Vec<IterState>,
+}
+
+struct IterState {
+    node: MstNode,
+    index: usize,
+    child_processed: bool,
+}
+
+impl<'a, S: Store> PrefixIterator<'a, S> {
+    pub fn new(store: &'a S, prefix: &[u8], root_node: Option<MstNode>) -> Self {
+        let mut stack = Vec::new();
+        if let Some(node) = root_node {
+            stack.push(IterState {
+                node,
+                index: 0,
+                child_processed: false,
+            });
+        }
+        Self {
+            store,
+            prefix: prefix.to_vec(),
+            stack,
+        }
+    }
+}
+
+impl<'a, S: Store> Iterator for PrefixIterator<'a, S> {
+    type Item = Result<(Vec<u8>, Vec<u8>), RepoError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let frame = self.stack.last_mut()?;
+            let idx = frame.index;
+
+            if idx < frame.node.items.len() {
+                let item = &frame.node.items[idx];
+
+                if !frame.child_processed {
+                    frame.child_processed = true;
+
+                    // Optimization: If item.key < prefix, then child[idx] < item < prefix.
+                    if item.key.as_slice() < self.prefix.as_slice() {
+                        continue;
+                    }
+
+                    // Optimization: If item.key == prefix, then child[idx] < item == prefix.
+                    // child[idx] keys are strictly less than item.key.
+                    if item.key.as_slice() == self.prefix.as_slice() {
+                         // child[idx] keys < prefix. Skip child.
+                         // But we still need to process the item itself in the next iteration.
+                         continue;
+                    }
+
+                    if let Some(h) = frame.node.get_child_hash(idx) {
+                        match self.store.read_node(h) {
+                            Ok(node) => {
+                                self.stack.push(IterState {
+                                    node,
+                                    index: 0,
+                                    child_processed: false,
+                                });
+                                continue;
+                            }
+                            Err(e) => return Some(Err(e)),
+                        }
+                    }
+                } else {
+                    // Returned from child[idx]
+                    frame.index += 1;
+                    frame.child_processed = false;
+
+                    // item.key < prefix -> skip
+                    if item.key.as_slice() < self.prefix.as_slice() {
+                        continue;
+                    }
+
+                    if item.key.starts_with(&self.prefix) {
+                        return Some(Ok((item.key.clone(), item.value.clone())));
+                    }
+
+                    // item.key > prefix and not match -> done with this node
+                    self.stack.pop();
+                }
+            } else {
+                // idx == items.len() -> last child
+                if !frame.child_processed {
+                    frame.child_processed = true;
+                    // We only visit the last child if we haven't bailed out yet.
+                    // If we are here, it means all previous items were < prefix or matched prefix.
+                    // So the last child might have matches.
+                    
+                    if let Some(h) = frame.node.get_child_hash(idx) {
+                         match self.store.read_node(h) {
+                            Ok(node) => {
+                                self.stack.push(IterState {
+                                    node,
+                                    index: 0,
+                                    child_processed: false,
+                                });
+                                continue;
+                            }
+                            Err(e) => return Some(Err(e)),
+                        }
+                    }
+                } else {
+                    // Done with last child
+                    self.stack.pop();
+                }
+            }
+        }
     }
 }
 
