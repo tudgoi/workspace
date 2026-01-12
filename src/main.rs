@@ -65,6 +65,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    Init {
+        output: PathBuf,
+    },
+
     Import {
         source: PathBuf,
         output: PathBuf,
@@ -135,6 +139,10 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
+        Commands::Init { output } => {
+            import::init(output.as_path()).with_context(|| "could not run `init`")
+        }
+
         Commands::Import { source, output } => import::run(source.as_path(), output.as_path())
             .with_context(|| "could not run `import`"),
 

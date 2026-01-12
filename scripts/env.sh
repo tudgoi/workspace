@@ -2,6 +2,7 @@ TUDGOI_DATA=../tudgoi-data
 
 import () {
     rm -rf output && mkdir output &&
+    cargo run -- init output/directory.db &&
     cargo run import $TUDGOI_DATA output/directory.db
 }
 

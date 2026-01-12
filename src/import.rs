@@ -9,7 +9,7 @@ use crate::record::{Key, OfficePath, PersonPath, RecordRepo};
 use super::data;
 use super::from_toml_file;
 
-pub fn run(source: &Path, output: &Path) -> Result<()> {
+pub fn init(output: &Path) -> Result<()> {
     ensure!(!output.exists(), "output DB already exists at {:?}", output);
 
     // setup sqlite DB
@@ -22,10 +22,16 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
     conn.create_property_tables()
         .context("could not create property schema")?;
 
-    let mut tx = conn.transaction()?;
-    RecordRepo::new(&tx).init()?;
+    RecordRepo::new(&conn).init()?;
 
-    // process office
+    Ok(())
+}
+
+pub fn run(source: &Path, output: &Path) -> Result<()> {
+    let mut conn = rusqlite::Connection::open(output)
+        .with_context(|| format!("could not open sqlite DB at {:?}", output))?;
+
+    let mut tx = conn.transaction()?;
     let data_dir = source.join("office");
     let paths = data_dir
         .read_dir()
