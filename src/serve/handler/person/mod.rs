@@ -158,7 +158,7 @@ pub async fn page(
 
         Ok(())
     })?;
-    let commit_id = repo.root()?.commit_id()?;
+    let commit_id = repo.working()?.commit_id()?;
     Ok(PersonPageTemplate {
         person: context::Person {
             id: id.to_string(),

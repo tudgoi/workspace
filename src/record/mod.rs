@@ -363,9 +363,9 @@ impl<'a> RecordRepo<'a> {
         }
     }
 
-    pub fn root(&self) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
+    pub fn working(&self) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
         Ok(RecordRepoRef {
-            repo_ref: self.repo.root()?,
+            repo_ref: self.repo.working()?,
         })
     }
 
@@ -383,10 +383,10 @@ impl<'a> RecordRepo<'a> {
         &self,
     ) -> Result<Box<dyn Iterator<Item = Result<RecordDiff, RecordRepoError>> + '_>, RecordRepoError>
     {
-        let root = self.root()?;
+        let working = self.working()?;
         let committed = self.committed()?;
         
-        let diffs: Vec<Result<RecordDiff, RecordRepoError>> = committed.iterate_diff(&root)?.collect();
+        let diffs: Vec<Result<RecordDiff, RecordRepoError>> = committed.iterate_diff(&working)?.collect();
         Ok(Box::new(diffs.into_iter()))
     }
 
@@ -599,20 +599,20 @@ mod tests {
         let mut repo = RecordRepo::new(&conn);
         let p1 = Key::<PersonPath, ()>::new("p1");
 
-        repo.root().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
+        repo.working().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
 
         let photo = data::Photo {
             url: "http://example.com/p1.jpg".to_string(),
             attribution: Some("Attr".to_string()),
         };
-        repo.root().unwrap().save(p1.photo(), &photo).unwrap();
+        repo.working().unwrap().save(p1.photo(), &photo).unwrap();
 
         let t1 = p1.tenure("o1", None);
-        repo.root().unwrap().save(t1, &Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()))
+        repo.working().unwrap().save(t1, &Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()))
             .unwrap();
 
         let items: Vec<_> = repo
-            .root().unwrap()
+            .working().unwrap()
             .scan(p1)
             .expect("Scan failed")
             .collect::<Result<Vec<_>, _>>()
@@ -657,13 +657,13 @@ mod tests {
 
         let mut repo = RecordRepo::new(&conn);
         let p1 = Key::<PersonPath, ()>::new("p1");
-        repo.root().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
+        repo.working().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
         repo.commit().unwrap();
 
-        repo.root().unwrap().save(p1.name(), &"Person One Updated".to_string())
+        repo.working().unwrap().save(p1.name(), &"Person One Updated".to_string())
             .unwrap();
         let p2 = Key::<PersonPath, ()>::new("p2");
-        repo.root().unwrap().save(p2.name(), &"Person Two".to_string()).unwrap();
+        repo.working().unwrap().save(p2.name(), &"Person Two".to_string()).unwrap();
 
         let diffs: Vec<_> = repo
             .iterate_diff()

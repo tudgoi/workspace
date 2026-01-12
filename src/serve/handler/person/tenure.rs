@@ -76,7 +76,7 @@ pub async fn save(
 ) -> Result<ViewTenurePartial, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
-    repo.root()?.save(
+    repo.working()?.save(
         Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, form.start),
         &form.end,
     )?;

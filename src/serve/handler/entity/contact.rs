@@ -102,13 +102,13 @@ pub async fn save(
     let mut repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
-            repo.root()?.save(
+            repo.working()?.save(
                 Key::<PersonPath, ()>::new(&id).contact(contact_form.contact_type),
                 &contact_form.value,
             )?;
         }
         dto::EntityType::Office => {
-            repo.root()?.save(
+            repo.working()?.save(
                 Key::<OfficePath, ()>::new(&id).contact(contact_form.contact_type),
                 &contact_form.value,
             )?;

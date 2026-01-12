@@ -44,7 +44,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
 
         Ok((persons, offices))
     })?;
-    let commit_id = repo.root()?.commit_id()?;
+    let commit_id = repo.working()?.commit_id()?;
 
     Ok(IndexTemplate {
         persons,

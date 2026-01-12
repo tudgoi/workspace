@@ -86,7 +86,7 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
                     office.get_name(),
                 )
                 .await?;
-                RecordRepo::new(conn).root()?.save(
+                RecordRepo::new(conn).working()?.save(
                     Key::<PersonPath, ()>::new(&id).tenure(&office_id, None),
                     &None,
                 )?;
@@ -100,10 +100,10 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
                     let mut repo = RecordRepo::new(conn);
                     match entity_type {
                         dto::EntityType::Person => {
-                            repo.root()?.save(Key::<PersonPath, ()>::new(&id).photo(), &photo)?;
+                            repo.working()?.save(Key::<PersonPath, ()>::new(&id).photo(), &photo)?;
                         }
                         dto::EntityType::Office => {
-                            repo.root()?.save(Key::<OfficePath, ()>::new(&id).photo(), &photo)?;
+                            repo.working()?.save(Key::<OfficePath, ()>::new(&id).photo(), &photo)?;
                         }
                     }
                 }
@@ -113,13 +113,13 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
                     let mut repo = RecordRepo::new(conn);
                     match entity_type {
                         dto::EntityType::Person => {
-                            repo.root()?.save(
+                            repo.working()?.save(
                                 Key::<PersonPath, ()>::new(&id).contact(contact_type.clone()),
                                 value,
                             )?;
                         }
                         dto::EntityType::Office => {
-                            repo.root()?.save(
+                            repo.working()?.save(
                                 Key::<OfficePath, ()>::new(&id).contact(contact_type.clone()),
                                 value,
                             )?;
@@ -145,7 +145,7 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
                     )
                     .await?;
 
-                    RecordRepo::new(conn).root()?.save(
+                    RecordRepo::new(conn).working()?.save(
                         Key::<OfficePath, ()>::new(&id).supervisor(relation.clone()),
                         &supervising_office_id,
                     )?;
@@ -186,10 +186,10 @@ async fn ingest_entity_id_or_name(
             let mut repo = RecordRepo::new(conn);
             match entity_type {
                 dto::EntityType::Person => {
-                    repo.root()?.save(Key::<PersonPath, ()>::new(id).name(), &name.to_string())?;
+                    repo.working()?.save(Key::<PersonPath, ()>::new(id).name(), &name.to_string())?;
                 }
                 dto::EntityType::Office => {
-                    repo.root()?.save(Key::<OfficePath, ()>::new(id).name(), &name.to_string())?;
+                    repo.working()?.save(Key::<OfficePath, ()>::new(id).name(), &name.to_string())?;
                 }
             }
         }
@@ -215,10 +215,10 @@ async fn ingest_entity_id_or_name(
             let mut repo = RecordRepo::new(conn);
             match entity_type {
                 dto::EntityType::Person => {
-                    repo.root()?.save(Key::<PersonPath, ()>::new(&id).name(), &name.to_string())?;
+                    repo.working()?.save(Key::<PersonPath, ()>::new(&id).name(), &name.to_string())?;
                 }
                 dto::EntityType::Office => {
-                    repo.root()?.save(Key::<OfficePath, ()>::new(&id).name(), &name.to_string())?;
+                    repo.working()?.save(Key::<OfficePath, ()>::new(&id).name(), &name.to_string())?;
                 }
             }
 

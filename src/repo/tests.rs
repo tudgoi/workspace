@@ -9,19 +9,19 @@ fn test_repo() {
     let k1: Vec<u8> = "name-0".as_bytes().to_vec();
     let k2: Vec<u8> = "age-0".as_bytes().to_vec();
 
-    assert_eq!(repo.root().unwrap().read(&k1).unwrap(), None);
+    assert_eq!(repo.working().unwrap().read(&k1).unwrap(), None);
 
-    repo.root().unwrap().write(k1.clone(), "val1".as_bytes().to_vec()).unwrap();
-    assert_eq!(repo.root().unwrap().read(&k1).unwrap(), Some("val1".as_bytes().to_vec()));
+    repo.working().unwrap().write(k1.clone(), "val1".as_bytes().to_vec()).unwrap();
+    assert_eq!(repo.working().unwrap().read(&k1).unwrap(), Some("val1".as_bytes().to_vec()));
 
-    repo.root().unwrap().write(k2.clone(), "val2".as_bytes().to_vec()).unwrap();
-    assert_eq!(repo.root().unwrap().read(&k2).unwrap(), Some("val2".as_bytes().to_vec()));
-    assert_eq!(repo.root().unwrap().read(&k1).unwrap(), Some("val1".as_bytes().to_vec()));
+    repo.working().unwrap().write(k2.clone(), "val2".as_bytes().to_vec()).unwrap();
+    assert_eq!(repo.working().unwrap().read(&k2).unwrap(), Some("val2".as_bytes().to_vec()));
+    assert_eq!(repo.working().unwrap().read(&k1).unwrap(), Some("val1".as_bytes().to_vec()));
 
-    repo.root().unwrap().write(k1.clone(), "val1_updated".as_bytes().to_vec())
+    repo.working().unwrap().write(k1.clone(), "val1_updated".as_bytes().to_vec())
         .unwrap();
     assert_eq!(
-        repo.root().unwrap().read(&k1).unwrap(),
+        repo.working().unwrap().read(&k1).unwrap(),
         Some("val1_updated".as_bytes().to_vec())
     );
 }
@@ -45,15 +45,15 @@ fn test_iter_prefix() {
     let backend = TestBackend::new();
     let repo = Repo::new(backend);
 
-    repo.root().unwrap().write(b"apple".to_vec(), b"val1".to_vec()).unwrap();
-    repo.root().unwrap().write(b"apricot".to_vec(), b"val2".to_vec()).unwrap();
-    repo.root().unwrap().write(b"banana".to_vec(), b"val3".to_vec()).unwrap();
-    repo.root().unwrap().write(b"application".to_vec(), b"val4".to_vec())
+    repo.working().unwrap().write(b"apple".to_vec(), b"val1".to_vec()).unwrap();
+    repo.working().unwrap().write(b"apricot".to_vec(), b"val2".to_vec()).unwrap();
+    repo.working().unwrap().write(b"banana".to_vec(), b"val3".to_vec()).unwrap();
+    repo.working().unwrap().write(b"application".to_vec(), b"val4".to_vec())
         .unwrap();
-    repo.root().unwrap().write(b"apply".to_vec(), b"val5".to_vec()).unwrap();
+    repo.working().unwrap().write(b"apply".to_vec(), b"val5".to_vec()).unwrap();
 
     let mut visited = Vec::new();
-    for item in repo.root().unwrap().iter_prefix(b"app").unwrap() {
+    for item in repo.working().unwrap().iter_prefix(b"app").unwrap() {
         let (k, _) = item.unwrap();
         visited.push(k);
     }
@@ -68,14 +68,14 @@ fn test_iter_prefix() {
     );
 
     visited.clear();
-    for item in repo.root().unwrap().iter_prefix(b"ban").unwrap() {
+    for item in repo.working().unwrap().iter_prefix(b"ban").unwrap() {
         let (k, _) = item.unwrap();
         visited.push(k);
     }
     assert_eq!(visited, vec![b"banana".to_vec()]);
 
     visited.clear();
-    for item in repo.root().unwrap().iter_prefix(b"z").unwrap() {
+    for item in repo.working().unwrap().iter_prefix(b"z").unwrap() {
         let (k, _) = item.unwrap();
         visited.push(k);
     }
@@ -84,12 +84,12 @@ fn test_iter_prefix() {
 
 #[test]
 fn test_committed_ref() {
-    use crate::repo::{ROOT_REF, COMMITTED_REF};
+    use crate::repo::{WORKING_REF, COMMITTED_REF};
     let backend = TestBackend::new();
     let mut repo = Repo::new(backend);
 
-    repo.root().unwrap().write(b"k1".to_vec(), b"v1".to_vec()).unwrap();
-    let root_hash = repo.backend.get_ref(ROOT_REF).unwrap();
+    repo.working().unwrap().write(b"k1".to_vec(), b"v1".to_vec()).unwrap();
+    let root_hash = repo.backend.get_ref(WORKING_REF).unwrap();
     let committed_hash = repo.backend.get_ref(COMMITTED_REF).unwrap();
     
     assert!(root_hash.is_some());
@@ -99,8 +99,8 @@ fn test_committed_ref() {
     let committed_hash = repo.backend.get_ref(COMMITTED_REF).unwrap();
     assert_eq!(root_hash, committed_hash);
 
-    repo.root().unwrap().write(b"k2".to_vec(), b"v2".to_vec()).unwrap();
-    let new_root_hash = repo.backend.get_ref(ROOT_REF).unwrap();
+    repo.working().unwrap().write(b"k2".to_vec(), b"v2".to_vec()).unwrap();
+    let new_root_hash = repo.backend.get_ref(WORKING_REF).unwrap();
     let committed_hash_after = repo.backend.get_ref(COMMITTED_REF).unwrap();
     
     assert_ne!(new_root_hash, committed_hash);
@@ -114,16 +114,16 @@ fn test_iterate_diff() {
     let mut repo = Repo::new(backend);
 
     // Initial state
-    repo.root().unwrap().write(b"a".to_vec(), b"1".to_vec()).unwrap();
-    repo.root().unwrap().write(b"b".to_vec(), b"2".to_vec()).unwrap();
+    repo.working().unwrap().write(b"a".to_vec(), b"1".to_vec()).unwrap();
+    repo.working().unwrap().write(b"b".to_vec(), b"2".to_vec()).unwrap();
     repo.commit().unwrap();
 
     // Modifications
-    repo.root().unwrap().write(b"b".to_vec(), b"22".to_vec()).unwrap(); // Changed
-    repo.root().unwrap().write(b"c".to_vec(), b"3".to_vec()).unwrap();  // Added
+    repo.working().unwrap().write(b"b".to_vec(), b"22".to_vec()).unwrap(); // Changed
+    repo.working().unwrap().write(b"c".to_vec(), b"3".to_vec()).unwrap();  // Added
     // MST doesn't support deletion yet, so we only test Added and Changed.
     
-    let root = repo.root().unwrap();
+    let root = repo.working().unwrap();
     let committed = repo.committed().unwrap();
     let diffs: Vec<_> = committed.iterate_diff(&root).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
     
