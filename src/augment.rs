@@ -227,7 +227,7 @@ impl WikidataAugmentor {
 }
 
 async fn augment_photo(conn: &mut Connection, source: &dyn Augmentor) -> Result<()> {
-    let mut repo = RecordRepo::new(conn);
+    let repo = RecordRepo::new(conn);
 
     let mut map: HashMap<String, String> = HashMap::new();
     conn.get_entities_with_contact_without_photo(
@@ -253,7 +253,7 @@ async fn augment_photo(conn: &mut Connection, source: &dyn Augmentor) -> Result<
 }
 
 async fn augment_wikidata_id(conn: &mut Connection, source: &dyn Augmentor) -> Result<()> {
-    let mut repo = RecordRepo::new(conn);
+    let repo = RecordRepo::new(conn);
     let mut persons_to_augment: Vec<context::Person> = Vec::new();
     conn.get_entities_without_contact(
         &dto::EntityType::Person,
@@ -288,7 +288,7 @@ async fn augment_wikidata_id(conn: &mut Connection, source: &dyn Augmentor) -> R
 }
 
 async fn augment_wikipedia(conn: &mut Connection, source: &dyn Augmentor) -> Result<()> {
-    let mut repo = RecordRepo::new(conn);
+    let repo = RecordRepo::new(conn);
     let mut map: HashMap<String, String> = HashMap::new();
     conn.get_entities_with_contact_without_contact(
         &dto::EntityType::Person,

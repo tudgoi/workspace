@@ -67,7 +67,12 @@ pub async fn run(
     db: PathBuf,
     port: Option<&str>,
 ) -> Result<()> {
-    let state = AppState::new(db, true)?;
+    let state = AppState::new(db.clone(), true)?;
+
+    let repo_conn = rusqlite::Connection::open(&db)?;
+    let backend = crate::record::sqlitebe::SqliteBackend::new(&repo_conn);
+    let repo_server = crate::repo::serve::RepoServer::new(backend);
+    let (endpoint_id, _repo_router) = repo_server.start().await.context("failed to start repo server")?;
 
     let app = Router::new()
         .route("/", get(handler::index))
@@ -115,6 +120,7 @@ pub async fn run(
         .await
         .context("could not listen")?;
 
+    println!("Iroh ID: {}", endpoint_id);
     println!("Serving at http://{}/", addr);
     axum::serve(listener, app)
         .await

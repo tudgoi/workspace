@@ -577,6 +577,10 @@ mod tests {
               name TEXT NOT NULL PRIMARY KEY,
               hash BLOB NOT NULL
             );
+            CREATE TABLE secrets (
+              name TEXT NOT NULL PRIMARY KEY,
+              value BLOB NOT NULL
+            );
             CREATE TABLE entity (
               type TEXT NOT NULL,
               id TEXT NOT NULL,
@@ -606,7 +610,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         setup_db(&conn);
 
-        let mut repo = RecordRepo::new(&conn);
+        let repo = RecordRepo::new(&conn);
         repo.init().unwrap();
         let p1 = Key::<PersonPath, ()>::new("p1");
 

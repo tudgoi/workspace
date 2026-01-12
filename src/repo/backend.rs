@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub enum KeyType {
     Node,
     Ref,
+    Secret,
 }
 
 impl Display for KeyType {
@@ -11,6 +12,7 @@ impl Display for KeyType {
         match self {
             KeyType::Node => write!(f, "node"),
             KeyType::Ref => write!(f, "ref"),
+            KeyType::Secret => write!(f, "secret"),
         }
     }
 }

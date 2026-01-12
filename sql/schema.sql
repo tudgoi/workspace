@@ -274,5 +274,10 @@ CREATE TABLE refs (
   name TEXT NOT NULL PRIMARY KEY,
   hash BLOB NOT NULL
 );
+-- [secrets]
+CREATE TABLE secrets (
+  name TEXT NOT NULL PRIMARY KEY,
+  value BLOB NOT NULL
+);
 COMMIT;
 /

@@ -79,7 +79,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
 }
 
 pub fn insert_person_data(tx: &mut Transaction, id: &str, person: &data::Person) -> Result<()> {
-    let mut repo = RecordRepo::new(tx);
+    let repo = RecordRepo::new(tx);
     let person_path = Key::<PersonPath, ()>::new(id);
 
     repo.working()?.save(person_path.name(), &person.name)?;
@@ -115,7 +115,7 @@ pub fn insert_person_data(tx: &mut Transaction, id: &str, person: &data::Person)
 }
 
 fn insert_office_data(tx: &mut Transaction, id: &str, office: &data::Office) -> Result<()> {
-    let mut repo = RecordRepo::new(tx);
+    let repo = RecordRepo::new(tx);
     let office_path = Key::<OfficePath, ()>::new(id);
 
     repo.working()?.save(office_path.name(), &office.name)?;

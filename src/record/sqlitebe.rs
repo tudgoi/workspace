@@ -50,6 +50,14 @@ impl<'a> Backend for SqliteBackend<'a> {
                     .optional()
                     .map_err(SqliteBackendError::from)
             }
+            KeyType::Secret => {
+                self.conn
+                    .query_row("SELECT value FROM secrets WHERE name = ?1", [key], |row| {
+                        row.get(0)
+                    })
+                    .optional()
+                    .map_err(SqliteBackendError::from)
+            }
         }
     }
 
@@ -66,6 +74,13 @@ impl<'a> Backend for SqliteBackend<'a> {
             KeyType::Ref => {
                 self.conn.execute(
                     "INSERT OR REPLACE INTO refs (name, hash) VALUES (?1, ?2)",
+                    (key, value),
+                )?;
+                Ok(())
+            }
+            KeyType::Secret => {
+                self.conn.execute(
+                    "INSERT OR REPLACE INTO secrets (name, value) VALUES (?1, ?2)",
                     (key, value),
                 )?;
                 Ok(())
@@ -101,6 +116,16 @@ impl<'a> Backend for SqliteBackend<'a> {
                 }
                 Ok(refs)
             }
+            KeyType::Secret => {
+                let mut stmt = self.conn.prepare("SELECT name FROM secrets")?;
+                let rows = stmt.query_map([], |row| row.get(0))?;
+
+                let mut secrets = Vec::new();
+                for s in rows {
+                    secrets.push(s?);
+                }
+                Ok(secrets)
+            }
         }
     }
 
@@ -130,6 +155,21 @@ impl<'a> Backend for SqliteBackend<'a> {
                 let mut deleted = 0;
                 {
                     let mut stmt = tx.prepare("DELETE FROM refs WHERE name = ?1")?;
+                    for key in keys {
+                        deleted += stmt.execute([key])?;
+                    }
+                }
+                tx.commit()?;
+                Ok(deleted)
+            }
+            KeyType::Secret => {
+                if keys.is_empty() {
+                    return Ok(0);
+                }
+                let tx = self.conn.unchecked_transaction()?;
+                let mut deleted = 0;
+                {
+                    let mut stmt = tx.prepare("DELETE FROM secrets WHERE name = ?1")?;
                     for key in keys {
                         deleted += stmt.execute([key])?;
                     }

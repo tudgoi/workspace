@@ -97,7 +97,7 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
                         url: url.clone(),
                         attribution: attribution.clone(),
                     };
-                    let mut repo = RecordRepo::new(conn);
+                    let repo = RecordRepo::new(conn);
                     match entity_type {
                         dto::EntityType::Person => {
                             repo.working()?.save(Key::<PersonPath, ()>::new(&id).photo(), &photo)?;
@@ -110,7 +110,7 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
             }
             graph::Property::Contact(contact_type, value) => {
                 if !conn.exists_entity_contact(&entity_type, &id, contact_type, |row| row.get(0))? {
-                    let mut repo = RecordRepo::new(conn);
+                    let repo = RecordRepo::new(conn);
                     match entity_type {
                         dto::EntityType::Person => {
                             repo.working()?.save(
@@ -183,7 +183,7 @@ async fn ingest_entity_id_or_name(
             let name = name
                 .with_context(|| format!("entity {:?}:{} doesn't have a name", entity_type, id))?;
 
-            let mut repo = RecordRepo::new(conn);
+            let repo = RecordRepo::new(conn);
             match entity_type {
                 dto::EntityType::Person => {
                     repo.working()?.save(Key::<PersonPath, ()>::new(id).name(), &name.to_string())?;
@@ -212,7 +212,7 @@ async fn ingest_entity_id_or_name(
             Ok(entity.id)
         } else {
             let id = derive_id(entity_type, name);
-            let mut repo = RecordRepo::new(conn);
+            let repo = RecordRepo::new(conn);
             match entity_type {
                 dto::EntityType::Person => {
                     repo.working()?.save(Key::<PersonPath, ()>::new(&id).name(), &name.to_string())?;

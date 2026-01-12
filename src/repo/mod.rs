@@ -1,14 +1,18 @@
 use std::fmt::Display;
 use std::error::Error;
 
+pub use crate::repo::mst::PrefixIterator;
+use crate::repo::{
+    backend::{Backend, KeyType},
+    mst::MstNode,
+};
+use iroh::SecretKey;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::repo::{backend::{Backend, KeyType}, mst::MstNode};
-pub use crate::repo::mst::PrefixIterator;
-
-mod mst;
 pub mod backend;
+mod mst;
+pub mod serve;
 
 #[cfg(test)]
 pub mod test_backend;
@@ -18,6 +22,7 @@ mod tests;
 
 const WORKING_REF: &str = "working";
 const COMMITTED_REF: &str = "committed";
+const IROH_SECRET: &str = "iroh";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Diff {
@@ -107,6 +112,13 @@ where
         let hash = self.write_node(&empty_node)?;
         self.backend.set(KeyType::Ref, WORKING_REF, &hash.0).map_err(|e| e.to_repo_error())?;
         self.backend.set(KeyType::Ref, COMMITTED_REF, &hash.0).map_err(|e| e.to_repo_error())?;
+
+        let iroh_secret = SecretKey::generate(&mut rand::rng());
+        self.backend.set(
+            KeyType::Secret,
+            IROH_SECRET,
+            iroh_secret.to_bytes().as_slice(),
+        ).map_err(|e| e.to_repo_error())?;
         Ok(())
     }
 
@@ -271,6 +283,9 @@ where
     }
 }
 
+// TODO Split into ReadOnly and ReadWrite refs. Only working ref needs to be
+// ReadWrite. committed ref should be ReadOnly. Or does &mut elf already
+// differentiate the behavior?
 pub struct RepoRef<'a, B: Backend> {
     pub repo: &'a Repo<B>,
     pub hash: Hash,
