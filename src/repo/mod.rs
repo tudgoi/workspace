@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod backend;
+pub mod sync;
 mod mst;
-pub mod serve;
 
 #[cfg(test)]
 pub mod test_backend;

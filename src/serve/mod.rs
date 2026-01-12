@@ -16,7 +16,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use r2d2::Error as R2D2Error;
 use thiserror::Error;
 
-use crate::record::RecordRepoError;
+use crate::{record::{RecordRepoError, sqlitebe::SqlitePoolBackend}, repo::sync::server::RepoServer};
 
 use tower_livereload::LiveReloadLayer;
 
@@ -69,9 +69,8 @@ pub async fn run(
 ) -> Result<()> {
     let state = AppState::new(db.clone(), true)?;
 
-    let repo_conn = rusqlite::Connection::open(&db)?;
-    let backend = crate::record::sqlitebe::SqliteBackend::new(&repo_conn);
-    let repo_server = crate::repo::serve::RepoServer::new(backend);
+    let backend = SqlitePoolBackend::new(state.db_pool.clone());
+    let repo_server = RepoServer::new(backend);
     let (endpoint_id, _repo_router) = repo_server.start().await.context("failed to start repo server")?;
 
     let app = Router::new()

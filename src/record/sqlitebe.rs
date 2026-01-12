@@ -8,6 +8,8 @@ use crate::repo::backend::{KeyType, Backend};
 pub enum SqliteBackendError {
     #[error("sqlite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
+    #[error("pool error: {0}")]
+    Pool(String),
     #[error("hash parsing error: {0}")]
     HashParse(String),
 }
@@ -18,6 +20,7 @@ impl ToRepoError for SqliteBackendError {
     }
 }
 
+#[derive(Debug)]
 pub struct SqliteBackend<'a> {
     pub conn: &'a Connection,
 }
@@ -25,6 +28,66 @@ pub struct SqliteBackend<'a> {
 impl<'a> SqliteBackend<'a> {
     pub fn new(conn: &'a Connection) -> Self {
         Self { conn }
+    }
+}
+
+#[derive(Clone)]
+pub struct SqlitePoolBackend {
+    pub pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
+}
+
+impl SqlitePoolBackend {
+    pub fn new(pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>) -> Self {
+        Self { pool }
+    }
+}
+
+impl std::fmt::Debug for SqlitePoolBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PoolBackend").finish()
+    }
+}
+
+impl Backend for SqlitePoolBackend {
+    type Error = SqliteBackendError;
+
+    fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, Self::Error> {
+        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let backend = SqliteBackend::new(&conn);
+        backend.get(key_type, key)
+    }
+
+    fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), Self::Error> {
+        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let backend = SqliteBackend::new(&conn);
+        backend.set(key_type, key, value)
+    }
+
+    fn list(&self, key_type: KeyType) -> Result<Vec<String>, Self::Error> {
+        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let backend = SqliteBackend::new(&conn);
+        backend.list(key_type)
+    }
+
+    fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, Self::Error> {
+        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let backend = SqliteBackend::new(&conn);
+        backend.delete(key_type, keys)
+    }
+
+    fn vacuum(&self) -> Result<(), Self::Error> {
+        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let backend = SqliteBackend::new(&conn);
+        backend.vacuum()
+    }
+
+    fn stats(
+        &self,
+        key_type: KeyType,
+    ) -> Result<(usize, std::collections::BTreeMap<usize, usize>), Self::Error> {
+        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let backend = SqliteBackend::new(&conn);
+        backend.stats(key_type)
     }
 }
 
