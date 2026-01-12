@@ -118,6 +118,13 @@ enum Commands {
     Gc {
         db: PathBuf,
     },
+
+    Pull {
+        db: PathBuf,
+
+        #[arg(short = 'p', long)]
+        peer: String,
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -135,7 +142,8 @@ enum Source {
     Old,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
@@ -170,7 +178,7 @@ fn main() -> Result<()> {
         Commands::Serve {
             db,
             port,
-        } => serve::run(db, port.as_deref()).with_context(|| "failed to run `serve`"),
+        } => serve::run(db, port.as_deref()).await.with_context(|| "failed to run `serve`"),
 
         Commands::Stats { db } => {
             let conn = rusqlite::Connection::open(db)?;
@@ -200,6 +208,20 @@ fn main() -> Result<()> {
             let deleted = repo.gc()?;
 
             println!("Garbage collection finished. Deleted {} nodes.", deleted);
+
+            Ok(())
+        }
+
+        Commands::Pull { db, peer } => {
+            let manager = r2d2_sqlite::SqliteConnectionManager::file(db);
+            let pool = r2d2::Pool::new(manager)?;
+            let backend = crate::record::sqlitebe::SqlitePoolBackend::new(pool);
+            let client = repo::sync::client::RepoClient::new(backend);
+            let peer_id = peer.parse::<iroh::EndpointId>().map_err(|e| anyhow::anyhow!("failed to parse peer ID: {}", e))?;
+
+            println!("Pulling from {}...", peer_id);
+            client.pull(peer_id).await.map_err(|e| anyhow::anyhow!("pull failed: {}", e))?;
+            println!("Pull complete.");
 
             Ok(())
         }

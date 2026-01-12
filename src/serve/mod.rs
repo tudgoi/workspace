@@ -62,7 +62,6 @@ impl IntoResponse for AppError {
     }
 }
 
-#[tokio::main]
 pub async fn run(
     db: PathBuf,
     port: Option<&str>,
