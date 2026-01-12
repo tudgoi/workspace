@@ -1,8 +1,5 @@
 use std::fmt::Display;
 
-use crate::repo::RepoError;
-
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KeyType {
     Node,
@@ -19,10 +16,12 @@ impl Display for KeyType {
 }
 
 pub trait Backend {
-    fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, RepoError>;
-    fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), RepoError>;
-    fn list(&self, key_type: KeyType) -> Result<Vec<String>, RepoError>;
-    fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, RepoError>;
-    fn vacuum(&self) -> Result<(), RepoError>;
-    fn stats(&self, key_type: KeyType) -> Result<(usize, std::collections::BTreeMap<usize, usize>), RepoError>;
+    type Error: std::fmt::Debug + Display + Send + Sync + 'static;
+
+    fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, Self::Error>;
+    fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), Self::Error>;
+    fn list(&self, key_type: KeyType) -> Result<Vec<String>, Self::Error>;
+    fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, Self::Error>;
+    fn vacuum(&self) -> Result<(), Self::Error>;
+    fn stats(&self, key_type: KeyType) -> Result<(usize, std::collections::BTreeMap<usize, usize>), Self::Error>;
 }

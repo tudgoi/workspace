@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::error::Error;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -25,7 +26,7 @@ pub enum Diff {
     Removed(Vec<u8>, Vec<u8>),
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct Hash(pub [u8; 32]);
 
 impl Hash {
@@ -63,11 +64,21 @@ pub enum RepoError {
     #[error("lz4 error: {0}")]
     Lz4(#[from] lz4_flex::block::DecompressError),
     #[error("backend error: {0}")]
-    Backend(String),
+    Backend(#[from] Box<dyn Error + Send + Sync>),
     #[error("`{0}` ref not found")]
     RefNotFound(String),
     #[error("hash parsing error: {0}")]
     HashParse(String),
+}
+
+impl RepoError {
+    pub fn backend<E: Error + Send + Sync + 'static>(e: E) -> Self {
+        RepoError::Backend(Box::new(e))
+    }
+}
+
+pub trait ToRepoError {
+    fn to_repo_error(self) -> RepoError;
 }
 
 pub struct RepoStats {
@@ -83,7 +94,10 @@ pub struct Repo<B: Backend> {
     pub backend: B,
 }
 
-impl<B: Backend> Repo<B> {
+impl<B: Backend> Repo<B> 
+where 
+    B::Error: ToRepoError
+{
     pub fn new(backend: B) -> Self {
         Self { backend }
     }
@@ -91,17 +105,22 @@ impl<B: Backend> Repo<B> {
     pub fn init(&self) -> Result<(), RepoError> {
         let empty_node = MstNode::empty();
         let hash = self.write_node(&empty_node)?;
-        self.backend.set(KeyType::Ref, WORKING_REF, &hash.0)?;
-        self.backend.set(KeyType::Ref, COMMITTED_REF, &hash.0)?;
+        self.backend.set(KeyType::Ref, WORKING_REF, &hash.0).map_err(|e| e.to_repo_error())?;
+        self.backend.set(KeyType::Ref, COMMITTED_REF, &hash.0).map_err(|e| e.to_repo_error())?;
         Ok(())
     }
 
     pub fn working(&self) -> Result<RepoRef<'_, B>, RepoError> {
         let hash_bytes = self
             .backend
-            .get(KeyType::Ref, WORKING_REF)?
+            .get(KeyType::Ref, WORKING_REF)
+            .map_err(|e| e.to_repo_error())?
             .ok_or_else(|| RepoError::RefNotFound(WORKING_REF.to_string()))?;
-        let hash = Hash(hash_bytes.try_into().map_err(|_| RepoError::Backend("Invalid hash length in ref".to_string()))?);
+        let hash = Hash(
+            hash_bytes
+                .try_into()
+                .map_err(|_| RepoError::HashParse("Invalid hash length in ref".to_string()))?,
+        );
         Ok(RepoRef {
             repo: self,
             hash,
@@ -112,9 +131,14 @@ impl<B: Backend> Repo<B> {
     pub fn committed(&self) -> Result<RepoRef<'_, B>, RepoError> {
         let hash_bytes = self
             .backend
-            .get(KeyType::Ref, COMMITTED_REF)?
+            .get(KeyType::Ref, COMMITTED_REF)
+            .map_err(|e| e.to_repo_error())?
             .ok_or_else(|| RepoError::RefNotFound(COMMITTED_REF.to_string()))?;
-        let hash = Hash(hash_bytes.try_into().map_err(|_| RepoError::Backend("Invalid hash length in ref".to_string()))?);
+        let hash = Hash(
+            hash_bytes
+                .try_into()
+                .map_err(|_| RepoError::HashParse("Invalid hash length in ref".to_string()))?,
+        );
         Ok(RepoRef {
             repo: self,
             hash,
@@ -123,25 +147,29 @@ impl<B: Backend> Repo<B> {
     }
 
     pub fn commit(&mut self) -> Result<(), RepoError> {
-        let root_hash_bytes = self.backend.get(KeyType::Ref, WORKING_REF)?;
+        let root_hash_bytes = self.backend.get(KeyType::Ref, WORKING_REF).map_err(|e| e.to_repo_error())?;
         if let Some(h_bytes) = root_hash_bytes {
-             self.backend.set(KeyType::Ref, COMMITTED_REF, &h_bytes)?;
+            self.backend.set(KeyType::Ref, COMMITTED_REF, &h_bytes).map_err(|e| e.to_repo_error())?;
         }
         Ok(())
     }
 
     pub fn stats(&self) -> Result<RepoStats, RepoError> {
-        let root_hash_bytes = self.backend.get(KeyType::Ref, WORKING_REF)?;
+        let root_hash_bytes = self.backend.get(KeyType::Ref, WORKING_REF).map_err(|e| e.to_repo_error())?;
         let mut kv_count = 0;
         let mut total_value_size = 0;
         let mut value_sizes = std::collections::BTreeMap::new();
 
         if let Some(h_bytes) = root_hash_bytes {
-            let h = Hash(h_bytes.try_into().map_err(|_| RepoError::Backend("Invalid hash length".to_string()))?);
+            let h = Hash(
+                h_bytes
+                    .try_into()
+                    .map_err(|_| RepoError::HashParse("Invalid hash length".to_string()))?,
+            );
             self.traverse_stats(&h, &mut kv_count, &mut total_value_size, &mut value_sizes)?;
         }
 
-        let (node_count, node_sizes) = self.backend.stats(KeyType::Node)?;
+        let (node_count, node_sizes) = self.backend.stats(KeyType::Node).map_err(|e| e.to_repo_error())?;
         let total_node_size = node_sizes.iter().map(|(s, c)| s * c).sum();
 
         Ok(RepoStats {
@@ -156,16 +184,20 @@ impl<B: Backend> Repo<B> {
 
     pub fn gc(&self) -> Result<usize, RepoError> {
         let mut reachable = std::collections::HashSet::new();
-        let ref_names = self.backend.list(KeyType::Ref)?;
+        let ref_names = self.backend.list(KeyType::Ref).map_err(|e| e.to_repo_error())?;
 
         for name in ref_names {
-            if let Some(hash_bytes) = self.backend.get(KeyType::Ref, &name)? {
-                 let hash = Hash(hash_bytes.try_into().map_err(|_| RepoError::Backend("Invalid hash length".to_string()))?);
-                 self.traverse_reachable(&hash, &mut reachable)?;
+            if let Some(hash_bytes) = self.backend.get(KeyType::Ref, &name).map_err(|e| e.to_repo_error())? {
+                let hash = Hash(
+                    hash_bytes
+                        .try_into()
+                        .map_err(|_| RepoError::HashParse("Invalid hash length".to_string()))?,
+                );
+                self.traverse_reachable(&hash, &mut reachable)?;
             }
         }
 
-        let all_hashes_hex = self.backend.list(KeyType::Node)?;
+        let all_hashes_hex = self.backend.list(KeyType::Node).map_err(|e| e.to_repo_error())?;
         let mut to_delete_hex: Vec<String> = Vec::new();
 
         for hex in all_hashes_hex {
@@ -179,10 +211,10 @@ impl<B: Backend> Repo<B> {
             0
         } else {
             let refs: Vec<&str> = to_delete_hex.iter().map(|s| s.as_str()).collect();
-            self.backend.delete(KeyType::Node, &refs)?
+            self.backend.delete(KeyType::Node, &refs).map_err(|e| e.to_repo_error())?
         };
 
-        self.backend.vacuum()?;
+        self.backend.vacuum().map_err(|e| e.to_repo_error())?;
 
         Ok(deleted)
     }
@@ -245,7 +277,10 @@ pub struct RepoRef<'a, B: Backend> {
     pub name: String,
 }
 
-impl<'a, B: Backend> RepoRef<'a, B> {
+impl<'a, B: Backend> RepoRef<'a, B> 
+where 
+    B::Error: ToRepoError
+{
     pub fn iterate_diff(&self, other: &RepoRef<'a, B>) -> Result<DiffIterator<'a, B>, RepoError> {
         Ok(DiffIterator::new(
             self.repo,
@@ -268,7 +303,7 @@ impl<'a, B: Backend> RepoRef<'a, B> {
         let mut root_node = self.repo.read_node(&self.hash)?;
 
         let new_root_hash = root_node.upsert(self.repo, key, value)?;
-        self.repo.backend.set(KeyType::Ref, &self.name, &new_root_hash.0)?;
+        self.repo.backend.set(KeyType::Ref, &self.name, &new_root_hash.0).map_err(|e| e.to_repo_error())?;
         self.hash = new_root_hash;
         Ok(())
     }
@@ -283,21 +318,24 @@ pub trait Store {
     fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError>;
 }
 
-impl<B: Backend> Store for Repo<B> {
+impl<B: Backend> Store for Repo<B> 
+where 
+    B::Error: ToRepoError
+{
     fn write_node(&self, node: &MstNode) -> Result<Hash, RepoError> {
         let bytes = postcard::to_stdvec(node)?;
         let compressed = lz4_flex::compress_prepend_size(&bytes);
         let hasher = blake3::hash(&compressed);
         let hash = Hash(*hasher.as_bytes());
 
-        self.backend.set(KeyType::Node, &hash.to_string(), &compressed)?;
+        self.backend.set(KeyType::Node, &hash.to_string(), &compressed).map_err(|e| e.to_repo_error())?;
 
         Ok(hash)
     }
 
     fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError> {
-        let compressed = self.backend.get(KeyType::Node, &hash.to_string())?
-            .ok_or_else(|| RepoError::Backend(format!("node not found: {}", hash)))?;
+        let compressed = self.backend.get(KeyType::Node, &hash.to_string()).map_err(|e| e.to_repo_error())?
+            .ok_or_else(|| RepoError::HashParse(format!("node not found: {}", hash)))?;
         let decompressed = lz4_flex::decompress_size_prepended(&compressed)?;
         let node = postcard::from_bytes(&decompressed)?;
         Ok(node)
@@ -320,7 +358,10 @@ struct DiffIterState {
 
 // TODO Why does DiffIterator need to accept Option<Hash>? Can we enforce
 // that we always need to diff existing trees only?
-impl<'a, B: Backend> DiffIterator<'a, B> {
+impl<'a, B: Backend> DiffIterator<'a, B> 
+where 
+    B::Error: ToRepoError
+{
     fn new(repo: &'a Repo<B>, old_root: Option<Hash>, new_root: Option<Hash>) -> Self {
         let mut stack = Vec::new();
         if old_root != new_root {
@@ -337,7 +378,10 @@ impl<'a, B: Backend> DiffIterator<'a, B> {
     }
 }
 
-impl<'a, B: Backend> Iterator for DiffIterator<'a, B> {
+impl<'a, B: Backend> Iterator for DiffIterator<'a, B> 
+where 
+    B::Error: ToRepoError
+{
     type Item = Result<Diff, RepoError>;
 
     fn next(&mut self) -> Option<Self::Item> {

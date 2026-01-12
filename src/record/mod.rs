@@ -12,7 +12,7 @@ use crate::{
     data, dto,
     repo::{Repo, RepoError},
 };
-use sqlitebe::SqliteBackend;
+use sqlitebe::{SqliteBackend, SqliteBackendError};
 
 #[derive(Error, Debug)]
 pub enum RecordRepoError {
@@ -30,6 +30,12 @@ pub enum RecordRepoError {
 
     #[error("invalid path: {0}")]
     InvalidPath(String),
+}
+
+impl From<SqliteBackendError> for RecordRepoError {
+    fn from(e: SqliteBackendError) -> Self {
+        RecordRepoError::Repo(RepoError::backend(e))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -470,7 +476,7 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
         Ok(iter.map(|item| {
             let (k, v) = item?;
             let path = String::from_utf8(k).map_err(|_| {
-                RecordRepoError::Repo(RepoError::Backend("Key is not valid UTF-8".to_string()))
+                RecordRepoError::Repo(RepoError::HashParse("Key is not valid UTF-8".to_string()))
             })?;
 
             self.parse_record(&path, &v)
@@ -494,7 +500,7 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
             match diff {
                 Diff::Added(k, v) => {
                     let path = String::from_utf8(k).map_err(|_| {
-                        RecordRepoError::Repo(RepoError::Backend(
+                        RecordRepoError::Repo(RepoError::HashParse(
                             "Key is not valid UTF-8".to_string(),
                         ))
                     })?;
@@ -503,7 +509,7 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
                 }
                 Diff::Changed(k, old_v, new_v) => {
                     let path = String::from_utf8(k).map_err(|_| {
-                        RecordRepoError::Repo(RepoError::Backend(
+                        RecordRepoError::Repo(RepoError::HashParse(
                             "Key is not valid UTF-8".to_string(),
                         ))
                     })?;
@@ -513,7 +519,7 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
                 }
                 Diff::Removed(k, v) => {
                     let path = String::from_utf8(k).map_err(|_| {
-                        RecordRepoError::Repo(RepoError::Backend(
+                        RecordRepoError::Repo(RepoError::HashParse(
                             "Key is not valid UTF-8".to_string(),
                         ))
                     })?;
