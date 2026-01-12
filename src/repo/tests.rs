@@ -90,26 +90,26 @@ fn test_iter_prefix() {
 
 #[test]
 fn test_committed_ref() {
-    use crate::repo::{WORKING_REF, COMMITTED_REF};
+    use crate::repo::{WORKING_REF, COMMITTED_REF, KeyType};
     let backend = TestBackend::new();
     let mut repo = Repo::new(backend);
     repo.init().unwrap();
 
     repo.working().unwrap().write(b"k1".to_vec(), b"v1".to_vec()).unwrap();
-    let root_hash = repo.backend.get_ref(WORKING_REF).unwrap();
-    let committed_hash = repo.backend.get_ref(COMMITTED_REF).unwrap();
+    let root_hash = repo.backend.get(KeyType::Ref, WORKING_REF).unwrap();
+    let committed_hash = repo.backend.get(KeyType::Ref, COMMITTED_REF).unwrap();
     
     assert!(root_hash.is_some());
     assert!(committed_hash.is_some());
     assert_ne!(root_hash, committed_hash);
 
     repo.commit().unwrap();
-    let committed_hash = repo.backend.get_ref(COMMITTED_REF).unwrap();
+    let committed_hash = repo.backend.get(KeyType::Ref, COMMITTED_REF).unwrap();
     assert_eq!(root_hash, committed_hash);
 
     repo.working().unwrap().write(b"k2".to_vec(), b"v2".to_vec()).unwrap();
-    let new_root_hash = repo.backend.get_ref(WORKING_REF).unwrap();
-    let committed_hash_after = repo.backend.get_ref(COMMITTED_REF).unwrap();
+    let new_root_hash = repo.backend.get(KeyType::Ref, WORKING_REF).unwrap();
+    let committed_hash_after = repo.backend.get(KeyType::Ref, COMMITTED_REF).unwrap();
     
     assert_ne!(new_root_hash, committed_hash);
     assert_eq!(committed_hash_after, committed_hash);

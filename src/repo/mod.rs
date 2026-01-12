@@ -3,10 +3,11 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::repo::mst::MstNode;
+use crate::repo::{backend::{Backend, KeyType}, mst::MstNode};
 pub use crate::repo::mst::PrefixIterator;
 
 mod mst;
+pub mod backend;
 
 #[cfg(test)]
 pub mod test_backend;
@@ -26,6 +27,21 @@ pub enum Diff {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Hash(pub [u8; 32]);
+
+impl Hash {
+    pub fn from_hex(hex: &str) -> Result<Self, String> {
+        if hex.len() != 64 {
+            return Err("Invalid hex length".to_string());
+        }
+        let mut bytes = [0u8; 32];
+        for i in 0..32 {
+            let byte_str = &hex[i * 2..i * 2 + 2];
+            bytes[i] = u8::from_str_radix(byte_str, 16)
+                .map_err(|e| format!("Invalid hex character: {}", e))?;
+        }
+        Ok(Hash(bytes))
+    }
+}
 
 impl Display for Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -50,6 +66,8 @@ pub enum RepoError {
     Backend(String),
     #[error("`{0}` ref not found")]
     RefNotFound(String),
+    #[error("hash parsing error: {0}")]
+    HashParse(String),
 }
 
 pub struct RepoStats {
@@ -59,18 +77,6 @@ pub struct RepoStats {
     pub node_count: usize,
     pub total_node_size: usize,
     pub node_size_distribution: std::collections::BTreeMap<usize, usize>,
-}
-
-pub trait Backend {
-    fn read(&self, hash: &Hash) -> Result<Vec<u8>, RepoError>;
-    fn write(&self, hash: &Hash, blob: &[u8]) -> Result<(), RepoError>;
-    fn set_ref(&self, name: &str, hash: &Hash) -> Result<(), RepoError>;
-    fn get_ref(&self, name: &str) -> Result<Option<Hash>, RepoError>;
-    fn list_refs(&self) -> Result<Vec<(String, Hash)>, RepoError>;
-    fn delete_nodes(&self, hashes: &[Hash]) -> Result<usize, RepoError>;
-    fn list_all_node_hashes(&self) -> Result<Vec<Hash>, RepoError>;
-    fn vacuum(&self) -> Result<(), RepoError>;
-    fn stats(&self) -> Result<(usize, std::collections::BTreeMap<usize, usize>), RepoError>;
 }
 
 pub struct Repo<B: Backend> {
@@ -85,16 +91,17 @@ impl<B: Backend> Repo<B> {
     pub fn init(&self) -> Result<(), RepoError> {
         let empty_node = MstNode::empty();
         let hash = self.write_node(&empty_node)?;
-        self.backend.set_ref(WORKING_REF, &hash)?;
-        self.backend.set_ref(COMMITTED_REF, &hash)?;
+        self.backend.set(KeyType::Ref, WORKING_REF, &hash.0)?;
+        self.backend.set(KeyType::Ref, COMMITTED_REF, &hash.0)?;
         Ok(())
     }
 
     pub fn working(&self) -> Result<RepoRef<'_, B>, RepoError> {
-        let hash = self
+        let hash_bytes = self
             .backend
-            .get_ref(WORKING_REF)?
+            .get(KeyType::Ref, WORKING_REF)?
             .ok_or_else(|| RepoError::RefNotFound(WORKING_REF.to_string()))?;
+        let hash = Hash(hash_bytes.try_into().map_err(|_| RepoError::Backend("Invalid hash length in ref".to_string()))?);
         Ok(RepoRef {
             repo: self,
             hash,
@@ -103,10 +110,11 @@ impl<B: Backend> Repo<B> {
     }
 
     pub fn committed(&self) -> Result<RepoRef<'_, B>, RepoError> {
-        let hash = self
+        let hash_bytes = self
             .backend
-            .get_ref(COMMITTED_REF)?
+            .get(KeyType::Ref, COMMITTED_REF)?
             .ok_or_else(|| RepoError::RefNotFound(COMMITTED_REF.to_string()))?;
+        let hash = Hash(hash_bytes.try_into().map_err(|_| RepoError::Backend("Invalid hash length in ref".to_string()))?);
         Ok(RepoRef {
             repo: self,
             hash,
@@ -115,24 +123,25 @@ impl<B: Backend> Repo<B> {
     }
 
     pub fn commit(&mut self) -> Result<(), RepoError> {
-        let root_hash = self.backend.get_ref(WORKING_REF)?;
-        if let Some(h) = root_hash {
-            self.backend.set_ref(COMMITTED_REF, &h)?;
+        let root_hash_bytes = self.backend.get(KeyType::Ref, WORKING_REF)?;
+        if let Some(h_bytes) = root_hash_bytes {
+             self.backend.set(KeyType::Ref, COMMITTED_REF, &h_bytes)?;
         }
         Ok(())
     }
 
     pub fn stats(&self) -> Result<RepoStats, RepoError> {
-        let root_hash = self.backend.get_ref(WORKING_REF)?;
+        let root_hash_bytes = self.backend.get(KeyType::Ref, WORKING_REF)?;
         let mut kv_count = 0;
         let mut total_value_size = 0;
         let mut value_sizes = std::collections::BTreeMap::new();
 
-        if let Some(h) = root_hash {
+        if let Some(h_bytes) = root_hash_bytes {
+            let h = Hash(h_bytes.try_into().map_err(|_| RepoError::Backend("Invalid hash length".to_string()))?);
             self.traverse_stats(&h, &mut kv_count, &mut total_value_size, &mut value_sizes)?;
         }
 
-        let (node_count, node_sizes) = self.backend.stats()?;
+        let (node_count, node_sizes) = self.backend.stats(KeyType::Node)?;
         let total_node_size = node_sizes.iter().map(|(s, c)| s * c).sum();
 
         Ok(RepoStats {
@@ -147,22 +156,30 @@ impl<B: Backend> Repo<B> {
 
     pub fn gc(&self) -> Result<usize, RepoError> {
         let mut reachable = std::collections::HashSet::new();
-        let refs = self.backend.list_refs()?;
+        let ref_names = self.backend.list(KeyType::Ref)?;
 
-        for (_, hash) in refs {
-            self.traverse_reachable(&hash, &mut reachable)?;
+        for name in ref_names {
+            if let Some(hash_bytes) = self.backend.get(KeyType::Ref, &name)? {
+                 let hash = Hash(hash_bytes.try_into().map_err(|_| RepoError::Backend("Invalid hash length".to_string()))?);
+                 self.traverse_reachable(&hash, &mut reachable)?;
+            }
         }
 
-        let all_hashes = self.backend.list_all_node_hashes()?;
-        let to_delete: Vec<Hash> = all_hashes
-            .into_iter()
-            .filter(|h| !reachable.contains(h))
-            .collect();
+        let all_hashes_hex = self.backend.list(KeyType::Node)?;
+        let mut to_delete_hex: Vec<String> = Vec::new();
 
-        let deleted = if to_delete.is_empty() {
+        for hex in all_hashes_hex {
+            let h = Hash::from_hex(&hex).map_err(RepoError::HashParse)?;
+            if !reachable.contains(&h) {
+                to_delete_hex.push(hex);
+            }
+        }
+
+        let deleted = if to_delete_hex.is_empty() {
             0
         } else {
-            self.backend.delete_nodes(&to_delete)?
+            let refs: Vec<&str> = to_delete_hex.iter().map(|s| s.as_str()).collect();
+            self.backend.delete(KeyType::Node, &refs)?
         };
 
         self.backend.vacuum()?;
@@ -251,7 +268,7 @@ impl<'a, B: Backend> RepoRef<'a, B> {
         let mut root_node = self.repo.read_node(&self.hash)?;
 
         let new_root_hash = root_node.upsert(self.repo, key, value)?;
-        self.repo.backend.set_ref(&self.name, &new_root_hash)?;
+        self.repo.backend.set(KeyType::Ref, &self.name, &new_root_hash.0)?;
         self.hash = new_root_hash;
         Ok(())
     }
@@ -273,13 +290,14 @@ impl<B: Backend> Store for Repo<B> {
         let hasher = blake3::hash(&compressed);
         let hash = Hash(*hasher.as_bytes());
 
-        self.backend.write(&hash, &compressed)?;
+        self.backend.set(KeyType::Node, &hash.to_string(), &compressed)?;
 
         Ok(hash)
     }
 
     fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError> {
-        let compressed = self.backend.read(hash)?;
+        let compressed = self.backend.get(KeyType::Node, &hash.to_string())?
+            .ok_or_else(|| RepoError::Backend(format!("node not found: {}", hash)))?;
         let decompressed = lz4_flex::decompress_size_prepended(&compressed)?;
         let node = postcard::from_bytes(&decompressed)?;
         Ok(node)
