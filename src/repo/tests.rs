@@ -1,9 +1,14 @@
+// TODO Keep unit tests in the same file as the module source. This seems to be
+// the convention in rust. Currently I have a few modules where unit tests
+// are in separate tests.rs file.
+
 use crate::repo::{Repo, test_backend::TestBackend, Backend};
 
 #[test]
 fn test_repo() {
     let backend = TestBackend::new();
     let repo = Repo::new(backend);
+    repo.init().unwrap();
 
     // key level 0
     let k1: Vec<u8> = "name-0".as_bytes().to_vec();
@@ -44,6 +49,7 @@ fn test_hash_display() {
 fn test_iter_prefix() {
     let backend = TestBackend::new();
     let repo = Repo::new(backend);
+    repo.init().unwrap();
 
     repo.working().unwrap().write(b"apple".to_vec(), b"val1".to_vec()).unwrap();
     repo.working().unwrap().write(b"apricot".to_vec(), b"val2".to_vec()).unwrap();
@@ -87,13 +93,15 @@ fn test_committed_ref() {
     use crate::repo::{WORKING_REF, COMMITTED_REF};
     let backend = TestBackend::new();
     let mut repo = Repo::new(backend);
+    repo.init().unwrap();
 
     repo.working().unwrap().write(b"k1".to_vec(), b"v1".to_vec()).unwrap();
     let root_hash = repo.backend.get_ref(WORKING_REF).unwrap();
     let committed_hash = repo.backend.get_ref(COMMITTED_REF).unwrap();
     
     assert!(root_hash.is_some());
-    assert!(committed_hash.is_none());
+    assert!(committed_hash.is_some());
+    assert_ne!(root_hash, committed_hash);
 
     repo.commit().unwrap();
     let committed_hash = repo.backend.get_ref(COMMITTED_REF).unwrap();
@@ -112,6 +120,7 @@ fn test_iterate_diff() {
     use crate::repo::{Diff};
     let backend = TestBackend::new();
     let mut repo = Repo::new(backend);
+    repo.init().unwrap();
 
     // Initial state
     repo.working().unwrap().write(b"a".to_vec(), b"1".to_vec()).unwrap();

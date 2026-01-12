@@ -82,21 +82,35 @@ impl<B: Backend> Repo<B> {
         Self { backend }
     }
 
+    pub fn init(&self) -> Result<(), RepoError> {
+        let empty_node = MstNode::empty();
+        let hash = self.write_node(&empty_node)?;
+        self.backend.set_ref(WORKING_REF, &hash)?;
+        self.backend.set_ref(COMMITTED_REF, &hash)?;
+        Ok(())
+    }
+
     pub fn working(&self) -> Result<RepoRef<'_, B>, RepoError> {
-        let hash = self.backend.get_ref(WORKING_REF)?;
+        let hash = self
+            .backend
+            .get_ref(WORKING_REF)?
+            .ok_or_else(|| RepoError::RefNotFound(WORKING_REF.to_string()))?;
         Ok(RepoRef {
             repo: self,
             hash,
-            name: Some(WORKING_REF),
+            name: WORKING_REF.to_string(),
         })
     }
 
     pub fn committed(&self) -> Result<RepoRef<'_, B>, RepoError> {
-        let hash = self.backend.get_ref(COMMITTED_REF)?;
+        let hash = self
+            .backend
+            .get_ref(COMMITTED_REF)?
+            .ok_or_else(|| RepoError::RefNotFound(COMMITTED_REF.to_string()))?;
         Ok(RepoRef {
             repo: self,
             hash,
-            name: Some(COMMITTED_REF),
+            name: COMMITTED_REF.to_string(),
         })
     }
 
@@ -210,58 +224,40 @@ impl<B: Backend> Repo<B> {
 
 pub struct RepoRef<'a, B: Backend> {
     pub repo: &'a Repo<B>,
-    pub hash: Option<Hash>,
-    pub name: Option<&'static str>,
+    pub hash: Hash,
+    pub name: String,
 }
 
 impl<'a, B: Backend> RepoRef<'a, B> {
     pub fn iterate_diff(&self, other: &RepoRef<'a, B>) -> Result<DiffIterator<'a, B>, RepoError> {
         Ok(DiffIterator::new(
             self.repo,
-            self.hash.clone(),
-            other.hash.clone(),
+            Some(self.hash.clone()),
+            Some(other.hash.clone()),
         ))
     }
 
     pub fn read(&self, key: &[u8]) -> Result<Option<Vec<u8>>, RepoError> {
-        match self.hash {
-            Some(ref h) => {
-                let root_node = self.repo.read_node(h)?;
-                root_node.get(self.repo, key)
-            }
-            None => Ok(None),
-        }
+        let root_node = self.repo.read_node(&self.hash)?;
+        root_node.get(self.repo, key)
     }
 
     pub fn iter_prefix(&self, prefix: &[u8]) -> Result<PrefixIterator<'a, Repo<B>>, RepoError> {
-        let root_node = match self.hash {
-            Some(ref h) => Some(self.repo.read_node(h)?),
-            None => None,
-        };
-        Ok(PrefixIterator::new(self.repo, prefix, root_node))
+        let root_node = self.repo.read_node(&self.hash)?;
+        Ok(PrefixIterator::new(self.repo, prefix, Some(root_node)))
     }
 
     pub fn write(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), RepoError> {
-        let mut root_node = match self.hash {
-            Some(ref h) => self.repo.read_node(h)?,
-            None => MstNode::empty(),
-        };
+        let mut root_node = self.repo.read_node(&self.hash)?;
 
         let new_root_hash = root_node.upsert(self.repo, key, value)?;
-        if let Some(name) = self.name {
-            self.repo.backend.set_ref(name, &new_root_hash)?;
-        }
-        self.hash = Some(new_root_hash);
+        self.repo.backend.set_ref(&self.name, &new_root_hash)?;
+        self.hash = new_root_hash;
         Ok(())
     }
 
     pub fn commit_id(&self) -> Result<String, RepoError> {
-        self.hash
-            .as_ref()
-            .ok_or(RepoError::RefNotFound(
-                self.name.unwrap_or_default().to_string(),
-            ))
-            .map(|h| h.to_string())
+        Ok(self.hash.to_string())
     }
 }
 
@@ -304,6 +300,8 @@ struct DiffIterState {
     new_child_processed: bool,
 }
 
+// TODO Why does DiffIterator need to accept Option<Hash>? Can we enforce
+// that we always need to diff existing trees only?
 impl<'a, B: Backend> DiffIterator<'a, B> {
     fn new(repo: &'a Repo<B>, old_root: Option<Hash>, new_root: Option<Hash>) -> Self {
         let mut stack = Vec::new();

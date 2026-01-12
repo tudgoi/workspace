@@ -379,6 +379,10 @@ impl<'a> RecordRepo<'a> {
         Ok(self.repo.commit()?)
     }
 
+    pub fn init(&self) -> Result<(), RecordRepoError> {
+        Ok(self.repo.init()?)
+    }
+
     pub fn iterate_diff(
         &self,
     ) -> Result<Box<dyn Iterator<Item = Result<RecordDiff, RecordRepoError>> + '_>, RecordRepoError>
@@ -597,6 +601,7 @@ mod tests {
         setup_db(&conn);
 
         let mut repo = RecordRepo::new(&conn);
+        repo.init().unwrap();
         let p1 = Key::<PersonPath, ()>::new("p1");
 
         repo.working().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
@@ -656,6 +661,7 @@ mod tests {
         setup_db(&conn);
 
         let mut repo = RecordRepo::new(&conn);
+        repo.init().unwrap();
         let p1 = Key::<PersonPath, ()>::new("p1");
         repo.working().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
         repo.commit().unwrap();

@@ -23,6 +23,7 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         .context("could not create property schema")?;
 
     let mut tx = conn.transaction()?;
+    RecordRepo::new(&tx).init()?;
 
     // process office
     let data_dir = source.join("office");
