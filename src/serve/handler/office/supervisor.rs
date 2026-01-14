@@ -8,6 +8,7 @@ use askama_web::WebTemplate;
 use axum::{
     Form,
     extract::{Path, State},
+    response::{IntoResponse, Response},
 };
 use rusqlite::Connection;
 use serde::Deserialize;
@@ -104,7 +105,7 @@ pub async fn save(
     State(state): State<Arc<AppState>>,
     Path(office_id): Path<String>,
     Form(form): Form<SupervisorEntry>,
-) -> Result<ViewSupervisorPartial, AppError> {
+) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     repo.working()?.save(
@@ -112,7 +113,10 @@ pub async fn save(
         &form.office_id,
     )?;
 
-    ViewSupervisorPartial::new(&conn, office_id)
+    let partial = ViewSupervisorPartial::new(&conn, office_id)?;
+    let mut response = partial.into_response();
+    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    Ok(response)
 }
 
 #[derive(Deserialize)]
@@ -125,12 +129,15 @@ pub async fn delete(
     State(state): State<Arc<AppState>>,
     Path(office_id): Path<String>,
     Form(form): Form<DeleteSupervisorEntry>,
-) -> Result<ViewSupervisorPartial, AppError> {
+) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     repo.working()?.delete(
         Key::<OfficePath, ()>::new(&office_id).supervisor(form.relation),
     )?;
 
-    ViewSupervisorPartial::new(&conn, office_id)
+    let partial = ViewSupervisorPartial::new(&conn, office_id)?;
+    let mut response = partial.into_response();
+    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    Ok(response)
 }

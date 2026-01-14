@@ -97,7 +97,7 @@ pub async fn edit(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<EditTemplate, AppError> {
     let conn = state.get_conn()?;
-    let name_partial = ViewNamePartial::new(&conn, typ, id.clone())?;
+    let name_partial = ViewNamePartial::new(&conn, typ, id.clone(), None)?;
     let photo_partial = ViewPhotoPartial::new(&conn, typ, id.clone())?;
     let contact_partial = ViewContactPartial::new(&conn, typ, id.clone())?;
     let tenure_partial = ViewTenurePartial::new(&conn, id.clone())?;

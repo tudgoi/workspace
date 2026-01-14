@@ -52,6 +52,13 @@ VALUES (:office_id, :relation, :supervisor_office_id)
 INSERT INTO person_office_tenure (person_id, office_id, start, end)
 VALUES (:person_id, :office_id, :start, :end)
 /
+-- name: delete_entity!
+-- Delete the entity of the given type with the given id
+-- # Parameters
+-- param: typ: &dto::EntityType - entity type
+-- param: id: &str - entity ID
+DELETE FROM entity WHERE type = :typ AND id = :id
+/
 -- name: delete_entity_photo!
 -- Delete the photo for the given type with the given id
 -- # Parameters

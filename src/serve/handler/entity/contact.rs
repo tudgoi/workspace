@@ -8,6 +8,7 @@ use askama_web::WebTemplate;
 use axum::{
     Form,
     extract::{Path, State},
+    response::{IntoResponse, Response},
 };
 use rusqlite::Connection;
 use serde::Deserialize;
@@ -97,7 +98,7 @@ pub async fn save(
     State(state): State<Arc<AppState>>,
     Path((typ, id)): Path<(dto::EntityType, String)>,
     Form(contact_form): Form<ContactEntry>,
-) -> Result<ViewContactPartial, AppError> {
+) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     match typ {
@@ -115,14 +116,17 @@ pub async fn save(
         }
     }
 
-    ViewContactPartial::new(&conn, typ, id)
+    let partial = ViewContactPartial::new(&conn, typ, id)?;
+    let mut response = partial.into_response();
+    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    Ok(response)
 }
 
 #[axum::debug_handler]
 pub async fn delete(
     State(state): State<Arc<AppState>>,
     Path((typ, id, contact_type)): Path<(dto::EntityType, String, data::ContactType)>,
-) -> Result<ViewContactPartial, AppError> {
+) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     
@@ -139,5 +143,8 @@ pub async fn delete(
         }
     }
 
-    ViewContactPartial::new(&conn, typ, id)
+    let partial = ViewContactPartial::new(&conn, typ, id)?;
+    let mut response = partial.into_response();
+    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    Ok(response)
 }

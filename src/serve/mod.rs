@@ -85,6 +85,7 @@ pub async fn run(
         .route("/{typ}/{id}/name/edit", get(handler::entity::name::edit))
         .route("/{typ}/{id}/name", get(handler::entity::name::view))
         .route("/{typ}/{id}/name", put(handler::entity::name::save))
+        .route("/{typ}/{id}/name/delete", post(handler::entity::name::delete_handler))
         .route("/{typ}/{id}/photo/edit", get(handler::entity::photo::edit))
         .route("/{typ}/{id}/photo", get(handler::entity::photo::view))
         .route("/{typ}/{id}/photo", put(handler::entity::photo::save))

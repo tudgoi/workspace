@@ -5,6 +5,7 @@ use askama_web::WebTemplate;
 use axum::{
     Form,
     extract::{Path, State},
+    response::{IntoResponse, Response},
 };
 use rusqlite::{Connection, OptionalExtension};
 
@@ -93,7 +94,7 @@ pub async fn save(
     State(state): State<Arc<AppState>>,
     Path((typ, id)): Path<(dto::EntityType, String)>,
     Form(photo_form): Form<data::Photo>, // Renamed to avoid conflict with `photo` variable below
-) -> Result<ViewPhotoPartial, AppError> {
+) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     match typ {
@@ -105,14 +106,17 @@ pub async fn save(
         }
     }
 
-    ViewPhotoPartial::new(&conn, typ, id)
+    let partial = ViewPhotoPartial::new(&conn, typ, id)?;
+    let mut response = partial.into_response();
+    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    Ok(response)
 }
 
 #[axum::debug_handler]
 pub async fn delete(
     State(state): State<Arc<AppState>>,
     Path((typ, id)): Path<(dto::EntityType, String)>,
-) -> Result<ViewPhotoPartial, AppError> {
+) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     match typ {
@@ -124,5 +128,8 @@ pub async fn delete(
         }
     }
 
-    ViewPhotoPartial::new(&conn, typ, id)
+    let partial = ViewPhotoPartial::new(&conn, typ, id)?;
+    let mut response = partial.into_response();
+    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    Ok(response)
 }

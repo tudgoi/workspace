@@ -5,6 +5,7 @@ use askama_web::WebTemplate;
 use axum::{
     Form,
     extract::{Path, State},
+    response::IntoResponse,
 };
 use rusqlite::Connection;
 use serde::Deserialize;
@@ -41,6 +42,8 @@ pub struct ViewNamePartial {
     typ: dto::EntityType,
     id: String,
     name: String,
+    error: Option<String>,
+    deletable: bool,
 }
 
 impl ViewNamePartial {
@@ -48,12 +51,28 @@ impl ViewNamePartial {
         conn: &Connection,
         typ: dto::EntityType,
         id: String,
+        error: Option<String>,
     ) -> Result<ViewNamePartial, AppError> {
         let name = conn.get_entity_name(&typ, &id, |row| {
             let name: String = row.get(0)?;
             Ok(name)
-        })?;
-        Ok(ViewNamePartial { id, typ, name })
+        }).unwrap_or_else(|_| String::from("Deleted")); // Handle case where entity is deleted
+
+        let repo = RecordRepo::new(conn);
+        let other_props_exist = match typ {
+            dto::EntityType::Person => {
+                let key = Key::<PersonPath, ()>::new(&id);
+                let items: Vec<_> = repo.working()?.scan(key)?.collect::<Result<Vec<_>, _>>()?;
+                items.len() > 1
+            }
+            dto::EntityType::Office => {
+                let key = Key::<OfficePath, ()>::new(&id);
+                let items: Vec<_> = repo.working()?.scan(key)?.collect::<Result<Vec<_>, _>>()?;
+                items.len() > 1
+            }
+        };
+
+        Ok(ViewNamePartial { id, typ, name, error, deletable: !other_props_exist })
     }
 }
 
@@ -64,7 +83,7 @@ pub async fn view(
 ) -> Result<ViewNamePartial, AppError> {
     let conn = state.get_conn()?;
     
-    ViewNamePartial::new(&conn, typ, id)
+    ViewNamePartial::new(&conn, typ, id, None)
 }
 
 #[derive(Deserialize)]
@@ -88,5 +107,44 @@ pub async fn save(
         }
     }
 
-    ViewNamePartial::new(&conn, typ, id)
+    ViewNamePartial::new(&conn, typ, id, None)
+}
+
+#[axum::debug_handler]
+pub async fn delete_handler(
+    State(state): State<Arc<AppState>>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
+) -> Result<axum::response::Response, AppError> {
+    let conn = state.get_conn()?;
+    let mut repo = RecordRepo::new(&conn);
+    
+    // Check if other properties exist
+    let other_props_exist = match typ {
+        dto::EntityType::Person => {
+            let key = Key::<PersonPath, ()>::new(&id);
+            let items: Vec<_> = repo.working()?.scan(key)?.collect::<Result<Vec<_>, _>>()?;
+            items.len() > 1
+        }
+        dto::EntityType::Office => {
+            let key = Key::<OfficePath, ()>::new(&id);
+            let items: Vec<_> = repo.working()?.scan(key)?.collect::<Result<Vec<_>, _>>()?;
+            items.len() > 1
+        }
+    };
+
+    if other_props_exist {
+        let partial = ViewNamePartial::new(&conn, typ, id, Some("Cannot delete name while other properties exist.".to_string()))?;
+        return Ok(partial.into_response());
+    }
+
+    match typ {
+        dto::EntityType::Person => {
+            repo.working()?.delete(Key::<PersonPath, ()>::new(&id).name())?;
+        }
+        dto::EntityType::Office => {
+            repo.working()?.delete(Key::<OfficePath, ()>::new(&id).name())?;
+        }
+    }
+    
+    crate::serve::hx_redirect("/")
 }

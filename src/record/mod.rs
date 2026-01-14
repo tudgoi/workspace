@@ -317,6 +317,10 @@ impl TableUpdater<String> for Key<NamePath, String> {
         conn.save_entity_name(&self.entity_type, &self.entity_id, value)?;
         Ok(())
     }
+    fn delete_tables(&self, conn: &Connection) -> Result<(), RecordRepoError> {
+        conn.delete_entity(&self.entity_type, &self.entity_id)?;
+        Ok(())
+    }
 }
 
 impl TableUpdater<data::Photo> for Key<PhotoPath, data::Photo> {

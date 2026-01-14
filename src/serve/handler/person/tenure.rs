@@ -5,6 +5,7 @@ use askama_web::WebTemplate;
 use axum::{
     Form,
     extract::{Path, State},
+    response::{IntoResponse, Response},
 };
 use chrono::NaiveDate;
 use rusqlite::Connection;
@@ -73,7 +74,7 @@ pub async fn save(
     State(state): State<Arc<AppState>>,
     Path(person_id): Path<String>,
     Form(form): Form<TenureEntry>,
-) -> Result<ViewTenurePartial, AppError> {
+) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     repo.working()?.save(
@@ -81,7 +82,10 @@ pub async fn save(
         &form.end,
     )?;
 
-    ViewTenurePartial::new(&conn, person_id)
+    let partial = ViewTenurePartial::new(&conn, person_id)?;
+    let mut response = partial.into_response();
+    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    Ok(response)
 }
 
 #[derive(Deserialize)]
@@ -95,12 +99,15 @@ pub async fn delete(
     State(state): State<Arc<AppState>>,
     Path(person_id): Path<String>,
     Form(form): Form<DeleteTenureEntry>,
-) -> Result<ViewTenurePartial, AppError> {
+) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     repo.working()?.delete(
         Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, form.start),
     )?;
 
-    ViewTenurePartial::new(&conn, person_id)
+    let partial = ViewTenurePartial::new(&conn, person_id)?;
+    let mut response = partial.into_response();
+    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    Ok(response)
 }
