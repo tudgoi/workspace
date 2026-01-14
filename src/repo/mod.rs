@@ -323,6 +323,15 @@ where
         Ok(())
     }
 
+    pub fn remove(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, RepoError> {
+        let mut root_node = self.repo.read_node(&self.hash)?;
+
+        let (new_root_hash, value) = root_node.remove(self.repo, key)?;
+        self.repo.backend.set(KeyType::Ref, &self.name, &new_root_hash.0).map_err(|e| e.to_repo_error())?;
+        self.hash = new_root_hash;
+        Ok(value)
+    }
+
     pub fn commit_id(&self) -> Result<String, RepoError> {
         Ok(self.hash.to_string())
     }

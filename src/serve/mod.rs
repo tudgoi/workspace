@@ -88,15 +88,18 @@ pub async fn run(
         .route("/{typ}/{id}/photo/edit", get(handler::entity::photo::edit))
         .route("/{typ}/{id}/photo", get(handler::entity::photo::view))
         .route("/{typ}/{id}/photo", put(handler::entity::photo::save))
+        .route("/{typ}/{id}/photo/delete", get(handler::entity::photo::delete))
         .route(
             "/{typ}/{id}/contact/add",
             get(handler::entity::contact::add),
         )
         .route("/{typ}/{id}/contact", get(handler::entity::contact::view))
         .route("/{typ}/{id}/contact", post(handler::entity::contact::save))
+        .route("/{typ}/{id}/contact/{contact_type}/delete", get(handler::entity::contact::delete))
         .route("/person/{id}/tenure/add", get(handler::person::tenure::add))
         .route("/person/{id}/tenure", get(handler::person::tenure::view))
         .route("/person/{id}/tenure", post(handler::person::tenure::save))
+        .route("/person/{id}/tenure/delete", post(handler::person::tenure::delete))
         .route(
             "/office/{id}/supervisor/add",
             get(handler::office::supervisor::add),
@@ -108,6 +111,10 @@ pub async fn run(
         .route(
             "/office/{id}/supervisor",
             post(handler::office::supervisor::save),
+        )
+        .route(
+            "/office/{id}/supervisor/delete",
+            post(handler::office::supervisor::delete),
         )
         .layer(LiveReloadLayer::new())
         .with_state(Arc::new(state))

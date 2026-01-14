@@ -107,3 +107,22 @@ pub async fn save(
 
     ViewPhotoPartial::new(&conn, typ, id)
 }
+
+#[axum::debug_handler]
+pub async fn delete(
+    State(state): State<Arc<AppState>>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
+) -> Result<ViewPhotoPartial, AppError> {
+    let conn = state.get_conn()?;
+    let mut repo = RecordRepo::new(&conn);
+    match typ {
+        dto::EntityType::Person => {
+            repo.working()?.delete(Key::<PersonPath, ()>::new(&id).photo())?;
+        }
+        dto::EntityType::Office => {
+            repo.working()?.delete(Key::<OfficePath, ()>::new(&id).photo())?;
+        }
+    }
+
+    ViewPhotoPartial::new(&conn, typ, id)
+}

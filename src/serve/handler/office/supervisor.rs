@@ -114,3 +114,23 @@ pub async fn save(
 
     ViewSupervisorPartial::new(&conn, office_id)
 }
+
+#[derive(Deserialize)]
+pub struct DeleteSupervisorEntry {
+    pub relation: SupervisingRelation,
+}
+
+#[axum::debug_handler]
+pub async fn delete(
+    State(state): State<Arc<AppState>>,
+    Path(office_id): Path<String>,
+    Form(form): Form<DeleteSupervisorEntry>,
+) -> Result<ViewSupervisorPartial, AppError> {
+    let conn = state.get_conn()?;
+    let mut repo = RecordRepo::new(&conn);
+    repo.working()?.delete(
+        Key::<OfficePath, ()>::new(&office_id).supervisor(form.relation),
+    )?;
+
+    ViewSupervisorPartial::new(&conn, office_id)
+}

@@ -5,6 +5,7 @@
     {% for (contact_type, value) in contacts %}
     <div>
         <label>{{ contact_type }}</label>: {{ value }}
+        <button hx-get="/{{ typ }}/{{ id }}/contact/{{ contact_type }}/delete">Delete</button>
     </div>
     {% endfor %}
     {% endif %}

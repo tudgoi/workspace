@@ -307,6 +307,9 @@ impl<P: EntityPathTrait, T> Key<P, T> {
 
 pub trait TableUpdater<T> {
     fn update_tables(&self, conn: &Connection, value: &T) -> Result<(), RecordRepoError>;
+    fn delete_tables(&self, _conn: &Connection) -> Result<(), RecordRepoError> {
+        Ok(())
+    }
 }
 
 impl TableUpdater<String> for Key<NamePath, String> {
@@ -326,6 +329,10 @@ impl TableUpdater<data::Photo> for Key<PhotoPath, data::Photo> {
         )?;
         Ok(())
     }
+    fn delete_tables(&self, conn: &Connection) -> Result<(), RecordRepoError> {
+        conn.delete_entity_photo(&self.entity_type, &self.entity_id)?;
+        Ok(())
+    }
 }
 
 impl TableUpdater<String> for Key<ContactPath, String> {
@@ -333,11 +340,19 @@ impl TableUpdater<String> for Key<ContactPath, String> {
         conn.save_entity_contact(&self.entity_type, &self.entity_id, &self.state.typ, value)?;
         Ok(())
     }
+    fn delete_tables(&self, conn: &Connection) -> Result<(), RecordRepoError> {
+        conn.delete_entity_contact(&self.entity_type, &self.entity_id, &self.state.typ)?;
+        Ok(())
+    }
 }
 
 impl TableUpdater<String> for Key<SupervisorPath, String> {
     fn update_tables(&self, conn: &Connection, value: &String) -> Result<(), RecordRepoError> {
         conn.save_office_supervisor(&self.entity_id, &self.state.relation, value)?;
+        Ok(())
+    }
+    fn delete_tables(&self, conn: &Connection) -> Result<(), RecordRepoError> {
+        conn.delete_office_supervisor(&self.entity_id, &self.state.relation)?;
         Ok(())
     }
 }
@@ -353,6 +368,14 @@ impl TableUpdater<Option<NaiveDate>> for Key<TenurePath, Option<NaiveDate>> {
             &self.state.office_id,
             self.state.start.as_ref(),
             value.as_ref(),
+        )?;
+        Ok(())
+    }
+    fn delete_tables(&self, conn: &Connection) -> Result<(), RecordRepoError> {
+        conn.delete_tenure(
+            &self.entity_id,
+            &self.state.office_id,
+            self.state.start.as_ref(),
         )?;
         Ok(())
     }
@@ -446,6 +469,19 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
         let bytes = postcard::to_stdvec(value)?;
         self.repo_ref.write(key.path.as_bytes().to_vec(), bytes)?;
         key.update_tables(self.repo_ref.repo.backend.conn, value)?;
+
+        Ok(())
+    }
+
+    pub fn delete<P, T>(
+        &mut self,
+        key: Key<P, T>,
+    ) -> Result<(), RecordRepoError>
+    where
+        Key<P, T>: TableUpdater<T>,
+    {
+        self.repo_ref.remove(key.path.as_bytes())?;
+        key.delete_tables(self.repo_ref.repo.backend.conn)?;
 
         Ok(())
     }

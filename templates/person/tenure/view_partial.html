@@ -17,6 +17,11 @@
             {% else %}
             None
             {% endif %}
+            <form hx-post="/person/{{ id }}/tenure/delete" hx-confirm="Delete tenure?" style="display:inline;">
+                <input type="hidden" name="office_id" value="{{ tenure.office_id }}">
+                <input type="hidden" name="start" value="{% if let Some(start) = tenure.start %}{{ start }}{% endif %}">
+                <button type="submit">Delete</button>
+            </form>
         </li>
         {% endfor %}
     </ul>

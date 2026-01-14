@@ -117,3 +117,27 @@ pub async fn save(
 
     ViewContactPartial::new(&conn, typ, id)
 }
+
+#[axum::debug_handler]
+pub async fn delete(
+    State(state): State<Arc<AppState>>,
+    Path((typ, id, contact_type)): Path<(dto::EntityType, String, data::ContactType)>,
+) -> Result<ViewContactPartial, AppError> {
+    let conn = state.get_conn()?;
+    let mut repo = RecordRepo::new(&conn);
+    
+    match typ {
+        dto::EntityType::Person => {
+            repo.working()?.delete(
+                Key::<PersonPath, ()>::new(&id).contact(contact_type),
+            )?;
+        }
+        dto::EntityType::Office => {
+            repo.working()?.delete(
+                Key::<OfficePath, ()>::new(&id).contact(contact_type),
+            )?;
+        }
+    }
+
+    ViewContactPartial::new(&conn, typ, id)
+}

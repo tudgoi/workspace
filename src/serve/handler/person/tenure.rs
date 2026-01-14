@@ -83,3 +83,24 @@ pub async fn save(
 
     ViewTenurePartial::new(&conn, person_id)
 }
+
+#[derive(Deserialize)]
+pub struct DeleteTenureEntry {
+    pub office_id: String,
+    pub start: Option<NaiveDate>,
+}
+
+#[axum::debug_handler]
+pub async fn delete(
+    State(state): State<Arc<AppState>>,
+    Path(person_id): Path<String>,
+    Form(form): Form<DeleteTenureEntry>,
+) -> Result<ViewTenurePartial, AppError> {
+    let conn = state.get_conn()?;
+    let mut repo = RecordRepo::new(&conn);
+    repo.working()?.delete(
+        Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, form.start),
+    )?;
+
+    ViewTenurePartial::new(&conn, person_id)
+}

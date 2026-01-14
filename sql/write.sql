@@ -52,3 +52,31 @@ VALUES (:office_id, :relation, :supervisor_office_id)
 INSERT INTO person_office_tenure (person_id, office_id, start, end)
 VALUES (:person_id, :office_id, :start, :end)
 /
+-- name: delete_entity_photo!
+-- Delete the photo for the given type with the given id
+-- # Parameters
+-- param: typ: &dto::EntityType - entity type
+-- param: id: &str - entity ID
+DELETE FROM entity_photo WHERE entity_type = :typ AND entity_id = :id
+/
+-- name: delete_entity_contact!
+-- # Parameters
+-- param: entity_type: &dto::EntityType
+-- param: entity_id: &str
+-- param: typ: &data::ContactType
+DELETE FROM entity_contact WHERE entity_type = :entity_type AND entity_id = :entity_id AND type = :typ
+/
+-- name: delete_office_supervisor!
+-- # Parameters
+-- param: office_id: &str
+-- param: relation: &crate::data::SupervisingRelation
+DELETE FROM office_supervisor WHERE office_id = :office_id AND relation = :relation
+/
+-- name: delete_tenure!
+-- # Parameters
+-- param: person_id: &str
+-- param: office_id: &str
+-- param: start: Option<&chrono::NaiveDate>
+DELETE FROM person_office_tenure
+WHERE person_id = :person_id AND office_id = :office_id AND start IS :start
+/

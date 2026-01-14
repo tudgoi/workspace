@@ -10,6 +10,7 @@
         {% endif %}
     </div>
     <button hx-get="/{{ typ }}/{{ id }}/photo/edit">Edit</button>
+    <button hx-get="/{{ typ }}/{{ id }}/photo/delete" hx-confirm="Are you sure you want to delete this photo?">Delete</button>
     {% else %}
     <div>No photo available.</div>
     <button hx-get="/{{ typ }}/{{ id }}/photo/edit">Add</button>

@@ -7,6 +7,10 @@
         <li>
             {{ relation }}:
             {{ office.id }} ({{ office.name }})
+            <form hx-post="/office/{{ id }}/supervisor/delete" hx-confirm="Delete supervisor?" style="display:inline;">
+                <input type="hidden" name="relation" value="{{ relation }}">
+                <button type="submit">Delete</button>
+            </form>
         </li>
         {% endfor %}
     </ul>
