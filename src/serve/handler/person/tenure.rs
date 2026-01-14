@@ -14,7 +14,7 @@ use serde::Deserialize;
 use crate::{
     LibrarySql, data,
     record::{Key, PersonPath, RecordRepo},
-    serve::{AppError, AppState},
+    serve::{AppState, handler::AppError},
 };
 
 #[derive(Template, WebTemplate)]
@@ -84,7 +84,9 @@ pub async fn save(
 
     let partial = ViewTenurePartial::new(&conn, person_id)?;
     let mut response = partial.into_response();
-    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("HX-Trigger", "entity_updated".parse().unwrap());
     Ok(response)
 }
 
@@ -102,12 +104,13 @@ pub async fn delete(
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
-    repo.working()?.delete(
-        Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, form.start),
-    )?;
+    repo.working()?
+        .delete(Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, form.start))?;
 
     let partial = ViewTenurePartial::new(&conn, person_id)?;
     let mut response = partial.into_response();
-    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("HX-Trigger", "entity_updated".parse().unwrap());
     Ok(response)
 }

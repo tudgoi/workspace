@@ -20,9 +20,9 @@ use crate::{
 };
 
 pub mod entity;
-pub mod person;
-pub mod office;
 pub mod filters;
+pub mod office;
+pub mod person;
 
 #[derive(Template, WebTemplate)]
 #[template(path = "index.html")]
@@ -57,7 +57,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
         metadata: Metadata {
             commit_id: commit_id.chars().take(8).collect(),
             maintenance: context::Maintenance { incomplete: false },
-        }
+        },
     })
 }
 
@@ -109,18 +109,20 @@ pub async fn uncommitted(
                     RecordDiff::Changed(rk, _, _) => (rk.entity_info(), ChangeType::Changed),
                     RecordDiff::Removed(rk, _) => (rk.entity_info(), ChangeType::Removed),
                 };
-                
+
                 let current_change = entity_changes.entry(info).or_insert(change_type);
-                
+
                 match (*current_change, change_type) {
                     (ChangeType::Added, ChangeType::Removed) => {
                         *current_change = ChangeType::Removed;
                     }
                     (ChangeType::Removed, ChangeType::Added) => {
-                         *current_change = ChangeType::Added;
+                        *current_change = ChangeType::Added;
                     }
                     (ChangeType::Changed, ChangeType::Added) => *current_change = ChangeType::Added,
-                    (ChangeType::Changed, ChangeType::Removed) => *current_change = ChangeType::Removed,
+                    (ChangeType::Changed, ChangeType::Removed) => {
+                        *current_change = ChangeType::Removed
+                    }
                     _ => {}
                 }
             }
@@ -128,7 +130,9 @@ pub async fn uncommitted(
     }
 
     for ((typ, id), change_type) in entity_changes {
-        let name = conn.get_entity_name(&typ, &id, |row| row.get(0)).unwrap_or_else(|_| id.clone());
+        let name = conn
+            .get_entity_name(&typ, &id, |row| row.get(0))
+            .unwrap_or_else(|_| id.clone());
         changes.push(EntityChange {
             entity: dto::Entity { typ, id, name },
             change_type,
@@ -148,7 +152,9 @@ pub async fn uncommitted(
 }
 
 #[axum::debug_handler]
-pub async fn commit(State(state): State<Arc<AppState>>) -> Result<axum::response::Response, AppError> {
+pub async fn commit(
+    State(state): State<Arc<AppState>>,
+) -> Result<axum::response::Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
     repo.commit()?;

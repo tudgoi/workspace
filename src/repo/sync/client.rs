@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use thiserror::Error;
 
 use crate::repo::{
-    Backend, Hash, ToRepoError, COMMITTED_REF, WORKING_REF,
+    Backend, Hash, RepoRefType, ToRepoError,
     backend::KeyType,
     mst::MstNode,
     sync::server::{ALPN, RepoRequest, RepoResponse},
@@ -44,11 +44,11 @@ where
         // 1. Check for uncommitted changes
         let working_hash = self
             .backend
-            .get(KeyType::Ref, WORKING_REF)
+            .get(KeyType::Ref, RepoRefType::Working.as_str())
             .map_err(|e| PullError::Backend(e.to_string()))?;
         let committed_hash = self
             .backend
-            .get(KeyType::Ref, COMMITTED_REF)
+            .get(KeyType::Ref, RepoRefType::Committed.as_str())
             .map_err(|e| PullError::Backend(e.to_string()))?;
 
         if working_hash != committed_hash {
@@ -113,7 +113,7 @@ where
 
         // 5. Update working ref
         self.backend
-            .set(KeyType::Ref, WORKING_REF, &remote_root.0)
+            .set(KeyType::Ref, RepoRefType::Working.as_str(), &remote_root.0)
             .map_err(|e| PullError::Backend(e.to_string()))?;
 
         Ok(())

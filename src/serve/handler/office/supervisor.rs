@@ -115,7 +115,9 @@ pub async fn save(
 
     let partial = ViewSupervisorPartial::new(&conn, office_id)?;
     let mut response = partial.into_response();
-    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("HX-Trigger", "entity_updated".parse().unwrap());
     Ok(response)
 }
 
@@ -132,12 +134,13 @@ pub async fn delete(
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
-    repo.working()?.delete(
-        Key::<OfficePath, ()>::new(&office_id).supervisor(form.relation),
-    )?;
+    repo.working()?
+        .delete(Key::<OfficePath, ()>::new(&office_id).supervisor(form.relation))?;
 
     let partial = ViewSupervisorPartial::new(&conn, office_id)?;
     let mut response = partial.into_response();
-    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("HX-Trigger", "entity_updated".parse().unwrap());
     Ok(response)
 }

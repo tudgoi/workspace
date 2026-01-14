@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 use thiserror::Error;
 
-use crate::repo::{Hash, RepoError, Store, PrefixIterator};
 use super::*;
+use crate::repo::{Hash, PrefixIterator, RepoError, Store};
 
 #[derive(Debug, Error)]
 pub enum TestBackendError {
@@ -54,7 +54,7 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 struct TestStoreMut {
-    nodes: Arc<Mutex<BTreeMap<Hash, MstNode>> >,
+    nodes: Arc<Mutex<BTreeMap<Hash, MstNode>>>,
 }
 
 impl TestStoreMut {
@@ -70,7 +70,10 @@ impl Store for TestStoreMut {
         let bytes = postcard::to_stdvec(node)?;
         let hasher = blake3::hash(&bytes);
         let hash = Hash(*hasher.as_bytes());
-        self.nodes.lock().unwrap().insert(hash.clone(), node.clone());
+        self.nodes
+            .lock()
+            .unwrap()
+            .insert(hash.clone(), node.clone());
         Ok(hash)
     }
 
@@ -128,10 +131,13 @@ fn test_upsert_same_level_between() {
     let hash2 = node.upsert(&store, k2.clone(), b"v2".to_vec()).unwrap();
 
     let root2 = store.read_node(&hash2).unwrap();
-    let hash3 = root2.clone().upsert(&store, k3.clone(), b"v3".to_vec()).unwrap();
+    let hash3 = root2
+        .clone()
+        .upsert(&store, k3.clone(), b"v3".to_vec())
+        .unwrap();
 
     let root3 = store.read_node(&hash3).unwrap();
-    
+
     // They might not be at the same level depending on the hash, but let's check order
     let keys: Vec<_> = root3.items.iter().map(|i| i.key.clone()).collect();
     let mut sorted_keys = keys.clone();
@@ -195,11 +201,11 @@ fn test_upsert_existing_changed_value() {
 #[test]
 fn test_upsert_lower_level() {
     let store = TestStoreMut::new();
-    
+
     // Find two keys with different levels
     let mut k_high = Vec::new();
     let mut k_low = Vec::new();
-    
+
     for i in 0..1000 {
         let k = format!("key{}", i).into_bytes();
         let l = key_level(&k);
@@ -214,14 +220,19 @@ fn test_upsert_lower_level() {
     }
 
     let mut node = MstNode::empty();
-    node.upsert(&store, k_high.clone(), b"v_high".to_vec()).unwrap();
-    let hash2 = node.upsert(&store, k_low.clone(), b"v_low".to_vec()).unwrap();
+    node.upsert(&store, k_high.clone(), b"v_high".to_vec())
+        .unwrap();
+    let hash2 = node
+        .upsert(&store, k_low.clone(), b"v_low".to_vec())
+        .unwrap();
 
     let root2 = store.read_node(&hash2).unwrap();
     assert_eq!(root2.items.len(), 1);
     assert_eq!(root2.items[0].key, k_high);
 
-    let child_hash = root2.get_child_hash(if k_low < k_high { 0 } else { 1 }).unwrap();
+    let child_hash = root2
+        .get_child_hash(if k_low < k_high { 0 } else { 1 })
+        .unwrap();
     let child = store.read_node(child_hash).unwrap();
     assert_eq!(child.items[0].key, k_low);
 }
@@ -229,11 +240,11 @@ fn test_upsert_lower_level() {
 #[test]
 fn test_upsert_higher_level_split() {
     let store = TestStoreMut::new();
-    
+
     let mut k_low1 = Vec::new();
     let mut k_low2 = Vec::new();
     let mut k_high = Vec::new();
-    
+
     for i in 0..10000 {
         let k = format!("key{}", i).into_bytes();
         let l = key_level(&k);
@@ -250,32 +261,36 @@ fn test_upsert_higher_level_split() {
             break;
         }
     }
-    
+
     let mut keys = vec![k_low1.clone(), k_low2.clone()];
     keys.sort();
     k_low1 = keys[0].clone();
     k_low2 = keys[1].clone();
-    
-    // Ensure k_high is between k_low1 and k_low2 for a good split test, 
+
+    // Ensure k_high is between k_low1 and k_low2 for a good split test,
     // or at least test it split correctly.
-    // For simplicity, let's just insert lows then high. 
-    
+    // For simplicity, let's just insert lows then high.
+
     let mut node = MstNode::empty();
     node.upsert(&store, k_low1.clone(), b"v1".to_vec()).unwrap();
     let _hash2 = node.upsert(&store, k_low2.clone(), b"v2".to_vec()).unwrap();
-    
-    let hash3 = node.upsert(&store, k_high.clone(), b"v_high".to_vec()).unwrap();
+
+    let hash3 = node
+        .upsert(&store, k_high.clone(), b"v_high".to_vec())
+        .unwrap();
     let root3 = store.read_node(&hash3).unwrap();
-    
+
     assert_eq!(root3.items.len(), 1);
     assert_eq!(root3.items[0].key, k_high);
-    
+
     if k_low1 < k_high {
         let l_child = store.read_node(root3.left.as_ref().unwrap()).unwrap();
         assert!(l_child.items.iter().any(|i| i.key == k_low1));
     }
     if k_low2 > k_high {
-        let r_child = store.read_node(root3.items[0].right.as_ref().unwrap()).unwrap();
+        let r_child = store
+            .read_node(root3.items[0].right.as_ref().unwrap())
+            .unwrap();
         assert!(r_child.items.iter().any(|i| i.key == k_low2));
     }
 }
@@ -283,14 +298,14 @@ fn test_upsert_higher_level_split() {
 #[test]
 fn test_recursive_split() {
     let _store = TestStoreMut::new();
-    
+
     // We want a tree like:
     //      L2
     //     /  \
     //    L1   L1
     //   / \   / \
     //  L0 L0 L0 L0
-    
+
     // And then insert something at L3 that splits everything.
     // This is hard to set up manually, but let's try 3 levels.
 }
@@ -324,8 +339,11 @@ fn test_upsert_lower_level_right_child() {
     assert!(!k_low.is_empty(), "Could not find k_low > k_high");
 
     let mut node = MstNode::empty();
-    node.upsert(&store, k_high.clone(), b"v_high".to_vec()).unwrap();
-    let hash2 = node.upsert(&store, k_low.clone(), b"v_low".to_vec()).unwrap();
+    node.upsert(&store, k_high.clone(), b"v_high".to_vec())
+        .unwrap();
+    let hash2 = node
+        .upsert(&store, k_low.clone(), b"v_low".to_vec())
+        .unwrap();
 
     let root2 = store.read_node(&hash2).unwrap();
     assert!(root2.items[0].right.is_some());
@@ -347,7 +365,9 @@ fn test_iter_prefix() {
     for k in &keys {
         node.upsert(&store, k.clone(), b"val".to_vec()).unwrap();
     }
-    let hash = node.upsert(&store, b"c/2".to_vec(), b"val".to_vec()).unwrap();
+    let hash = node
+        .upsert(&store, b"c/2".to_vec(), b"val".to_vec())
+        .unwrap();
     let root = store.read_node(&hash).unwrap();
 
     let prefix_a = b"a/".to_vec();

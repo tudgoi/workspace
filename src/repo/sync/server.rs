@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::future::Future;
 use thiserror::Error;
 
-use crate::repo::{Backend, COMMITTED_REF, Hash, IROH_SECRET, ToRepoError, backend::KeyType};
+use crate::repo::{Backend, Hash, IROH_SECRET, RepoRefType, ToRepoError, backend::KeyType};
 use iroh::discovery::mdns::MdnsDiscovery;
 
 pub const ALPN: &[u8] = b"pika/sync/0";
@@ -115,7 +115,7 @@ where
                                 ),
                                 RepoRequest::GetRoot => RepoResponse::Root(
                                     backend
-                                        .get(KeyType::Ref, COMMITTED_REF)
+                                        .get(KeyType::Ref, RepoRefType::Committed.as_str())
                                         .ok()
                                         .flatten()
                                         .and_then(|bytes| bytes.try_into().ok())

@@ -9,8 +9,8 @@ use axum::{
 };
 use rusqlite::{Connection, OptionalExtension};
 
+use crate::record::{Key, OfficePath, PersonPath, RecordRepo};
 use crate::{LibrarySql, dto};
-use crate::record::{Key, PersonPath, OfficePath, RecordRepo};
 use crate::{
     data,
     serve::{AppError, AppState},
@@ -71,11 +71,7 @@ impl ViewPhotoPartial {
                 })
             })
             .optional()?;
-        Ok(ViewPhotoPartial {
-            id,
-            typ,
-            photo,
-        })
+        Ok(ViewPhotoPartial { id, typ, photo })
     }
 }
 
@@ -85,7 +81,7 @@ pub async fn view(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<ViewPhotoPartial, AppError> {
     let conn = state.get_conn()?;
-    
+
     ViewPhotoPartial::new(&conn, typ, id)
 }
 
@@ -99,16 +95,20 @@ pub async fn save(
     let mut repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
-            repo.working()?.save(Key::<PersonPath, ()>::new(&id).photo(), &photo_form)?;
+            repo.working()?
+                .save(Key::<PersonPath, ()>::new(&id).photo(), &photo_form)?;
         }
         dto::EntityType::Office => {
-            repo.working()?.save(Key::<OfficePath, ()>::new(&id).photo(), &photo_form)?;
+            repo.working()?
+                .save(Key::<OfficePath, ()>::new(&id).photo(), &photo_form)?;
         }
     }
 
     let partial = ViewPhotoPartial::new(&conn, typ, id)?;
     let mut response = partial.into_response();
-    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("HX-Trigger", "entity_updated".parse().unwrap());
     Ok(response)
 }
 
@@ -121,15 +121,19 @@ pub async fn delete(
     let mut repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
-            repo.working()?.delete(Key::<PersonPath, ()>::new(&id).photo())?;
+            repo.working()?
+                .delete(Key::<PersonPath, ()>::new(&id).photo())?;
         }
         dto::EntityType::Office => {
-            repo.working()?.delete(Key::<OfficePath, ()>::new(&id).photo())?;
+            repo.working()?
+                .delete(Key::<OfficePath, ()>::new(&id).photo())?;
         }
     }
 
     let partial = ViewPhotoPartial::new(&conn, typ, id)?;
     let mut response = partial.into_response();
-    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("HX-Trigger", "entity_updated".parse().unwrap());
     Ok(response)
 }

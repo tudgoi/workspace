@@ -12,7 +12,7 @@ use serde::Deserialize;
 
 use crate::LibrarySql;
 use crate::dto;
-use crate::record::{Key, PersonPath, OfficePath, RecordRepo};
+use crate::record::{Key, OfficePath, PersonPath, RecordRepo};
 use crate::serve::{AppError, AppState};
 
 #[derive(Template, WebTemplate)]
@@ -53,10 +53,12 @@ impl ViewNamePartial {
         id: String,
         error: Option<String>,
     ) -> Result<ViewNamePartial, AppError> {
-        let name = conn.get_entity_name(&typ, &id, |row| {
-            let name: String = row.get(0)?;
-            Ok(name)
-        }).unwrap_or_else(|_| String::from("Deleted")); // Handle case where entity is deleted
+        let name = conn
+            .get_entity_name(&typ, &id, |row| {
+                let name: String = row.get(0)?;
+                Ok(name)
+            })
+            .unwrap_or_else(|_| String::from("Deleted")); // Handle case where entity is deleted
 
         let repo = RecordRepo::new(conn);
         let other_props_exist = match typ {
@@ -72,7 +74,13 @@ impl ViewNamePartial {
             }
         };
 
-        Ok(ViewNamePartial { id, typ, name, error, deletable: !other_props_exist })
+        Ok(ViewNamePartial {
+            id,
+            typ,
+            name,
+            error,
+            deletable: !other_props_exist,
+        })
     }
 }
 
@@ -82,7 +90,7 @@ pub async fn view(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<ViewNamePartial, AppError> {
     let conn = state.get_conn()?;
-    
+
     ViewNamePartial::new(&conn, typ, id, None)
 }
 
@@ -100,10 +108,12 @@ pub async fn save(
     let mut repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
-            repo.working()?.save(Key::<PersonPath, ()>::new(&id).name(), &form.name)?;
+            repo.working()?
+                .save(Key::<PersonPath, ()>::new(&id).name(), &form.name)?;
         }
         dto::EntityType::Office => {
-            repo.working()?.save(Key::<OfficePath, ()>::new(&id).name(), &form.name)?;
+            repo.working()?
+                .save(Key::<OfficePath, ()>::new(&id).name(), &form.name)?;
         }
     }
 
@@ -117,7 +127,7 @@ pub async fn delete_handler(
 ) -> Result<axum::response::Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
-    
+
     // Check if other properties exist
     let other_props_exist = match typ {
         dto::EntityType::Person => {
@@ -133,18 +143,25 @@ pub async fn delete_handler(
     };
 
     if other_props_exist {
-        let partial = ViewNamePartial::new(&conn, typ, id, Some("Cannot delete name while other properties exist.".to_string()))?;
+        let partial = ViewNamePartial::new(
+            &conn,
+            typ,
+            id,
+            Some("Cannot delete name while other properties exist.".to_string()),
+        )?;
         return Ok(partial.into_response());
     }
 
     match typ {
         dto::EntityType::Person => {
-            repo.working()?.delete(Key::<PersonPath, ()>::new(&id).name())?;
+            repo.working()?
+                .delete(Key::<PersonPath, ()>::new(&id).name())?;
         }
         dto::EntityType::Office => {
-            repo.working()?.delete(Key::<OfficePath, ()>::new(&id).name())?;
+            repo.working()?
+                .delete(Key::<OfficePath, ()>::new(&id).name())?;
         }
     }
-    
+
     crate::serve::hx_redirect("/")
 }

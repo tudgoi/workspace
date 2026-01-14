@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     data, dto,
-    repo::{Repo, RepoError},
+    repo::{Repo, RepoError, RepoRefType},
 };
 use sqlitebe::{SqliteBackend, SqliteBackendError};
 
@@ -398,13 +398,13 @@ impl<'a> RecordRepo<'a> {
 
     pub fn working(&self) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
         Ok(RecordRepoRef {
-            repo_ref: self.repo.working()?,
+            repo_ref: self.repo.get_ref(RepoRefType::Working)?,
         })
     }
 
     pub fn committed(&self) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
         Ok(RecordRepoRef {
-            repo_ref: self.repo.committed()?,
+            repo_ref: self.repo.get_ref(RepoRefType::Committed)?,
         })
     }
 
@@ -422,8 +422,9 @@ impl<'a> RecordRepo<'a> {
     {
         let working = self.working()?;
         let committed = self.committed()?;
-        
-        let diffs: Vec<Result<RecordDiff, RecordRepoError>> = committed.iterate_diff(&working)?.collect();
+
+        let diffs: Vec<Result<RecordDiff, RecordRepoError>> =
+            committed.iterate_diff(&working)?.collect();
         Ok(Box::new(diffs.into_iter()))
     }
 
@@ -477,10 +478,7 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
         Ok(())
     }
 
-    pub fn delete<P, T>(
-        &mut self,
-        key: Key<P, T>,
-    ) -> Result<(), RecordRepoError>
+    pub fn delete<P, T>(&mut self, key: Key<P, T>) -> Result<(), RecordRepoError>
     where
         Key<P, T>: ValueIndexer<T>,
     {
@@ -654,7 +652,10 @@ mod tests {
         repo.init().unwrap();
         let p1 = Key::<PersonPath, ()>::new("p1");
 
-        repo.working().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
+        repo.working()
+            .unwrap()
+            .save(p1.name(), &"Person One".to_string())
+            .unwrap();
 
         let photo = data::Photo {
             url: "http://example.com/p1.jpg".to_string(),
@@ -663,11 +664,14 @@ mod tests {
         repo.working().unwrap().save(p1.photo(), &photo).unwrap();
 
         let t1 = p1.tenure("o1", None);
-        repo.working().unwrap().save(t1, &Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()))
+        repo.working()
+            .unwrap()
+            .save(t1, &Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()))
             .unwrap();
 
         let items: Vec<_> = repo
-            .working().unwrap()
+            .working()
+            .unwrap()
             .scan(p1)
             .expect("Scan failed")
             .collect::<Result<Vec<_>, _>>()
@@ -713,13 +717,21 @@ mod tests {
         let mut repo = RecordRepo::new(&conn);
         repo.init().unwrap();
         let p1 = Key::<PersonPath, ()>::new("p1");
-        repo.working().unwrap().save(p1.name(), &"Person One".to_string()).unwrap();
+        repo.working()
+            .unwrap()
+            .save(p1.name(), &"Person One".to_string())
+            .unwrap();
         repo.commit().unwrap();
 
-        repo.working().unwrap().save(p1.name(), &"Person One Updated".to_string())
+        repo.working()
+            .unwrap()
+            .save(p1.name(), &"Person One Updated".to_string())
             .unwrap();
         let p2 = Key::<PersonPath, ()>::new("p2");
-        repo.working().unwrap().save(p2.name(), &"Person Two".to_string()).unwrap();
+        repo.working()
+            .unwrap()
+            .save(p2.name(), &"Person Two".to_string())
+            .unwrap();
 
         let diffs: Vec<_> = repo
             .iterate_diff()

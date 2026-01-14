@@ -121,7 +121,10 @@ impl MstNode {
         store: &S,
         key: &[u8],
     ) -> Result<(Hash, Option<Vec<u8>>), RepoError> {
-        match self.items.binary_search_by(|item| item.key.as_slice().cmp(key)) {
+        match self
+            .items
+            .binary_search_by(|item| item.key.as_slice().cmp(key))
+        {
             Ok(idx) => {
                 // Found the key in this node.
                 let item = self.items.remove(idx);
@@ -130,67 +133,67 @@ impl MstNode {
                 // We need to merge the left child (at idx) and the right child (item.right).
                 // Before removal: child[idx] < item < child[idx+1] (which was item.right).
                 // After removal, the gap needs to be filled by merging these two children.
-                
+
                 // Get the left child hash (it was at idx).
-                // Note: since we removed item at idx, get_child_hash(idx) now refers to 
+                // Note: since we removed item at idx, get_child_hash(idx) now refers to
                 // what was previously at idx+1 (if we didn't adjust).
                 // But we need the ORIGINAL children.
                 // The left child of the removed item was `self.get_child_hash(idx)` BEFORE removal.
                 // But we already removed the item.
                 // Let's re-think access.
-                
+
                 // We should have retrieved children before removing?
                 // `items` is a Vec.
                 // item at `idx` has `right` field.
                 // `left` field of `items[idx]` is implicitly `items[idx-1].right` or `self.left`.
-                
+
                 // Let's undo remove for a second conceptually.
                 // left_child = if idx == 0 { self.left } else { self.items[idx-1].right }
                 // right_child = item.right
-                
+
                 // Since we removed `item` at `idx`:
                 // If idx == 0, `self.left` is the left child.
                 // If idx > 0, `self.items[idx-1].right` is the left child.
-                
+
                 let left_child_hash = if idx == 0 {
                     self.left.clone()
                 } else {
                     self.items[idx - 1].right.clone()
                 };
-                
+
                 let right_child_hash = item.right;
-                
+
                 let merged_hash = Self::merge(store, left_child_hash, right_child_hash)?;
-                
+
                 if idx == 0 {
                     self.left = merged_hash;
                 } else {
                     self.items[idx - 1].right = merged_hash;
                 }
-                
+
                 // If the node becomes empty, we should return its only child (if any) or empty.
                 if self.items.is_empty() {
                     if let Some(h) = self.left.clone() {
-                         return Ok((h, value));
+                        return Ok((h, value));
                     }
                 }
-                
+
                 Ok((store.write_node(self)?, value))
             }
             Err(idx) => {
                 // Key not in this node, try child.
                 let child_hash = self.get_child_hash(idx).cloned();
-                
+
                 if let Some(h) = child_hash {
                     let mut child_node = store.read_node(&h)?;
                     let (new_child_hash, removed_val) = child_node.remove(store, key)?;
-                    
+
                     self.set_child_hash(idx, Some(new_child_hash));
-                    
+
                     // Cleanup: If child became empty/merged, we might want to do something?
                     // But MST properties are generally self-maintaining via merge/split.
                     // We just updated the pointer.
-                    
+
                     Ok((store.write_node(self)?, removed_val))
                 } else {
                     // Key not found
@@ -212,42 +215,42 @@ impl MstNode {
             (Some(lh), Some(rh)) => {
                 let mut left_node = store.read_node(&lh)?;
                 let mut right_node = store.read_node(&rh)?;
-                
+
                 if left_node.items.is_empty() {
                     return Self::merge(store, left_node.left, Some(rh));
                 }
                 if right_node.items.is_empty() {
                     return Self::merge(store, Some(lh), right_node.left);
                 }
-                
+
                 let l_lvl = left_node.estimate_level().unwrap();
                 let r_lvl = right_node.estimate_level().unwrap();
-                
+
                 if l_lvl > r_lvl {
-                     let idx = left_node.items.len(); 
-                     let child_hash = left_node.get_child_hash(idx).cloned();
-                     let merged_child = Self::merge(store, child_hash, Some(rh))?;
-                     left_node.set_child_hash(idx, merged_child);
-                     Ok(Some(store.write_node(&left_node)?))
+                    let idx = left_node.items.len();
+                    let child_hash = left_node.get_child_hash(idx).cloned();
+                    let merged_child = Self::merge(store, child_hash, Some(rh))?;
+                    left_node.set_child_hash(idx, merged_child);
+                    Ok(Some(store.write_node(&left_node)?))
                 } else if r_lvl > l_lvl {
-                     let child_hash = right_node.left.clone();
-                     let merged_child = Self::merge(store, Some(lh), child_hash)?;
-                     right_node.left = merged_child;
-                     Ok(Some(store.write_node(&right_node)?))
+                    let child_hash = right_node.left.clone();
+                    let merged_child = Self::merge(store, Some(lh), child_hash)?;
+                    right_node.left = merged_child;
+                    Ok(Some(store.write_node(&right_node)?))
                 } else {
-                     let l_child = left_node.get_child_hash(left_node.items.len()).cloned();
-                     let r_child = right_node.left.clone();
-                     
-                     let mid = Self::merge(store, l_child, r_child)?;
-                     
-                     if let Some(last) = left_node.items.last_mut() {
-                         last.right = mid;
-                     } else {
-                         left_node.left = mid;
-                     }
-                     
-                     left_node.items.extend(right_node.items);
-                     Ok(Some(store.write_node(&left_node)?))
+                    let l_child = left_node.get_child_hash(left_node.items.len()).cloned();
+                    let r_child = right_node.left.clone();
+
+                    let mid = Self::merge(store, l_child, r_child)?;
+
+                    if let Some(last) = left_node.items.last_mut() {
+                        last.right = mid;
+                    } else {
+                        left_node.left = mid;
+                    }
+
+                    left_node.items.extend(right_node.items);
+                    Ok(Some(store.write_node(&left_node)?))
                 }
             }
         }
@@ -481,9 +484,9 @@ impl<'a, S: Store> Iterator for PrefixIterator<'a, S> {
                     // Optimization: If item.key == prefix, then child[idx] < item == prefix.
                     // child[idx] keys are strictly less than item.key.
                     if item.key.as_slice() == self.prefix.as_slice() {
-                         // child[idx] keys < prefix. Skip child.
-                         // But we still need to process the item itself in the next iteration.
-                         continue;
+                        // child[idx] keys < prefix. Skip child.
+                        // But we still need to process the item itself in the next iteration.
+                        continue;
                     }
 
                     if let Some(h) = frame.node.get_child_hash(idx) {
@@ -523,9 +526,9 @@ impl<'a, S: Store> Iterator for PrefixIterator<'a, S> {
                     // We only visit the last child if we haven't bailed out yet.
                     // If we are here, it means all previous items were < prefix or matched prefix.
                     // So the last child might have matches.
-                    
+
                     if let Some(h) = frame.node.get_child_hash(idx) {
-                         match self.store.read_node(h) {
+                        match self.store.read_node(h) {
                             Ok(node) => {
                                 self.stack.push(IterState {
                                     node,

@@ -16,7 +16,7 @@ use strum::VariantArray;
 
 use crate::{
     LibrarySql, data, dto,
-    record::{Key, PersonPath, OfficePath, RecordRepo},
+    record::{Key, OfficePath, PersonPath, RecordRepo},
     serve::{AppError, AppState},
 };
 
@@ -69,11 +69,7 @@ impl ViewContactPartial {
 
             Ok(())
         })?;
-        Ok(ViewContactPartial {
-            id,
-            typ,
-            contacts,
-        })
+        Ok(ViewContactPartial { id, typ, contacts })
     }
 }
 
@@ -83,7 +79,7 @@ pub async fn view(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<ViewContactPartial, AppError> {
     let conn = state.get_conn()?;
-    
+
     ViewContactPartial::new(&conn, typ, id)
 }
 
@@ -118,7 +114,9 @@ pub async fn save(
 
     let partial = ViewContactPartial::new(&conn, typ, id)?;
     let mut response = partial.into_response();
-    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("HX-Trigger", "entity_updated".parse().unwrap());
     Ok(response)
 }
 
@@ -129,22 +127,22 @@ pub async fn delete(
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let mut repo = RecordRepo::new(&conn);
-    
+
     match typ {
         dto::EntityType::Person => {
-            repo.working()?.delete(
-                Key::<PersonPath, ()>::new(&id).contact(contact_type),
-            )?;
+            repo.working()?
+                .delete(Key::<PersonPath, ()>::new(&id).contact(contact_type))?;
         }
         dto::EntityType::Office => {
-            repo.working()?.delete(
-                Key::<OfficePath, ()>::new(&id).contact(contact_type),
-            )?;
+            repo.working()?
+                .delete(Key::<OfficePath, ()>::new(&id).contact(contact_type))?;
         }
     }
 
     let partial = ViewContactPartial::new(&conn, typ, id)?;
     let mut response = partial.into_response();
-    response.headers_mut().insert("HX-Trigger", "entity_updated".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("HX-Trigger", "entity_updated".parse().unwrap());
     Ok(response)
 }

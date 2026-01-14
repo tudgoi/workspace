@@ -1,8 +1,5 @@
 pub mod handler;
 
-use std::{path::PathBuf, sync::Arc};
-use rust_embed::Embed;
-use axum_embed::ServeEmbed;
 use anyhow::{Context, Result};
 use axum::{
     Router,
@@ -10,13 +7,19 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post, put},
 };
+use axum_embed::ServeEmbed;
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
+use rust_embed::Embed;
+use std::{path::PathBuf, sync::Arc};
 
 use r2d2::Error as R2D2Error;
 use thiserror::Error;
 
-use crate::{record::{RecordRepoError, sqlitebe::SqlitePoolBackend}, repo::sync::server::RepoServer};
+use crate::{
+    record::{RecordRepoError, sqlitebe::SqlitePoolBackend},
+    repo::sync::server::RepoServer,
+};
 
 use tower_livereload::LiveReloadLayer;
 
@@ -62,15 +65,15 @@ impl IntoResponse for AppError {
     }
 }
 
-pub async fn run(
-    db: PathBuf,
-    port: Option<&str>,
-) -> Result<()> {
+pub async fn run(db: PathBuf, port: Option<&str>) -> Result<()> {
     let state = AppState::new(db.clone(), true)?;
 
     let backend = SqlitePoolBackend::new(state.db_pool.clone());
     let repo_server = RepoServer::new(backend);
-    let (endpoint_id, _repo_router) = repo_server.start().await.context("failed to start repo server")?;
+    let (endpoint_id, _repo_router) = repo_server
+        .start()
+        .await
+        .context("failed to start repo server")?;
 
     let app = Router::new()
         .route("/", get(handler::index))
@@ -85,22 +88,34 @@ pub async fn run(
         .route("/{typ}/{id}/name/edit", get(handler::entity::name::edit))
         .route("/{typ}/{id}/name", get(handler::entity::name::view))
         .route("/{typ}/{id}/name", put(handler::entity::name::save))
-        .route("/{typ}/{id}/name/delete", post(handler::entity::name::delete_handler))
+        .route(
+            "/{typ}/{id}/name/delete",
+            post(handler::entity::name::delete_handler),
+        )
         .route("/{typ}/{id}/photo/edit", get(handler::entity::photo::edit))
         .route("/{typ}/{id}/photo", get(handler::entity::photo::view))
         .route("/{typ}/{id}/photo", put(handler::entity::photo::save))
-        .route("/{typ}/{id}/photo/delete", get(handler::entity::photo::delete))
+        .route(
+            "/{typ}/{id}/photo/delete",
+            get(handler::entity::photo::delete),
+        )
         .route(
             "/{typ}/{id}/contact/add",
             get(handler::entity::contact::add),
         )
         .route("/{typ}/{id}/contact", get(handler::entity::contact::view))
         .route("/{typ}/{id}/contact", post(handler::entity::contact::save))
-        .route("/{typ}/{id}/contact/{contact_type}/delete", get(handler::entity::contact::delete))
+        .route(
+            "/{typ}/{id}/contact/{contact_type}/delete",
+            get(handler::entity::contact::delete),
+        )
         .route("/person/{id}/tenure/add", get(handler::person::tenure::add))
         .route("/person/{id}/tenure", get(handler::person::tenure::view))
         .route("/person/{id}/tenure", post(handler::person::tenure::save))
-        .route("/person/{id}/tenure/delete", post(handler::person::tenure::delete))
+        .route(
+            "/person/{id}/tenure/delete",
+            post(handler::person::tenure::delete),
+        )
         .route(
             "/office/{id}/supervisor/add",
             get(handler::office::supervisor::add),

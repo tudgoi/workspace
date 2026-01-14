@@ -14,7 +14,9 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    CONFIG, config::Config, context, dto,
+    CONFIG,
+    config::Config,
+    context, dto,
     record::{Key, OfficePath, PersonPath, RecordRepo},
     serve::{
         AppError, AppState,
@@ -24,7 +26,7 @@ use crate::{
             person::tenure::ViewTenurePartial,
         },
         hx_redirect,
-    }
+    },
 };
 
 #[derive(Template, WebTemplate)]
@@ -66,10 +68,12 @@ pub async fn new(
     let mut repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
-            repo.working()?.save(Key::<PersonPath, ()>::new(&form.id).name(), &form.name)?;
+            repo.working()?
+                .save(Key::<PersonPath, ()>::new(&form.id).name(), &form.name)?;
         }
         dto::EntityType::Office => {
-            repo.working()?.save(Key::<OfficePath, ()>::new(&form.id).name(), &form.name)?;
+            repo.working()?
+                .save(Key::<OfficePath, ()>::new(&form.id).name(), &form.name)?;
         }
     }
 

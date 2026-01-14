@@ -2,7 +2,7 @@
 // the convention in rust. Currently I have a few modules where unit tests
 // are in separate tests.rs file.
 
-use crate::repo::{Repo, test_backend::TestBackend, Backend};
+use crate::repo::{Backend, Repo, RepoRefType, test_backend::TestBackend};
 
 #[test]
 fn test_repo() {
@@ -14,19 +14,54 @@ fn test_repo() {
     let k1: Vec<u8> = "name-0".as_bytes().to_vec();
     let k2: Vec<u8> = "age-0".as_bytes().to_vec();
 
-    assert_eq!(repo.working().unwrap().read(&k1).unwrap(), None);
+    assert_eq!(
+        repo.get_ref(RepoRefType::Working)
+            .unwrap()
+            .read(&k1)
+            .unwrap(),
+        None
+    );
 
-    repo.working().unwrap().write(k1.clone(), "val1".as_bytes().to_vec()).unwrap();
-    assert_eq!(repo.working().unwrap().read(&k1).unwrap(), Some("val1".as_bytes().to_vec()));
-
-    repo.working().unwrap().write(k2.clone(), "val2".as_bytes().to_vec()).unwrap();
-    assert_eq!(repo.working().unwrap().read(&k2).unwrap(), Some("val2".as_bytes().to_vec()));
-    assert_eq!(repo.working().unwrap().read(&k1).unwrap(), Some("val1".as_bytes().to_vec()));
-
-    repo.working().unwrap().write(k1.clone(), "val1_updated".as_bytes().to_vec())
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(k1.clone(), "val1".as_bytes().to_vec())
         .unwrap();
     assert_eq!(
-        repo.working().unwrap().read(&k1).unwrap(),
+        repo.get_ref(RepoRefType::Working)
+            .unwrap()
+            .read(&k1)
+            .unwrap(),
+        Some("val1".as_bytes().to_vec())
+    );
+
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(k2.clone(), "val2".as_bytes().to_vec())
+        .unwrap();
+    assert_eq!(
+        repo.get_ref(RepoRefType::Working)
+            .unwrap()
+            .read(&k2)
+            .unwrap(),
+        Some("val2".as_bytes().to_vec())
+    );
+    assert_eq!(
+        repo.get_ref(RepoRefType::Working)
+            .unwrap()
+            .read(&k1)
+            .unwrap(),
+        Some("val1".as_bytes().to_vec())
+    );
+
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(k1.clone(), "val1_updated".as_bytes().to_vec())
+        .unwrap();
+    assert_eq!(
+        repo.get_ref(RepoRefType::Working)
+            .unwrap()
+            .read(&k1)
+            .unwrap(),
         Some("val1_updated".as_bytes().to_vec())
     );
 }
@@ -51,15 +86,34 @@ fn test_iter_prefix() {
     let repo = Repo::new(backend);
     repo.init().unwrap();
 
-    repo.working().unwrap().write(b"apple".to_vec(), b"val1".to_vec()).unwrap();
-    repo.working().unwrap().write(b"apricot".to_vec(), b"val2".to_vec()).unwrap();
-    repo.working().unwrap().write(b"banana".to_vec(), b"val3".to_vec()).unwrap();
-    repo.working().unwrap().write(b"application".to_vec(), b"val4".to_vec())
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"apple".to_vec(), b"val1".to_vec())
         .unwrap();
-    repo.working().unwrap().write(b"apply".to_vec(), b"val5".to_vec()).unwrap();
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"apricot".to_vec(), b"val2".to_vec())
+        .unwrap();
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"banana".to_vec(), b"val3".to_vec())
+        .unwrap();
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"application".to_vec(), b"val4".to_vec())
+        .unwrap();
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"apply".to_vec(), b"val5".to_vec())
+        .unwrap();
 
     let mut visited = Vec::new();
-    for item in repo.working().unwrap().iter_prefix(b"app").unwrap() {
+    for item in repo
+        .get_ref(RepoRefType::Working)
+        .unwrap()
+        .iter_prefix(b"app")
+        .unwrap()
+    {
         let (k, _) = item.unwrap();
         visited.push(k);
     }
@@ -74,14 +128,24 @@ fn test_iter_prefix() {
     );
 
     visited.clear();
-    for item in repo.working().unwrap().iter_prefix(b"ban").unwrap() {
+    for item in repo
+        .get_ref(RepoRefType::Working)
+        .unwrap()
+        .iter_prefix(b"ban")
+        .unwrap()
+    {
         let (k, _) = item.unwrap();
         visited.push(k);
     }
     assert_eq!(visited, vec![b"banana".to_vec()]);
 
     visited.clear();
-    for item in repo.working().unwrap().iter_prefix(b"z").unwrap() {
+    for item in repo
+        .get_ref(RepoRefType::Working)
+        .unwrap()
+        .iter_prefix(b"z")
+        .unwrap()
+    {
         let (k, _) = item.unwrap();
         visited.push(k);
     }
@@ -90,57 +154,94 @@ fn test_iter_prefix() {
 
 #[test]
 fn test_committed_ref() {
-    use crate::repo::{WORKING_REF, COMMITTED_REF, KeyType};
+    use crate::repo::{KeyType, RepoRefType};
     let backend = TestBackend::new();
     let mut repo = Repo::new(backend);
     repo.init().unwrap();
 
-    repo.working().unwrap().write(b"k1".to_vec(), b"v1".to_vec()).unwrap();
-    let root_hash = repo.backend.get(KeyType::Ref, WORKING_REF).unwrap();
-    let committed_hash = repo.backend.get(KeyType::Ref, COMMITTED_REF).unwrap();
-    
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"k1".to_vec(), b"v1".to_vec())
+        .unwrap();
+    let root_hash = repo
+        .backend
+        .get(KeyType::Ref, RepoRefType::Working.as_str())
+        .unwrap();
+    let committed_hash = repo
+        .backend
+        .get(KeyType::Ref, RepoRefType::Committed.as_str())
+        .unwrap();
+
     assert!(root_hash.is_some());
     assert!(committed_hash.is_some());
     assert_ne!(root_hash, committed_hash);
 
     repo.commit().unwrap();
-    let committed_hash = repo.backend.get(KeyType::Ref, COMMITTED_REF).unwrap();
+    let committed_hash = repo
+        .backend
+        .get(KeyType::Ref, RepoRefType::Committed.as_str())
+        .unwrap();
     assert_eq!(root_hash, committed_hash);
 
-    repo.working().unwrap().write(b"k2".to_vec(), b"v2".to_vec()).unwrap();
-    let new_root_hash = repo.backend.get(KeyType::Ref, WORKING_REF).unwrap();
-    let committed_hash_after = repo.backend.get(KeyType::Ref, COMMITTED_REF).unwrap();
-    
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"k2".to_vec(), b"v2".to_vec())
+        .unwrap();
+    let new_root_hash = repo
+        .backend
+        .get(KeyType::Ref, RepoRefType::Working.as_str())
+        .unwrap();
+    let committed_hash_after = repo
+        .backend
+        .get(KeyType::Ref, RepoRefType::Committed.as_str())
+        .unwrap();
+
     assert_ne!(new_root_hash, committed_hash);
     assert_eq!(committed_hash_after, committed_hash);
 }
 
 #[test]
 fn test_iterate_diff() {
-    use crate::repo::{Diff};
+    use crate::repo::Diff;
     let backend = TestBackend::new();
     let mut repo = Repo::new(backend);
     repo.init().unwrap();
 
     // Initial state
-    repo.working().unwrap().write(b"a".to_vec(), b"1".to_vec()).unwrap();
-    repo.working().unwrap().write(b"b".to_vec(), b"2".to_vec()).unwrap();
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"a".to_vec(), b"1".to_vec())
+        .unwrap();
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"b".to_vec(), b"2".to_vec())
+        .unwrap();
     repo.commit().unwrap();
 
     // Modifications
-    repo.working().unwrap().write(b"b".to_vec(), b"22".to_vec()).unwrap(); // Changed
-    repo.working().unwrap().write(b"c".to_vec(), b"3".to_vec()).unwrap();  // Added
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"b".to_vec(), b"22".to_vec())
+        .unwrap(); // Changed
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"c".to_vec(), b"3".to_vec())
+        .unwrap(); // Added
     // MST doesn't support deletion yet, so we only test Added and Changed.
-    
-    let root = repo.working().unwrap();
-    let committed = repo.committed().unwrap();
-    let diffs: Vec<_> = committed.iterate_diff(&root).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
-    
+
+    let root = repo.get_ref(RepoRefType::Working).unwrap();
+    let committed = repo.get_ref(RepoRefType::Committed).unwrap();
+    let diffs: Vec<_> = committed
+        .iterate_diff(&root)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
     assert_eq!(diffs.len(), 2);
-    
+
     let mut found_added = false;
     let mut found_changed = false;
-    
+
     for diff in diffs {
         match diff {
             Diff::Added(k, v) => {
@@ -157,7 +258,7 @@ fn test_iterate_diff() {
             Diff::Removed(_, _) => panic!("Unexpected removal"),
         }
     }
-    
+
     assert!(found_added);
     assert!(found_changed);
 }

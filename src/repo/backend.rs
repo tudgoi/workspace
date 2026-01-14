@@ -25,5 +25,8 @@ pub trait Backend {
     fn list(&self, key_type: KeyType) -> Result<Vec<String>, Self::Error>;
     fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, Self::Error>;
     fn vacuum(&self) -> Result<(), Self::Error>;
-    fn stats(&self, key_type: KeyType) -> Result<(usize, std::collections::BTreeMap<usize, usize>), Self::Error>;
+    fn stats(
+        &self,
+        key_type: KeyType,
+    ) -> Result<(usize, std::collections::BTreeMap<usize, usize>), Self::Error>;
 }

@@ -1,8 +1,8 @@
 use rusqlite::{Connection, OptionalExtension};
 use thiserror::Error;
 
+use crate::repo::backend::{Backend, KeyType};
 use crate::repo::{Hash, RepoError, ToRepoError};
-use crate::repo::backend::{KeyType, Backend};
 
 #[derive(Debug, Error)]
 pub enum SqliteBackendError {
@@ -52,31 +52,46 @@ impl Backend for SqlitePoolBackend {
     type Error = SqliteBackendError;
 
     fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, Self::Error> {
-        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
         let backend = SqliteBackend::new(&conn);
         backend.get(key_type, key)
     }
 
     fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), Self::Error> {
-        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
         let backend = SqliteBackend::new(&conn);
         backend.set(key_type, key, value)
     }
 
     fn list(&self, key_type: KeyType) -> Result<Vec<String>, Self::Error> {
-        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
         let backend = SqliteBackend::new(&conn);
         backend.list(key_type)
     }
 
     fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, Self::Error> {
-        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
         let backend = SqliteBackend::new(&conn);
         backend.delete(key_type, keys)
     }
 
     fn vacuum(&self) -> Result<(), Self::Error> {
-        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
         let backend = SqliteBackend::new(&conn);
         backend.vacuum()
     }
@@ -85,7 +100,10 @@ impl Backend for SqlitePoolBackend {
         &self,
         key_type: KeyType,
     ) -> Result<(usize, std::collections::BTreeMap<usize, usize>), Self::Error> {
-        let conn = self.pool.get().map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| SqliteBackendError::Pool(e.to_string()))?;
         let backend = SqliteBackend::new(&conn);
         backend.stats(key_type)
     }
@@ -105,22 +123,20 @@ impl<'a> Backend for SqliteBackend<'a> {
                     .optional()
                     .map_err(SqliteBackendError::from)
             }
-            KeyType::Ref => {
-                self.conn
-                    .query_row("SELECT hash FROM refs WHERE name = ?1", [key], |row| {
-                        row.get(0)
-                    })
-                    .optional()
-                    .map_err(SqliteBackendError::from)
-            }
-            KeyType::Secret => {
-                self.conn
-                    .query_row("SELECT value FROM secrets WHERE name = ?1", [key], |row| {
-                        row.get(0)
-                    })
-                    .optional()
-                    .map_err(SqliteBackendError::from)
-            }
+            KeyType::Ref => self
+                .conn
+                .query_row("SELECT hash FROM refs WHERE name = ?1", [key], |row| {
+                    row.get(0)
+                })
+                .optional()
+                .map_err(SqliteBackendError::from),
+            KeyType::Secret => self
+                .conn
+                .query_row("SELECT value FROM secrets WHERE name = ?1", [key], |row| {
+                    row.get(0)
+                })
+                .optional()
+                .map_err(SqliteBackendError::from),
         }
     }
 

@@ -7,7 +7,7 @@ use crate::{
     dto::{self, Entity},
     graph,
     ingest::{derive::derive_id, old::OldIngestor},
-    record::{Key, PersonPath, OfficePath, RecordRepo},
+    record::{Key, OfficePath, PersonPath, RecordRepo},
 };
 use rusqlite::OptionalExtension;
 
@@ -100,10 +100,12 @@ async fn ingest_entity(conn: &mut Connection, entity: graph::Entity) -> Result<(
                     let repo = RecordRepo::new(conn);
                     match entity_type {
                         dto::EntityType::Person => {
-                            repo.working()?.save(Key::<PersonPath, ()>::new(&id).photo(), &photo)?;
+                            repo.working()?
+                                .save(Key::<PersonPath, ()>::new(&id).photo(), &photo)?;
                         }
                         dto::EntityType::Office => {
-                            repo.working()?.save(Key::<OfficePath, ()>::new(&id).photo(), &photo)?;
+                            repo.working()?
+                                .save(Key::<OfficePath, ()>::new(&id).photo(), &photo)?;
                         }
                     }
                 }
@@ -186,10 +188,12 @@ async fn ingest_entity_id_or_name(
             let repo = RecordRepo::new(conn);
             match entity_type {
                 dto::EntityType::Person => {
-                    repo.working()?.save(Key::<PersonPath, ()>::new(id).name(), &name.to_string())?;
+                    repo.working()?
+                        .save(Key::<PersonPath, ()>::new(id).name(), &name.to_string())?;
                 }
                 dto::EntityType::Office => {
-                    repo.working()?.save(Key::<OfficePath, ()>::new(id).name(), &name.to_string())?;
+                    repo.working()?
+                        .save(Key::<OfficePath, ()>::new(id).name(), &name.to_string())?;
                 }
             }
         }
@@ -215,10 +219,12 @@ async fn ingest_entity_id_or_name(
             let repo = RecordRepo::new(conn);
             match entity_type {
                 dto::EntityType::Person => {
-                    repo.working()?.save(Key::<PersonPath, ()>::new(&id).name(), &name.to_string())?;
+                    repo.working()?
+                        .save(Key::<PersonPath, ()>::new(&id).name(), &name.to_string())?;
                 }
                 dto::EntityType::Office => {
-                    repo.working()?.save(Key::<OfficePath, ()>::new(&id).name(), &name.to_string())?;
+                    repo.working()?
+                        .save(Key::<OfficePath, ()>::new(&id).name(), &name.to_string())?;
                 }
             }
 

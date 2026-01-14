@@ -68,13 +68,13 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
 
     for item in repo_ref.scan(Key::<PersonPath, ()>::all())? {
         let (key, value) = item?;
-        
+
         let id = match &key {
             RecordKey::Name(k) => &k.entity_id,
             RecordKey::Photo(k) => &k.entity_id,
             RecordKey::Contact(k) => &k.entity_id,
             RecordKey::Tenure(k) => &k.entity_id,
-            _ => continue, 
+            _ => continue,
         };
 
         if current_id.as_deref() != Some(id) {
@@ -108,7 +108,7 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
             _ => {}
         }
     }
-    
+
     if let (Some(cid), Some(builder)) = (current_id, current_person) {
         flush_person(&cid, builder, &person_dir)?;
     }

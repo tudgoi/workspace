@@ -96,7 +96,8 @@ pub fn insert_person_data(tx: &mut Transaction, id: &str, person: &data::Person)
     // Insert contacts if they exist
     if let Some(contacts) = &person.contacts {
         for (contact_type, value) in contacts {
-            repo.working()?.save(person_path.contact(contact_type.clone()), value)?;
+            repo.working()?
+                .save(person_path.contact(contact_type.clone()), value)?;
         }
     }
 
@@ -113,7 +114,8 @@ pub fn insert_person_data(tx: &mut Transaction, id: &str, person: &data::Person)
                 .as_ref()
                 .map(|d| d.parse::<NaiveDate>())
                 .transpose()?;
-            repo.working()?.save(person_path.tenure(&tenure.office_id, start), &end)?;
+            repo.working()?
+                .save(person_path.tenure(&tenure.office_id, start), &end)?;
         }
     }
 
@@ -143,7 +145,8 @@ fn insert_office_data(tx: &mut Transaction, id: &str, office: &data::Office) -> 
     // Insert contacts if they exist
     if let Some(contacts) = &office.contacts {
         for (contact_type, value) in contacts {
-            repo.working()?.save(office_path.contact(contact_type.clone()), value)?;
+            repo.working()?
+                .save(office_path.contact(contact_type.clone()), value)?;
         }
     }
 

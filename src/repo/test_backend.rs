@@ -1,5 +1,11 @@
-use std::{collections::BTreeMap, sync::{Arc, Mutex}};
-use crate::repo::{backend::{Backend, KeyType}, RepoError, ToRepoError};
+use crate::repo::{
+    RepoError, ToRepoError,
+    backend::{Backend, KeyType},
+};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 use thiserror::Error;
 
 #[derive(Debug, Error, Clone, Copy)]
@@ -32,7 +38,9 @@ impl Backend for TestBackend {
 
     fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, Self::Error> {
         let data = self.data.lock().unwrap();
-        Ok(data.get(&key_type.to_string()).and_then(|map| map.get(key).cloned()))
+        Ok(data
+            .get(&key_type.to_string())
+            .and_then(|map| map.get(key).cloned()))
     }
 
     fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), Self::Error> {
@@ -70,7 +78,10 @@ impl Backend for TestBackend {
         Ok(())
     }
 
-    fn stats(&self, key_type: KeyType) -> Result<(usize, std::collections::BTreeMap<usize, usize>), Self::Error> {
+    fn stats(
+        &self,
+        key_type: KeyType,
+    ) -> Result<(usize, std::collections::BTreeMap<usize, usize>), Self::Error> {
         let data = self.data.lock().unwrap();
         let mut distribution = std::collections::BTreeMap::new();
         let count = if let Some(map) = data.get(&key_type.to_string()) {

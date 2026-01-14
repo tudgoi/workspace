@@ -244,7 +244,8 @@ async fn augment_photo(conn: &mut Connection, source: &dyn Augmentor) -> Result<
         let photo = source.query_photo(&wikidata_id).await?;
         if let Some(photo) = photo {
             println!("- found {}", photo.url);
-            repo.working()?.save(Key::<PersonPath, ()>::new(&person_id).photo(), &photo)?;
+            repo.working()?
+                .save(Key::<PersonPath, ()>::new(&person_id).photo(), &photo)?;
         } else {
             println!("- no photo found");
         }

@@ -16,10 +16,10 @@ mod export;
 mod graph;
 mod import;
 mod ingest;
+mod record;
 mod render;
 mod repo;
 mod serve;
-mod record;
 
 include_sql!("sql/schema.sql");
 include_sql!("sql/library.sql");
@@ -175,10 +175,9 @@ async fn main() -> Result<()> {
         } => ingest::run(db.as_path(), source, directory.as_deref())
             .with_context(|| "could not run `ingest`"),
 
-        Commands::Serve {
-            db,
-            port,
-        } => serve::run(db, port.as_deref()).await.with_context(|| "failed to run `serve`"),
+        Commands::Serve { db, port } => serve::run(db, port.as_deref())
+            .await
+            .with_context(|| "failed to run `serve`"),
 
         Commands::Stats { db } => {
             let conn = rusqlite::Connection::open(db)?;
@@ -217,10 +216,15 @@ async fn main() -> Result<()> {
             let pool = r2d2::Pool::new(manager)?;
             let backend = crate::record::sqlitebe::SqlitePoolBackend::new(pool);
             let client = repo::sync::client::RepoClient::new(backend);
-            let peer_id = peer.parse::<iroh::EndpointId>().map_err(|e| anyhow::anyhow!("failed to parse peer ID: {}", e))?;
+            let peer_id = peer
+                .parse::<iroh::EndpointId>()
+                .map_err(|e| anyhow::anyhow!("failed to parse peer ID: {}", e))?;
 
             println!("Pulling from {}...", peer_id);
-            client.pull(peer_id).await.map_err(|e| anyhow::anyhow!("pull failed: {}", e))?;
+            client
+                .pull(peer_id)
+                .await
+                .map_err(|e| anyhow::anyhow!("pull failed: {}", e))?;
             println!("Pull complete.");
 
             Ok(())

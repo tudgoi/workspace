@@ -2,9 +2,9 @@ use anyhow::{Context, Result};
 use askama::Template;
 use axum::extract::{self, State};
 use rusqlite::Connection;
+use serve::StaticDir;
 use std::path::Path;
 use std::{fs, sync::Arc};
-use serve::StaticDir;
 
 use crate::{LibrarySql, SchemaSql};
 use crate::{
@@ -14,10 +14,7 @@ use crate::{
 
 #[tokio::main]
 pub async fn run(db: &Path, output: &Path) -> Result<()> {
-    let state = Arc::new(AppState::new(
-        db.to_path_buf(),
-        false,
-    )?);
+    let state = Arc::new(AppState::new(db.to_path_buf(), false)?);
     let conn = state.db_pool.get()?;
 
     fs::create_dir(output).with_context(|| format!("could not create output dir {:?}", output))?;
