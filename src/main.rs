@@ -212,19 +212,83 @@ async fn main() -> Result<()> {
         }
 
         Commands::Pull { db, peer } => {
-            let manager = r2d2_sqlite::SqliteConnectionManager::file(db);
-            let pool = r2d2::Pool::new(manager)?;
-            let backend = crate::record::sqlitebe::SqlitePoolBackend::new(pool);
-            let client = repo::sync::client::RepoClient::new(backend);
             let peer_id = peer
                 .parse::<iroh::EndpointId>()
                 .map_err(|e| anyhow::anyhow!("failed to parse peer ID: {}", e))?;
+
+            // 1. Capture old state
+            let mut conn = rusqlite::Connection::open(&db)?;
+            let old_hash = {
+                let repo = crate::record::RecordRepo::new(&conn);
+                repo.working()
+                    .and_then(|r| r.commit_id())
+                    .map_err(|e| anyhow::anyhow!("failed to get working ref: {}", e))?
+            };
+
+            // 2. Pull
+            let manager = r2d2_sqlite::SqliteConnectionManager::file(&db);
+            let pool = r2d2::Pool::new(manager)?;
+            let backend = crate::record::sqlitebe::SqlitePoolBackend::new(pool);
+            let client = repo::sync::client::RepoClient::new(backend);
 
             println!("Pulling from {}...", peer_id);
             client
                 .pull(peer_id)
                 .await
                 .map_err(|e| anyhow::anyhow!("pull failed: {}", e))?;
+
+            // 3. Re-index
+            let diffs = {
+                let repo = crate::record::RecordRepo::new(&conn);
+                let new_working = repo
+                    .working()
+                    .map_err(|e| anyhow::anyhow!("failed to get new working ref: {}", e))?;
+                let new_hash = new_working.commit_id()?;
+
+                if old_hash != new_hash {
+                    println!("Updating indexes...");
+                    let old_working = repo
+                        .get_at(&old_hash)
+                        .map_err(|e| anyhow::anyhow!("failed to get old ref: {}", e))?;
+
+                    old_working
+                        .iterate_diff(&new_working)
+                        .map_err(|e| anyhow::anyhow!("diff failed: {}", e))?
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(|e| anyhow::anyhow!("diff iteration failed: {}", e))?
+                } else {
+                    Vec::new()
+                }
+            };
+
+            if !diffs.is_empty() {
+                let mut diffs = diffs;
+                diffs.sort_by_key(|diff| {
+                    use crate::record::{RecordDiff, RecordKey};
+                    match diff {
+                        RecordDiff::Added(RecordKey::Name(_), _)
+                        | RecordDiff::Changed(RecordKey::Name(_), _, _) => 0,
+
+                        RecordDiff::Added(_, _) | RecordDiff::Changed(_, _, _) => 1,
+
+                        RecordDiff::Removed(RecordKey::Name(_), _) => 3,
+
+                        RecordDiff::Removed(_, _) => 2,
+                    }
+                });
+
+                let tx = conn.transaction()?;
+                for diff in diffs {
+                    match diff {
+                        crate::record::RecordDiff::Added(k, v) => k.update_index(&tx, &v)?,
+                        crate::record::RecordDiff::Changed(k, _, v) => k.update_index(&tx, &v)?,
+                        crate::record::RecordDiff::Removed(k, _) => k.delete_index(&tx)?,
+                    }
+                }
+                tx.commit()?;
+                println!("Indexes updated.");
+            }
+
             println!("Pull complete.");
 
             Ok(())

@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     data, dto,
-    repo::{Repo, RepoError, RepoRefType},
+    repo::{Hash, Repo, RepoError, RepoRefType},
 };
 use sqlitebe::{SqliteBackend, SqliteBackendError};
 
@@ -64,6 +64,33 @@ impl RecordKey {
             RecordKey::Contact(k) => (k.entity_type, k.entity_id.clone()),
             RecordKey::Supervisor(k) => (k.entity_type, k.entity_id.clone()),
             RecordKey::Tenure(k) => (k.entity_type, k.entity_id.clone()),
+        }
+    }
+
+    pub fn update_index(
+        &self,
+        conn: &Connection,
+        value: &RecordValue,
+    ) -> Result<(), RecordRepoError> {
+        match (self, value) {
+            (RecordKey::Name(k), RecordValue::Name(v)) => k.update_index(conn, v),
+            (RecordKey::Photo(k), RecordValue::Photo(v)) => k.update_index(conn, v),
+            (RecordKey::Contact(k), RecordValue::Contact(v)) => k.update_index(conn, v),
+            (RecordKey::Supervisor(k), RecordValue::Supervisor(v)) => k.update_index(conn, v),
+            (RecordKey::Tenure(k), RecordValue::Tenure(v)) => k.update_index(conn, v),
+            _ => Err(RecordRepoError::InvalidPath(
+                "Key/Value type mismatch".to_string(),
+            )),
+        }
+    }
+
+    pub fn delete_index(&self, conn: &Connection) -> Result<(), RecordRepoError> {
+        match self {
+            RecordKey::Name(k) => k.delete_index(conn),
+            RecordKey::Photo(k) => k.delete_index(conn),
+            RecordKey::Contact(k) => k.delete_index(conn),
+            RecordKey::Supervisor(k) => k.delete_index(conn),
+            RecordKey::Tenure(k) => k.delete_index(conn),
         }
     }
 }
@@ -414,6 +441,18 @@ impl<'a> RecordRepo<'a> {
 
     pub fn init(&self) -> Result<(), RecordRepoError> {
         Ok(self.repo.init()?)
+    }
+
+    pub fn get_at(&self, hash_str: &str) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
+        let hash = Hash::from_hex(hash_str)
+            .map_err(|e| RecordRepoError::Repo(RepoError::HashParse(e)))?;
+        Ok(RecordRepoRef {
+            repo_ref: crate::repo::RepoRef {
+                repo: &self.repo,
+                hash,
+                name: "detached".to_string(),
+            },
+        })
     }
 
     pub fn iterate_diff(

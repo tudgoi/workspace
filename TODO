@@ -1,2 +1,0 @@
-* After pulling the remote changes, the data maintained direclty in the
-  sqlite tables by the ValueIndexer goes out of date.
