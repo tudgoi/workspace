@@ -3,7 +3,7 @@ title = "The Unofficial Directory — Government of India"
 
 # The URL the site will be built for
 base_url = "https://tudgoi.github.io/"
-source_url = "https://github.com/tudgoi/workspace"
+source_url = "https://github.com/tudgoi/tudgoi"
 
 [icons]
 # from https://fontawesome.com/

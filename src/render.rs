@@ -6,7 +6,7 @@ use serve::StaticDir;
 use std::path::Path;
 use std::{fs, sync::Arc};
 
-use crate::{LibrarySql, SchemaSql};
+use crate::{CONFIG, LibrarySql, SchemaSql};
 use crate::{
     dto,
     serve::{self, AppState},
@@ -14,7 +14,11 @@ use crate::{
 
 #[tokio::main]
 pub async fn run(db: &Path, output: &Path) -> Result<()> {
-    let state = Arc::new(AppState::new(db.to_path_buf(), false)?);
+    let state = Arc::new(AppState::new(
+        db.to_path_buf(),
+        false,
+        CONFIG.base_url.to_string(),
+    )?);
     let conn = state.db_pool.get()?;
 
     fs::create_dir(output).with_context(|| format!("could not create output dir {:?}", output))?;

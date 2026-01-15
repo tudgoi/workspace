@@ -107,10 +107,7 @@ pub async fn page(
     let commit_id = repo.working()?.commit_id()?;
 
     // page
-    let page = context::Page {
-        base: "../".to_string(),
-        dynamic: state.dynamic,
-    };
+    let page = state.page_context();
 
     // metadata
     let metadata = context::Metadata {

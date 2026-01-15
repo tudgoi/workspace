@@ -45,10 +45,7 @@ pub async fn new_form(
     Ok(NewTemplate {
         typ,
         config: &CONFIG,
-        page: context::Page {
-            dynamic: state.dynamic,
-            base: String::from("../"),
-        },
+        page: state.page_context(),
     })
 }
 
@@ -116,9 +113,6 @@ pub async fn edit(
         tenure_partial,
         supervisor_partial,
         config: &CONFIG,
-        page: context::Page {
-            dynamic: state.dynamic,
-            base: String::from("../../"),
-        },
+        page: state.page_context(),
     })
 }

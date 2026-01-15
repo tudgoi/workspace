@@ -17,6 +17,8 @@ use r2d2::Error as R2D2Error;
 use thiserror::Error;
 
 use crate::{
+    CONFIG,
+    context::Page,
     record::{RecordRepoError, sqlitebe::SqlitePoolBackend},
     repo::sync::server::RepoServer,
 };
@@ -66,7 +68,9 @@ impl IntoResponse for AppError {
 }
 
 pub async fn run(db: PathBuf, port: Option<&str>) -> Result<()> {
-    let state = AppState::new(db.clone(), true)?;
+    let addr = format!("0.0.0.0:{}", port.unwrap_or("8080"));
+    let server_url = format!("http://{}/", addr);
+    let state = AppState::new(db.clone(), true, server_url.clone())?;
 
     let backend = SqlitePoolBackend::new(state.db_pool.clone());
     let repo_server = RepoServer::new(backend);
@@ -136,13 +140,12 @@ pub async fn run(db: PathBuf, port: Option<&str>) -> Result<()> {
         .with_state(Arc::new(state))
         .nest_service("/static", ServeEmbed::<StaticDir>::new());
 
-    let addr = format!("0.0.0.0:{}", port.unwrap_or("8080"));
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .context("could not listen")?;
 
     println!("Iroh ID: {}", endpoint_id);
-    println!("Serving at http://{}/", addr);
+    println!("Serving at {}", server_url);
     axum::serve(listener, app)
         .await
         .context("could not start server")?;
@@ -154,10 +157,11 @@ pub struct AppState {
     pub dynamic: bool,
     pub db: PathBuf,
     pub db_pool: Pool<SqliteConnectionManager>,
+    pub server_url: String,
 }
 
 impl AppState {
-    pub fn new(db: PathBuf, dynamic: bool) -> Result<Self> {
+    pub fn new(db: PathBuf, dynamic: bool, server_url: String) -> Result<Self> {
         let manager = SqliteConnectionManager::file(&db);
         let db_pool = r2d2::Pool::builder()
             .max_size(15) // Max connections to keep open
@@ -167,11 +171,24 @@ impl AppState {
             dynamic,
             db,
             db_pool,
+            server_url,
         })
     }
 
     pub fn get_conn(&self) -> Result<PooledConnection<SqliteConnectionManager>, R2D2Error> {
         self.db_pool.get()
+    }
+
+    pub fn page_context(&self) -> Page {
+        let base = if self.dynamic {
+            self.server_url.to_string()
+        } else {
+            CONFIG.base_url.to_string()
+        };
+        Page {
+            base,
+            dynamic: self.dynamic,
+        }
     }
 }
 

@@ -182,10 +182,7 @@ pub async fn page(
         },
         sources: None, // Initialize sources as None
         config: &CONFIG,
-        page: context::Page {
-            base: String::from("../"),
-            dynamic: state.dynamic,
-        },
+        page: state.page_context(),
         metadata: context::Metadata {
             commit_id,
             maintenance: context::Maintenance { incomplete: false },

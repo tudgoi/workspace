@@ -50,10 +50,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
         persons,
         offices,
         config: &CONFIG,
-        page: Page {
-            dynamic: state.dynamic,
-            base: String::from("./"),
-        },
+        page: state.page_context(),
         metadata: Metadata {
             commit_id: commit_id.chars().take(8).collect(),
             maintenance: context::Maintenance { incomplete: false },
@@ -144,10 +141,7 @@ pub async fn uncommitted(
     Ok(UncommittedTemplate {
         changes,
         config: &CONFIG,
-        page: Page {
-            base: String::from("./"),
-            dynamic: true,
-        },
+        page: state.page_context(),
     })
 }
 
