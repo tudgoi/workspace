@@ -1,15 +1,18 @@
-<form hx-post="/person/{{ id }}/tenure" hx-target="this" hx-swap="outerHTML">
+<form hx-post="/person/{{ id }}/tenure/add" hx-target="this" hx-swap="outerHTML">
+  {% if let Some(error) = error %}
+  <div style="color: red;">{{ error }}</div>
+  {% endif %}
   <div>
     <label>Office ID</label>:
-    <input type="text" name="office_id" value="">
+    <input type="text" name="office_id" value="{% if let Some(val) = office_id %}{{ val }}{% endif %}">
   </div>
   <div>
     <label>Start</label>:
-    <input type="text" name="start" value="">
+    <input type="text" name="start" value="{% if let Some(val) = start %}{{ val }}{% endif %}">
   </div>
   <div>
     <label>End</label>:
-    <input type="text" name="end" value="">
+    <input type="text" name="end" value="{% if let Some(val) = end %}{{ val }}{% endif %}">
   </div>
   <button type="submit">Save</button>
   <button hx-get="/person/{{ id }}/tenure">Cancel</button>

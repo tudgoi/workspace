@@ -1,14 +1,21 @@
-<form hx-post="/{{ typ }}/{{ id }}/contact" hx-target="this" hx-swap="outerHTML">
+<form hx-post="/{{ typ }}/{{ id }}/contact/add" hx-target="this" hx-swap="outerHTML">
+    {% if let Some(error) = error %}
+    <div style="color: red;">{{ error }}</div>
+    {% endif %}
     <div>
         <label>Type</label>:
         {% for contact_type in missing_contacts %}
-        <input type="radio" id="{{ contact_type }}" name="contact_type" value="{{ contact_type }}" />
+        <input type="radio" id="{{ contact_type }}" name="contact_type" value="{{ contact_type }}"
+            {% if let Some(selected) = selected_type %}
+                {% if selected == contact_type %}checked{% endif %}
+            {% endif %}
+        />
         <label for="contact-type-{{ contact_type }}">{{ contact_type }}</label>
         {% endfor %}
     </div>
     <div>
         <label>Value</label>:
-        <input name="value" value="">
+        <input name="value" value="{% if let Some(val) = value %}{{ val }}{% endif %}">
     </div>
     <div>
         <button type="submit">Save</button>

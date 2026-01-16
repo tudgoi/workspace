@@ -21,11 +21,21 @@ use crate::{
 #[template(path = "person/tenure/add_partial.html")]
 pub struct AddTenurePartial {
     id: String,
+    office_id: Option<String>,
+    start: Option<String>,
+    end: Option<String>,
+    error: Option<String>,
 }
 
 #[axum::debug_handler]
 pub async fn add(Path(id): Path<String>) -> Result<AddTenurePartial, AppError> {
-    Ok(AddTenurePartial { id })
+    Ok(AddTenurePartial {
+        id,
+        office_id: None,
+        start: None,
+        end: None,
+        error: None,
+    })
 }
 
 #[derive(Template, WebTemplate)]
@@ -33,6 +43,7 @@ pub async fn add(Path(id): Path<String>) -> Result<AddTenurePartial, AppError> {
 pub struct EditTenurePartial {
     id: String,
     tenure: data::Tenure,
+    error: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -67,7 +78,7 @@ pub async fn edit(
 
     let tenure = tenures.into_iter().next().ok_or_else(|| AppError::from("Tenure not found".to_string()))?;
 
-    Ok(EditTenurePartial { id, tenure })
+    Ok(EditTenurePartial { id, tenure, error: None })
 }
 
 #[derive(Template, WebTemplate)]
@@ -107,29 +118,109 @@ pub async fn view(
 #[derive(Deserialize)]
 pub struct TenureEntry {
     pub office_id: String,
-    pub start: Option<NaiveDate>,
-    pub end: Option<NaiveDate>,
+    pub start: Option<String>,
+    pub end: Option<String>,
+}
+
+fn parse_date(s: Option<String>) -> Result<Option<NaiveDate>, String> {
+    match s {
+        Some(s) if !s.is_empty() => {
+            NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+                .map(Some)
+                .map_err(|e| format!("Invalid date format: {}", e))
+        }
+        _ => Ok(None),
+    }
 }
 
 #[axum::debug_handler]
-pub async fn save(
+pub async fn save_add(
     State(state): State<Arc<AppState>>,
     Path(person_id): Path<String>,
     Form(form): Form<TenureEntry>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let repo = RecordRepo::new(&conn);
-    repo.working()?.save(
-        Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, form.start),
-        &form.end,
-    )?;
 
-    let partial = ViewTenurePartial::new(&conn, person_id)?;
-    let mut response = partial.into_response();
-    response
-        .headers_mut()
-        .insert("HX-Trigger", "entity_updated".parse().unwrap());
-    Ok(response)
+    let start_date = parse_date(form.start.clone());
+    let end_date = parse_date(form.end.clone());
+
+    let result = match (start_date, end_date) {
+        (Ok(start), Ok(end)) => {
+            repo.working()?.save(
+                Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, start),
+                &end,
+            ).map_err(AppError::from)
+        }
+        (Err(e), _) => Err(AppError::from(e)),
+        (_, Err(e)) => Err(AppError::from(e)),
+    };
+
+    match result {
+        Ok(_) => {
+            let partial = ViewTenurePartial::new(&conn, person_id)?;
+            let mut response = partial.into_response();
+            response
+                .headers_mut()
+                .insert("HX-Trigger", "entity_updated".parse().unwrap());
+            Ok(response)
+        }
+        Err(e) => {
+            Ok(AddTenurePartial {
+                id: person_id,
+                office_id: Some(form.office_id),
+                start: form.start,
+                end: form.end,
+                error: Some(e.to_string()),
+            }.into_response())
+        }
+    }
+}
+
+#[axum::debug_handler]
+pub async fn save_edit(
+    State(state): State<Arc<AppState>>,
+    Path(person_id): Path<String>,
+    Form(form): Form<TenureEntry>,
+) -> Result<Response, AppError> {
+    let conn = state.get_conn()?;
+    let repo = RecordRepo::new(&conn);
+
+    let start_date = parse_date(form.start.clone());
+    let end_date = parse_date(form.end.clone());
+
+    let result = match (start_date, end_date) {
+        (Ok(start), Ok(end)) => {
+            repo.working()?.save(
+                Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, start),
+                &end,
+            ).map_err(AppError::from)
+        }
+        (Err(e), _) => Err(AppError::from(e)),
+        (_, Err(e)) => Err(AppError::from(e)),
+    };
+
+    match result {
+        Ok(_) => {
+            let partial = ViewTenurePartial::new(&conn, person_id)?;
+            let mut response = partial.into_response();
+            response
+                .headers_mut()
+                .insert("HX-Trigger", "entity_updated".parse().unwrap());
+            Ok(response)
+        }
+        Err(e) => {
+            Ok(EditTenurePartial {
+                id: person_id,
+                tenure: data::Tenure {
+                    office_id: form.office_id,
+                    start: form.start,
+                    end: form.end,
+                },
+                error: Some(e.to_string()),
+            }.into_response())
+        }
+    }
 }
 
 #[derive(Deserialize)]

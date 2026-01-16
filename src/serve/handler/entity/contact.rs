@@ -26,6 +26,9 @@ pub struct AddContactPartial {
     typ: dto::EntityType,
     id: String,
     missing_contacts: Vec<data::ContactType>,
+    selected_type: Option<data::ContactType>,
+    value: Option<String>,
+    error: Option<String>,
 }
 
 #[axum::debug_handler]
@@ -50,6 +53,9 @@ pub async fn add(
         id,
         typ,
         missing_contacts,
+        selected_type: None,
+        value: None,
+        error: None,
     })
 }
 
@@ -60,6 +66,7 @@ pub struct EditContactPartial {
     id: String,
     contact_type: data::ContactType,
     value: String,
+    error: Option<String>,
 }
 
 #[axum::debug_handler]
@@ -82,6 +89,7 @@ pub async fn edit(
         typ,
         contact_type,
         value,
+        error: None,
     })
 }
 
@@ -122,34 +130,103 @@ pub struct ContactEntry {
 }
 
 #[axum::debug_handler]
-pub async fn save(
+pub async fn save_add(
     State(state): State<Arc<AppState>>,
     Path((typ, id)): Path<(dto::EntityType, String)>,
     Form(contact_form): Form<ContactEntry>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let repo = RecordRepo::new(&conn);
-    match typ {
+    let result = match typ {
         dto::EntityType::Person => {
             repo.working()?.save(
-                Key::<PersonPath, ()>::new(&id).contact(contact_form.contact_type),
+                Key::<PersonPath, ()>::new(&id).contact(contact_form.contact_type.clone()),
                 &contact_form.value,
-            )?;
+            )
         }
         dto::EntityType::Office => {
             repo.working()?.save(
-                Key::<OfficePath, ()>::new(&id).contact(contact_form.contact_type),
+                Key::<OfficePath, ()>::new(&id).contact(contact_form.contact_type.clone()),
                 &contact_form.value,
-            )?;
+            )
+        }
+    };
+
+    match result {
+        Ok(_) => {
+            let partial = ViewContactPartial::new(&conn, typ, id)?;
+            let mut response = partial.into_response();
+            response
+                .headers_mut()
+                .insert("HX-Trigger", "entity_updated".parse().unwrap());
+            Ok(response)
+        }
+        Err(e) => {
+            let mut contacts: HashSet<data::ContactType> = HashSet::new();
+            conn.get_entity_contacts(&typ, &id, |row| {
+                contacts.insert(row.get(0)?);
+                Ok(())
+            })?;
+            let missing_contacts = data::ContactType::VARIANTS
+                .iter()
+                .filter(|variant| !contacts.contains(variant))
+                .cloned()
+                .collect();
+
+            Ok(AddContactPartial {
+                id,
+                typ,
+                missing_contacts,
+                selected_type: Some(contact_form.contact_type),
+                value: Some(contact_form.value),
+                error: Some(e.to_string()),
+            }.into_response())
         }
     }
+}
 
-    let partial = ViewContactPartial::new(&conn, typ, id)?;
-    let mut response = partial.into_response();
-    response
-        .headers_mut()
-        .insert("HX-Trigger", "entity_updated".parse().unwrap());
-    Ok(response)
+#[axum::debug_handler]
+pub async fn save_edit(
+    State(state): State<Arc<AppState>>,
+    Path((typ, id)): Path<(dto::EntityType, String)>,
+    Form(contact_form): Form<ContactEntry>,
+) -> Result<Response, AppError> {
+    let conn = state.get_conn()?;
+    let repo = RecordRepo::new(&conn);
+    let result = match typ {
+        dto::EntityType::Person => {
+            repo.working()?.save(
+                Key::<PersonPath, ()>::new(&id).contact(contact_form.contact_type.clone()),
+                &contact_form.value,
+            )
+        }
+        dto::EntityType::Office => {
+            repo.working()?.save(
+                Key::<OfficePath, ()>::new(&id).contact(contact_form.contact_type.clone()),
+                &contact_form.value,
+            )
+        }
+    };
+
+    match result {
+        Ok(_) => {
+            let partial = ViewContactPartial::new(&conn, typ, id)?;
+            let mut response = partial.into_response();
+            response
+                .headers_mut()
+                .insert("HX-Trigger", "entity_updated".parse().unwrap());
+            Ok(response)
+        }
+        Err(e) => {
+            Ok(EditContactPartial {
+                id,
+                typ,
+                contact_type: contact_form.contact_type,
+                value: contact_form.value,
+                error: Some(e.to_string()),
+            }.into_response())
+        }
+    }
 }
 
 #[axum::debug_handler]

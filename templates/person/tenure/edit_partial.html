@@ -1,4 +1,7 @@
-<form hx-post="/person/{{ id }}/tenure" hx-target="this" hx-swap="outerHTML">
+<form hx-post="/person/{{ id }}/tenure/edit" hx-target="this" hx-swap="outerHTML">
+  {% if let Some(error) = error %}
+  <div style="color: red;">{{ error }}</div>
+  {% endif %}
   <div>
     <label>Office ID</label>:
     <input type="text" name="office_id" value="{{ tenure.office_id }}">
