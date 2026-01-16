@@ -17,6 +17,7 @@
             {% else %}
             None
             {% endif %}
+            <button hx-get="/person/{{ id }}/tenure/edit?office_id={{ tenure.office_id }}{% if let Some(start) = tenure.start %}&start={{ start }}{% endif %}" style="display:inline;">Edit</button>
             <form hx-post="/person/{{ id }}/tenure/delete" hx-confirm="Delete tenure?" style="display:inline;">
                 <input type="hidden" name="office_id" value="{{ tenure.office_id }}">
                 <input type="hidden" name="start" value="{% if let Some(start) = tenure.start %}{{ start }}{% endif %}">

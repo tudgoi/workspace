@@ -1,0 +1,16 @@
+<form hx-post="/person/{{ id }}/tenure" hx-target="this" hx-swap="outerHTML">
+  <div>
+    <label>Office ID</label>:
+    <input type="text" name="office_id" value="{{ tenure.office_id }}">
+  </div>
+  <div>
+    <label>Start</label>:
+    <input type="text" name="start" value="{% if let Some(start) = tenure.start %}{{ start }}{% endif %}">
+  </div>
+  <div>
+    <label>End</label>:
+    <input type="text" name="end" value="{% if let Some(end) = tenure.end %}{{ end }}{% endif %}">
+  </div>
+  <button type="submit">Save</button>
+  <button hx-get="/person/{{ id }}/tenure">Cancel</button>
+</form>
