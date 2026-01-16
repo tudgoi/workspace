@@ -107,6 +107,10 @@ pub async fn run(db: PathBuf, port: Option<&str>) -> Result<()> {
             "/{typ}/{id}/contact/add",
             get(handler::entity::contact::add),
         )
+        .route(
+            "/{typ}/{id}/contact/{contact_type}/edit",
+            get(handler::entity::contact::edit),
+        )
         .route("/{typ}/{id}/contact", get(handler::entity::contact::view))
         .route("/{typ}/{id}/contact", post(handler::entity::contact::save))
         .route(

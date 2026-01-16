@@ -54,6 +54,38 @@ pub async fn add(
 }
 
 #[derive(Template, WebTemplate)]
+#[template(path = "entity/contact/edit_partial.html")]
+pub struct EditContactPartial {
+    typ: dto::EntityType,
+    id: String,
+    contact_type: data::ContactType,
+    value: String,
+}
+
+#[axum::debug_handler]
+pub async fn edit(
+    State(state): State<Arc<AppState>>,
+    Path((typ, id, contact_type)): Path<(dto::EntityType, String, data::ContactType)>,
+) -> Result<EditContactPartial, AppError> {
+    let conn = state.get_conn()?;
+    let mut value = String::new();
+    conn.get_entity_contacts(&typ, &id, |row| {
+        let ct: data::ContactType = row.get(0)?;
+        if ct == contact_type {
+            value = row.get(1)?;
+        }
+        Ok(())
+    })?;
+
+    Ok(EditContactPartial {
+        id,
+        typ,
+        contact_type,
+        value,
+    })
+}
+
+#[derive(Template, WebTemplate)]
 #[template(path = "entity/contact/view_partial.html")]
 pub struct ViewContactPartial {
     typ: dto::EntityType,
@@ -96,7 +128,7 @@ pub async fn save(
     Form(contact_form): Form<ContactEntry>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
             repo.working()?.save(
@@ -126,7 +158,7 @@ pub async fn delete(
     Path((typ, id, contact_type)): Path<(dto::EntityType, String, data::ContactType)>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
 
     match typ {
         dto::EntityType::Person => {

@@ -1,0 +1,14 @@
+<form hx-post="/{{ typ }}/{{ id }}/contact" hx-target="this" hx-swap="outerHTML">
+    <div>
+        <label>Type</label>: {{ contact_type }}
+        <input type="hidden" name="contact_type" value="{{ contact_type }}" />
+    </div>
+    <div>
+        <label>Value</label>:
+        <input name="value" value="{{ value }}">
+    </div>
+    <div>
+        <button type="submit">Save</button>
+        <button hx-get="/{{ typ }}/{{ id }}/contact">Cancel</button>
+    </div>
+</form>
