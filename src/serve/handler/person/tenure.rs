@@ -226,7 +226,7 @@ pub async fn save_edit(
 #[derive(Deserialize)]
 pub struct DeleteTenureEntry {
     pub office_id: String,
-    pub start: Option<NaiveDate>,
+    pub start: Option<String>,
 }
 
 #[axum::debug_handler]
@@ -237,8 +237,11 @@ pub async fn delete(
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
     let repo = RecordRepo::new(&conn);
+
+    let start_date = parse_date(form.start.clone()).map_err(AppError::from)?;
+
     repo.working()?
-        .delete(Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, form.start))?;
+        .delete(Key::<PersonPath, ()>::new(&person_id).tenure(&form.office_id, start_date))?;
 
     let partial = ViewTenurePartial::new(&conn, person_id)?;
     let mut response = partial.into_response();
