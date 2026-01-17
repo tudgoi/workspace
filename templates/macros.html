@@ -48,7 +48,7 @@
   <dl class="backlink-list">
     {% for (key, value) in officers %}
       <dt>
-        {{ key.forward_label() }}
+        {{ key.reverse_label() }}
         ({{ value.len() }})</dt>
         <dd>
           <ul>
