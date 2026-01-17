@@ -15,6 +15,7 @@ export-data () {
         return 1
     fi
 )
+    rm -rf $TUDGOI_DATA/office $TUDGOI_DATA/person
     
     cargo run export output/directory.db $TUDGOI_DATA
 }
