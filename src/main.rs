@@ -159,7 +159,9 @@ async fn main() -> Result<()> {
         }
 
         Commands::Render { db, output } => {
-            render::run(db.as_path(), output.as_path()).with_context(|| "could not run `render`")
+            render::run(db.as_path(), output.as_path())
+                .await
+                .with_context(|| "could not run `render`")
         }
         Commands::Augment {
             db,

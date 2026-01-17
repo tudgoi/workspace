@@ -12,7 +12,6 @@ use crate::{
     serve::{self, AppState},
 };
 
-#[tokio::main]
 pub async fn run(db: &Path, output: &Path) -> Result<()> {
     let state = Arc::new(AppState::new(
         db.to_path_buf(),
