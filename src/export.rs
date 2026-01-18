@@ -28,6 +28,15 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     let repo_ref = repo.committed()?;
 
     // Export persons
+    let commit_id = repo_ref.commit_id()?;
+    let commit_id_path = output.join("commit_id.txt");
+    let mut commit_id_file = File::create(&commit_id_path)
+        .with_context(|| format!("could not create {:?}", commit_id_path))?;
+    commit_id_file
+        .write_all(commit_id.to_hex().as_bytes())
+        .with_context(|| format!("could not write to {:?}", commit_id_path))?;
+
+    // Export persons
     struct PersonBuilder {
         name: Option<String>,
         photo: Option<data::Photo>,
@@ -202,4 +211,85 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::record::sqlitebe::SqliteBackend;
+    use crate::repo::Repo;
+    use rusqlite::Connection;
+
+    fn setup_db(conn: &Connection) {
+        conn.execute_batch(
+            r#"
+            CREATE TABLE repo (
+              hash BLOB NOT NULL PRIMARY KEY,
+              blob BLOB NOT NULL
+            );
+            CREATE TABLE refs (
+              name TEXT NOT NULL PRIMARY KEY,
+              hash BLOB NOT NULL
+            );
+            CREATE TABLE secrets (
+              name TEXT NOT NULL PRIMARY KEY,
+              value BLOB NOT NULL
+            );
+            CREATE TABLE entity (
+              type TEXT NOT NULL,
+              id TEXT NOT NULL,
+              name TEXT NOT NULL,
+              PRIMARY KEY(type, id)
+            );
+            CREATE TABLE entity_photo (
+              entity_type TEXT NOT NULL,
+              entity_id TEXT NOT NULL,
+              url TEXT NOT NULL,
+              attribution TEXT,
+              PRIMARY KEY(entity_type, entity_id)
+            );
+            CREATE TABLE person_office_tenure (
+              person_id TEXT NOT NULL,
+              office_id TEXT NOT NULL,
+              start TEXT,
+              end TEXT
+            );
+        "#,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_export_commit_id() -> Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let db_path = temp_dir.path().join("test.db");
+        let output_dir = temp_dir.path().join("output");
+
+        {
+            let conn = Connection::open(&db_path)?;
+            setup_db(&conn);
+            let backend = SqliteBackend::new(&conn);
+            let mut repo = Repo::new(backend);
+            repo.init()?;
+            repo.commit()?;
+        }
+
+        run(&db_path, &output_dir)?;
+
+        let commit_id_path = output_dir.join("commit_id.txt");
+        assert!(commit_id_path.exists());
+
+        let content = fs::read_to_string(commit_id_path)?;
+        assert_eq!(content.len(), 64);
+
+        // Verify it matches the repo commit id
+        let conn = Connection::open(&db_path)?;
+        let repo = RecordRepo::new(&conn);
+        let committed_ref = repo.committed()?;
+        let expected_hash = committed_ref.commit_id()?.to_hex();
+
+        assert_eq!(content, expected_hash);
+
+        Ok(())
+    }
 }
