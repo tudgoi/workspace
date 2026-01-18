@@ -76,6 +76,19 @@ fn test_hash_display() {
     let hash = Hash(data);
     let s = hash.to_string();
     assert!(s.starts_with("12ab00"));
+    assert_eq!(s.len(), 8);
+}
+
+#[test]
+fn test_hash_hex() {
+    use crate::repo::Hash;
+    let mut data = [0u8; 32];
+    data[0] = 0x12;
+    data[1] = 0xab;
+    data[31] = 0xff;
+    let hash = Hash(data);
+    let s = hash.to_hex();
+    assert!(s.starts_with("12ab00"));
     assert!(s.ends_with("ff"));
     assert_eq!(s.len(), 64);
 }
@@ -165,11 +178,11 @@ fn test_committed_ref() {
         .unwrap();
     let root_hash = repo
         .backend
-        .get(KeyType::Ref, RepoRefType::Working.as_str())
+        .get(KeyType::Ref, RepoRefType::Working.as_str().as_bytes())
         .unwrap();
     let committed_hash = repo
         .backend
-        .get(KeyType::Ref, RepoRefType::Committed.as_str())
+        .get(KeyType::Ref, RepoRefType::Committed.as_str().as_bytes())
         .unwrap();
 
     assert!(root_hash.is_some());
@@ -179,7 +192,7 @@ fn test_committed_ref() {
     repo.commit().unwrap();
     let committed_hash = repo
         .backend
-        .get(KeyType::Ref, RepoRefType::Committed.as_str())
+        .get(KeyType::Ref, RepoRefType::Committed.as_str().as_bytes())
         .unwrap();
     assert_eq!(root_hash, committed_hash);
 
@@ -189,11 +202,11 @@ fn test_committed_ref() {
         .unwrap();
     let new_root_hash = repo
         .backend
-        .get(KeyType::Ref, RepoRefType::Working.as_str())
+        .get(KeyType::Ref, RepoRefType::Working.as_str().as_bytes())
         .unwrap();
     let committed_hash_after = repo
         .backend
-        .get(KeyType::Ref, RepoRefType::Committed.as_str())
+        .get(KeyType::Ref, RepoRefType::Committed.as_str().as_bytes())
         .unwrap();
 
     assert_ne!(new_root_hash, committed_hash);

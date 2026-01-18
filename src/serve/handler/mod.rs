@@ -52,7 +52,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
         config: &CONFIG,
         page: state.page_context(),
         metadata: Metadata {
-            commit_id: commit_id.chars().take(8).collect(),
+            commit_id,
             maintenance: context::Maintenance { incomplete: false },
         },
     })

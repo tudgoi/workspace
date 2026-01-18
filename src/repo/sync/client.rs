@@ -44,11 +44,11 @@ where
         // 1. Check for uncommitted changes
         let working_hash = self
             .backend
-            .get(KeyType::Ref, RepoRefType::Working.as_str())
+            .get(KeyType::Ref, RepoRefType::Working.as_str().as_bytes())
             .map_err(|e| PullError::Backend(e.to_string()))?;
         let committed_hash = self
             .backend
-            .get(KeyType::Ref, RepoRefType::Committed.as_str())
+            .get(KeyType::Ref, RepoRefType::Committed.as_str().as_bytes())
             .map_err(|e| PullError::Backend(e.to_string()))?;
 
         if working_hash != committed_hash {
@@ -82,7 +82,7 @@ where
         while let Some(hash) = queue.pop_front() {
             if self
                 .backend
-                .get(KeyType::Node, &hash.to_string())
+                .get(KeyType::Node, &hash.0)
                 .map_err(|e| PullError::Backend(e.to_string()))?
                 .is_none()
             {
@@ -106,14 +106,18 @@ where
 
                 // Save node data (already compressed by server)
                 self.backend
-                    .set(KeyType::Node, &hash.to_string(), &node_data)
+                    .set(KeyType::Node, &hash.0, &node_data)
                     .map_err(|e| PullError::Backend(e.to_string()))?;
             }
         }
 
         // 5. Update working ref
         self.backend
-            .set(KeyType::Ref, RepoRefType::Working.as_str(), &remote_root.0)
+            .set(
+                KeyType::Ref,
+                RepoRefType::Working.as_str().as_bytes(),
+                &remote_root.0,
+            )
             .map_err(|e| PullError::Backend(e.to_string()))?;
 
         Ok(())

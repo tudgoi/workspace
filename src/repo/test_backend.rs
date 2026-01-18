@@ -22,7 +22,7 @@ impl ToRepoError for TestBackendError {
 
 #[derive(Clone)]
 pub struct TestBackend {
-    data: Arc<Mutex<BTreeMap<String, BTreeMap<String, Vec<u8>>>>>,
+    data: Arc<Mutex<BTreeMap<String, BTreeMap<Vec<u8>, Vec<u8>>>>>,
 }
 
 impl TestBackend {
@@ -36,22 +36,22 @@ impl TestBackend {
 impl Backend for TestBackend {
     type Error = TestBackendError;
 
-    fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, Self::Error> {
+    fn get(&self, key_type: KeyType, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
         let data = self.data.lock().unwrap();
         Ok(data
             .get(&key_type.to_string())
             .and_then(|map| map.get(key).cloned()))
     }
 
-    fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), Self::Error> {
+    fn set(&self, key_type: KeyType, key: &[u8], value: &[u8]) -> Result<(), Self::Error> {
         let mut data = self.data.lock().unwrap();
         data.entry(key_type.to_string())
             .or_default()
-            .insert(key.to_string(), value.to_vec());
+            .insert(key.to_vec(), value.to_vec());
         Ok(())
     }
 
-    fn list(&self, key_type: KeyType) -> Result<Vec<String>, Self::Error> {
+    fn list(&self, key_type: KeyType) -> Result<Vec<Vec<u8>>, Self::Error> {
         let data = self.data.lock().unwrap();
         Ok(data
             .get(&key_type.to_string())
@@ -59,7 +59,7 @@ impl Backend for TestBackend {
             .unwrap_or_default())
     }
 
-    fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, Self::Error> {
+    fn delete(&self, key_type: KeyType, keys: &[&[u8]]) -> Result<usize, Self::Error> {
         let mut data = self.data.lock().unwrap();
         if let Some(map) = data.get_mut(&key_type.to_string()) {
             let mut count = 0;

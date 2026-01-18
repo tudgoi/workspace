@@ -60,11 +60,20 @@ impl Hash {
         }
         Ok(Hash(bytes))
     }
+
+    pub fn to_hex(&self) -> String {
+        let mut hex = String::with_capacity(64);
+        for byte in self.0.iter() {
+            use std::fmt::Write;
+            write!(hex, "{:02x}", byte).unwrap();
+        }
+        hex
+    }
 }
 
 impl Display for Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for byte in self.0 {
+        for byte in self.0.iter().take(4) {
             write!(f, "{:02x}", byte)?;
         }
         Ok(())
@@ -124,17 +133,25 @@ where
         let empty_node = MstNode::empty();
         let hash = self.write_node(&empty_node)?;
         self.backend
-            .set(KeyType::Ref, RepoRefType::Working.as_str(), &hash.0)
+            .set(
+                KeyType::Ref,
+                RepoRefType::Working.as_str().as_bytes(),
+                &hash.0,
+            )
             .map_err(|e| e.to_repo_error())?;
         self.backend
-            .set(KeyType::Ref, RepoRefType::Committed.as_str(), &hash.0)
+            .set(
+                KeyType::Ref,
+                RepoRefType::Committed.as_str().as_bytes(),
+                &hash.0,
+            )
             .map_err(|e| e.to_repo_error())?;
 
         let iroh_secret = SecretKey::generate(&mut rand::rng());
         self.backend
             .set(
                 KeyType::Secret,
-                IROH_SECRET,
+                IROH_SECRET.as_bytes(),
                 iroh_secret.to_bytes().as_slice(),
             )
             .map_err(|e| e.to_repo_error())?;
@@ -145,7 +162,7 @@ where
         let ref_name = ref_type.as_str();
         let hash_bytes = self
             .backend
-            .get(KeyType::Ref, ref_name)
+            .get(KeyType::Ref, ref_name.as_bytes())
             .map_err(|e| e.to_repo_error())?
             .ok_or_else(|| RepoError::RefNotFound(ref_name.to_string()))?;
         let hash = Hash(
@@ -163,11 +180,15 @@ where
     pub fn commit(&mut self) -> Result<(), RepoError> {
         let root_hash_bytes = self
             .backend
-            .get(KeyType::Ref, RepoRefType::Working.as_str())
+            .get(KeyType::Ref, RepoRefType::Working.as_str().as_bytes())
             .map_err(|e| e.to_repo_error())?;
         if let Some(h_bytes) = root_hash_bytes {
             self.backend
-                .set(KeyType::Ref, RepoRefType::Committed.as_str(), &h_bytes)
+                .set(
+                    KeyType::Ref,
+                    RepoRefType::Committed.as_str().as_bytes(),
+                    &h_bytes,
+                )
                 .map_err(|e| e.to_repo_error())?;
         }
         Ok(())
@@ -176,7 +197,7 @@ where
     pub fn stats(&self) -> Result<RepoStats, RepoError> {
         let root_hash_bytes = self
             .backend
-            .get(KeyType::Ref, RepoRefType::Working.as_str())
+            .get(KeyType::Ref, RepoRefType::Working.as_str().as_bytes())
             .map_err(|e| e.to_repo_error())?;
         let mut kv_count = 0;
         let mut total_value_size = 0;
@@ -229,23 +250,28 @@ where
             }
         }
 
-        let all_hashes_hex = self
+        let all_hashes = self
             .backend
             .list(KeyType::Node)
             .map_err(|e| e.to_repo_error())?;
-        let mut to_delete_hex: Vec<String> = Vec::new();
+        let mut to_delete: Vec<Vec<u8>> = Vec::new();
 
-        for hex in all_hashes_hex {
-            let h = Hash::from_hex(&hex).map_err(RepoError::HashParse)?;
+        for hash_bytes in all_hashes {
+            let h = Hash(
+                hash_bytes
+                    .clone()
+                    .try_into()
+                    .map_err(|_| RepoError::HashParse("Invalid hash length".to_string()))?,
+            );
             if !reachable.contains(&h) {
-                to_delete_hex.push(hex);
+                to_delete.push(hash_bytes);
             }
         }
 
-        let deleted = if to_delete_hex.is_empty() {
+        let deleted = if to_delete.is_empty() {
             0
         } else {
-            let refs: Vec<&str> = to_delete_hex.iter().map(|s| s.as_str()).collect();
+            let refs: Vec<&[u8]> = to_delete.iter().map(|s| s.as_slice()).collect();
             self.backend
                 .delete(KeyType::Node, &refs)
                 .map_err(|e| e.to_repo_error())?
@@ -345,7 +371,7 @@ where
         let new_root_hash = root_node.upsert(self.repo, key, value)?;
         self.repo
             .backend
-            .set(KeyType::Ref, &self.name, &new_root_hash.0)
+            .set(KeyType::Ref, self.name.as_bytes(), &new_root_hash.0)
             .map_err(|e| e.to_repo_error())?;
         self.hash = new_root_hash;
         Ok(())
@@ -357,14 +383,14 @@ where
         let (new_root_hash, value) = root_node.remove(self.repo, key)?;
         self.repo
             .backend
-            .set(KeyType::Ref, &self.name, &new_root_hash.0)
+            .set(KeyType::Ref, self.name.as_bytes(), &new_root_hash.0)
             .map_err(|e| e.to_repo_error())?;
         self.hash = new_root_hash;
         Ok(value)
     }
 
-    pub fn commit_id(&self) -> Result<String, RepoError> {
-        Ok(self.hash.to_string())
+    pub fn commit_id(&self) -> Result<Hash, RepoError> {
+        Ok(self.hash.clone())
     }
 }
 
@@ -384,7 +410,7 @@ where
         let hash = Hash(*hasher.as_bytes());
 
         self.backend
-            .set(KeyType::Node, &hash.to_string(), &compressed)
+            .set(KeyType::Node, &hash.0, &compressed)
             .map_err(|e| e.to_repo_error())?;
 
         Ok(hash)
@@ -393,7 +419,7 @@ where
     fn read_node(&self, hash: &Hash) -> Result<MstNode, RepoError> {
         let compressed = self
             .backend
-            .get(KeyType::Node, &hash.to_string())
+            .get(KeyType::Node, &hash.0)
             .map_err(|e| e.to_repo_error())?
             .ok_or_else(|| RepoError::HashParse(format!("node not found: {}", hash)))?;
         let decompressed = lz4_flex::decompress_size_prepended(&compressed)?;

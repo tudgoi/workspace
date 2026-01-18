@@ -2,7 +2,7 @@ use rusqlite::{Connection, OptionalExtension};
 use thiserror::Error;
 
 use crate::repo::backend::{Backend, KeyType};
-use crate::repo::{Hash, RepoError, ToRepoError};
+use crate::repo::{RepoError, ToRepoError};
 
 #[derive(Debug, Error)]
 pub enum SqliteBackendError {
@@ -10,8 +10,8 @@ pub enum SqliteBackendError {
     Sqlite(#[from] rusqlite::Error),
     #[error("pool error: {0}")]
     Pool(String),
-    #[error("hash parsing error: {0}")]
-    HashParse(String),
+    #[error("parsing error: {0}")]
+    Parse(String),
 }
 
 impl ToRepoError for SqliteBackendError {
@@ -51,7 +51,7 @@ impl std::fmt::Debug for SqlitePoolBackend {
 impl Backend for SqlitePoolBackend {
     type Error = SqliteBackendError;
 
-    fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, Self::Error> {
+    fn get(&self, key_type: KeyType, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
         let conn = self
             .pool
             .get()
@@ -60,7 +60,7 @@ impl Backend for SqlitePoolBackend {
         backend.get(key_type, key)
     }
 
-    fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), Self::Error> {
+    fn set(&self, key_type: KeyType, key: &[u8], value: &[u8]) -> Result<(), Self::Error> {
         let conn = self
             .pool
             .get()
@@ -69,7 +69,7 @@ impl Backend for SqlitePoolBackend {
         backend.set(key_type, key, value)
     }
 
-    fn list(&self, key_type: KeyType) -> Result<Vec<String>, Self::Error> {
+    fn list(&self, key_type: KeyType) -> Result<Vec<Vec<u8>>, Self::Error> {
         let conn = self
             .pool
             .get()
@@ -78,7 +78,7 @@ impl Backend for SqlitePoolBackend {
         backend.list(key_type)
     }
 
-    fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, Self::Error> {
+    fn delete(&self, key_type: KeyType, keys: &[&[u8]]) -> Result<usize, Self::Error> {
         let conn = self
             .pool
             .get()
@@ -112,71 +112,83 @@ impl Backend for SqlitePoolBackend {
 impl<'a> Backend for SqliteBackend<'a> {
     type Error = SqliteBackendError;
 
-    fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, Self::Error> {
+    fn get(&self, key_type: KeyType, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
         match key_type {
             KeyType::Node => {
-                let hash = Hash::from_hex(key).map_err(SqliteBackendError::HashParse)?;
+                // key is already the hash bytes
                 self.conn
-                    .query_row("SELECT blob FROM repo WHERE hash = ?1", [hash.0], |row| {
+                    .query_row("SELECT blob FROM repo WHERE hash = ?1", [key], |row| {
                         row.get(0)
                     })
                     .optional()
                     .map_err(SqliteBackendError::from)
             }
-            KeyType::Ref => self
-                .conn
-                .query_row("SELECT hash FROM refs WHERE name = ?1", [key], |row| {
-                    row.get(0)
-                })
-                .optional()
-                .map_err(SqliteBackendError::from),
-            KeyType::Secret => self
-                .conn
-                .query_row("SELECT value FROM secrets WHERE name = ?1", [key], |row| {
-                    row.get(0)
-                })
-                .optional()
-                .map_err(SqliteBackendError::from),
+            KeyType::Ref => {
+                let key_str = std::str::from_utf8(key).map_err(|e| {
+                    SqliteBackendError::Parse(format!("Invalid UTF-8 in ref key: {}", e))
+                })?;
+                self.conn
+                    .query_row("SELECT hash FROM refs WHERE name = ?1", [key_str], |row| {
+                        row.get(0)
+                    })
+                    .optional()
+                    .map_err(SqliteBackendError::from)
+            }
+            KeyType::Secret => {
+                let key_str = std::str::from_utf8(key).map_err(|e| {
+                    SqliteBackendError::Parse(format!("Invalid UTF-8 in secret key: {}", e))
+                })?;
+                self.conn
+                    .query_row(
+                        "SELECT value FROM secrets WHERE name = ?1",
+                        [key_str],
+                        |row| row.get(0),
+                    )
+                    .optional()
+                    .map_err(SqliteBackendError::from)
+            }
         }
     }
 
-    fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), Self::Error> {
+    fn set(&self, key_type: KeyType, key: &[u8], value: &[u8]) -> Result<(), Self::Error> {
         match key_type {
             KeyType::Node => {
-                let hash = Hash::from_hex(key).map_err(SqliteBackendError::HashParse)?;
                 self.conn.execute(
                     "INSERT OR IGNORE INTO repo (hash, blob) VALUES (?1, ?2)",
-                    (hash.0, value),
+                    (key, value),
                 )?;
                 Ok(())
             }
             KeyType::Ref => {
+                let key_str = std::str::from_utf8(key).map_err(|e| {
+                    SqliteBackendError::Parse(format!("Invalid UTF-8 in ref key: {}", e))
+                })?;
                 self.conn.execute(
                     "INSERT OR REPLACE INTO refs (name, hash) VALUES (?1, ?2)",
-                    (key, value),
+                    (key_str, value),
                 )?;
                 Ok(())
             }
             KeyType::Secret => {
+                let key_str = std::str::from_utf8(key).map_err(|e| {
+                    SqliteBackendError::Parse(format!("Invalid UTF-8 in secret key: {}", e))
+                })?;
                 self.conn.execute(
                     "INSERT OR REPLACE INTO secrets (name, value) VALUES (?1, ?2)",
-                    (key, value),
+                    (key_str, value),
                 )?;
                 Ok(())
             }
         }
     }
 
-    fn list(&self, key_type: KeyType) -> Result<Vec<String>, Self::Error> {
+    fn list(&self, key_type: KeyType) -> Result<Vec<Vec<u8>>, Self::Error> {
         match key_type {
             KeyType::Node => {
                 let mut stmt = self.conn.prepare("SELECT hash FROM repo")?;
                 let rows = stmt.query_map([], |row| {
                     let hash_bytes: Vec<u8> = row.get(0)?;
-                    let bytes: [u8; 32] = hash_bytes
-                        .try_into()
-                        .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(0, 32))?;
-                    Ok(Hash(bytes).to_string())
+                    Ok(hash_bytes)
                 })?;
 
                 let mut hashes = Vec::new();
@@ -187,28 +199,28 @@ impl<'a> Backend for SqliteBackend<'a> {
             }
             KeyType::Ref => {
                 let mut stmt = self.conn.prepare("SELECT name FROM refs")?;
-                let rows = stmt.query_map([], |row| row.get(0))?;
+                let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
 
                 let mut refs = Vec::new();
                 for r in rows {
-                    refs.push(r?);
+                    refs.push(r?.into_bytes());
                 }
                 Ok(refs)
             }
             KeyType::Secret => {
                 let mut stmt = self.conn.prepare("SELECT name FROM secrets")?;
-                let rows = stmt.query_map([], |row| row.get(0))?;
+                let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
 
                 let mut secrets = Vec::new();
                 for s in rows {
-                    secrets.push(s?);
+                    secrets.push(s?.into_bytes());
                 }
                 Ok(secrets)
             }
         }
     }
 
-    fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, Self::Error> {
+    fn delete(&self, key_type: KeyType, keys: &[&[u8]]) -> Result<usize, Self::Error> {
         match key_type {
             KeyType::Node => {
                 if keys.is_empty() {
@@ -219,8 +231,7 @@ impl<'a> Backend for SqliteBackend<'a> {
                 {
                     let mut stmt = tx.prepare("DELETE FROM repo WHERE hash = ?1")?;
                     for key in keys {
-                        let hash = Hash::from_hex(key).map_err(SqliteBackendError::HashParse)?;
-                        deleted += stmt.execute([hash.0])?;
+                        deleted += stmt.execute([key])?;
                     }
                 }
                 tx.commit()?;
@@ -235,7 +246,10 @@ impl<'a> Backend for SqliteBackend<'a> {
                 {
                     let mut stmt = tx.prepare("DELETE FROM refs WHERE name = ?1")?;
                     for key in keys {
-                        deleted += stmt.execute([key])?;
+                        let key_str = std::str::from_utf8(key).map_err(|e| {
+                            SqliteBackendError::Parse(format!("Invalid UTF-8 in ref key: {}", e))
+                        })?;
+                        deleted += stmt.execute([key_str])?;
                     }
                 }
                 tx.commit()?;
@@ -250,7 +264,10 @@ impl<'a> Backend for SqliteBackend<'a> {
                 {
                     let mut stmt = tx.prepare("DELETE FROM secrets WHERE name = ?1")?;
                     for key in keys {
-                        deleted += stmt.execute([key])?;
+                        let key_str = std::str::from_utf8(key).map_err(|e| {
+                            SqliteBackendError::Parse(format!("Invalid UTF-8 in secret key: {}", e))
+                        })?;
+                        deleted += stmt.execute([key_str])?;
                     }
                 }
                 tx.commit()?;

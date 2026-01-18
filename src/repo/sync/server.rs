@@ -59,7 +59,7 @@ where
 
         let secret_bytes = self
             .backend
-            .get(KeyType::Secret, IROH_SECRET)
+            .get(KeyType::Secret, IROH_SECRET.as_bytes())
             .map_err(|e| SyncError::Backend(e.to_string()))?
             .ok_or(SyncError::SecretNotFound)?;
 
@@ -111,11 +111,14 @@ where
                         if let Ok(req) = postcard::from_bytes::<RepoRequest>(&buf) {
                             let resp = match req {
                                 RepoRequest::GetNode(hash) => RepoResponse::Node(
-                                    backend.get(KeyType::Node, &hash.to_string()).ok().flatten(),
+                                    backend.get(KeyType::Node, &hash.0).ok().flatten(),
                                 ),
                                 RepoRequest::GetRoot => RepoResponse::Root(
                                     backend
-                                        .get(KeyType::Ref, RepoRefType::Committed.as_str())
+                                        .get(
+                                            KeyType::Ref,
+                                            RepoRefType::Committed.as_str().as_bytes(),
+                                        )
                                         .ok()
                                         .flatten()
                                         .and_then(|bytes| bytes.try_into().ok())

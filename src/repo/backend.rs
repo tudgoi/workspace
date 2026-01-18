@@ -20,10 +20,10 @@ impl Display for KeyType {
 pub trait Backend {
     type Error: std::fmt::Debug + Display + Send + Sync + 'static;
 
-    fn get(&self, key_type: KeyType, key: &str) -> Result<Option<Vec<u8>>, Self::Error>;
-    fn set(&self, key_type: KeyType, key: &str, value: &[u8]) -> Result<(), Self::Error>;
-    fn list(&self, key_type: KeyType) -> Result<Vec<String>, Self::Error>;
-    fn delete(&self, key_type: KeyType, keys: &[&str]) -> Result<usize, Self::Error>;
+    fn get(&self, key_type: KeyType, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error>;
+    fn set(&self, key_type: KeyType, key: &[u8], value: &[u8]) -> Result<(), Self::Error>;
+    fn list(&self, key_type: KeyType) -> Result<Vec<Vec<u8>>, Self::Error>;
+    fn delete(&self, key_type: KeyType, keys: &[&[u8]]) -> Result<usize, Self::Error>;
     fn vacuum(&self) -> Result<(), Self::Error>;
     fn stats(
         &self,

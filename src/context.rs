@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use serde_derive::Serialize;
 
 use crate::data::{self};
+use crate::repo::Hash;
 
 #[derive(Serialize, Debug)]
 pub struct Quondam {
@@ -54,7 +55,7 @@ pub struct Page {
 
 #[derive(Serialize, Debug)]
 pub struct Metadata {
-    pub commit_id: String,
+    pub commit_id: Hash,
     pub maintenance: Maintenance,
 }
 

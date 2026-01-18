@@ -1,6 +1,6 @@
 pub mod sqlitebe;
 
-use crate::WriteSql;
+use crate::{WriteSql, repo::RepoRef};
 use chrono::NaiveDate;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -443,13 +443,11 @@ impl<'a> RecordRepo<'a> {
         Ok(self.repo.init()?)
     }
 
-    pub fn get_at(&self, hash_str: &str) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
-        let hash = Hash::from_hex(hash_str)
-            .map_err(|e| RecordRepoError::Repo(RepoError::HashParse(e)))?;
+    pub fn get_at(&self, hash: &Hash) -> Result<RecordRepoRef<'_, 'a>, RecordRepoError> {
         Ok(RecordRepoRef {
-            repo_ref: crate::repo::RepoRef {
+            repo_ref: RepoRef {
                 repo: &self.repo,
-                hash,
+                hash: hash.clone(),
                 name: "detached".to_string(),
             },
         })
@@ -560,7 +558,7 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
         }))
     }
 
-    pub fn commit_id(&self) -> Result<String, RecordRepoError> {
+    pub fn commit_id(&self) -> Result<Hash, RecordRepoError> {
         Ok(self.repo_ref.commit_id()?)
     }
 

@@ -6,6 +6,7 @@ use static_toml::static_toml;
 use std::fs;
 use std::path::PathBuf;
 
+use crate::record::RecordRepo;
 use crate::record::sqlitebe::SqliteBackend;
 
 mod augment;
@@ -158,11 +159,9 @@ async fn main() -> Result<()> {
             export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
         }
 
-        Commands::Render { db, output } => {
-            render::run(db.as_path(), output.as_path())
-                .await
-                .with_context(|| "could not run `render`")
-        }
+        Commands::Render { db, output } => render::run(db.as_path(), output.as_path())
+            .await
+            .with_context(|| "could not run `render`"),
         Commands::Augment {
             db,
             source: source_name,
@@ -220,12 +219,8 @@ async fn main() -> Result<()> {
 
             // 1. Capture old state
             let mut conn = rusqlite::Connection::open(&db)?;
-            let old_hash = {
-                let repo = crate::record::RecordRepo::new(&conn);
-                repo.working()
-                    .and_then(|r| r.commit_id())
-                    .map_err(|e| anyhow::anyhow!("failed to get working ref: {}", e))?
-            };
+            let repo = RecordRepo::new(&conn);
+            let old_hash = repo.working()?.commit_id()?;
 
             // 2. Pull
             let manager = r2d2_sqlite::SqliteConnectionManager::file(&db);
@@ -241,10 +236,7 @@ async fn main() -> Result<()> {
 
             // 3. Re-index
             let diffs = {
-                let repo = crate::record::RecordRepo::new(&conn);
-                let new_working = repo
-                    .working()
-                    .map_err(|e| anyhow::anyhow!("failed to get new working ref: {}", e))?;
+                let new_working = repo.working()?;
                 let new_hash = new_working.commit_id()?;
 
                 if old_hash != new_hash {
