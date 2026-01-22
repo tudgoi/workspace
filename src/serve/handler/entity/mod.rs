@@ -62,7 +62,7 @@ pub async fn new(
     Form(form): Form<NewForm>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
             repo.working()?

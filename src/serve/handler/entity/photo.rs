@@ -92,7 +92,7 @@ pub async fn save(
     Form(photo_form): Form<data::Photo>, // Renamed to avoid conflict with `photo` variable below
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
             repo.working()?
@@ -118,7 +118,7 @@ pub async fn delete(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
             repo.working()?

@@ -13,7 +13,7 @@ pub fn init(output: &Path) -> Result<()> {
     ensure!(!output.exists(), "output DB already exists at {:?}", output);
 
     // setup sqlite DB
-    let mut conn = rusqlite::Connection::open(output)
+    let conn = rusqlite::Connection::open(output)
         .with_context(|| format!("could not create sqlite DB at {:?}", output))?;
 
     conn.create_entity_tables()

@@ -105,7 +105,7 @@ pub async fn save(
     Form(form): Form<EditNameForm>,
 ) -> Result<ViewNamePartial, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
     match typ {
         dto::EntityType::Person => {
             repo.working()?
@@ -126,7 +126,7 @@ pub async fn delete_handler(
     Path((typ, id)): Path<(dto::EntityType, String)>,
 ) -> Result<axum::response::Response, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
 
     // Check if other properties exist
     let other_props_exist = match typ {

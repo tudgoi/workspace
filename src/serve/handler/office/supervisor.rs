@@ -107,7 +107,7 @@ pub async fn save(
     Form(form): Form<SupervisorEntry>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
     repo.working()?.save(
         Key::<OfficePath, ()>::new(&office_id).supervisor(form.relation),
         &form.office_id,
@@ -133,7 +133,7 @@ pub async fn delete(
     Form(form): Form<DeleteSupervisorEntry>,
 ) -> Result<Response, AppError> {
     let conn = state.get_conn()?;
-    let mut repo = RecordRepo::new(&conn);
+    let repo = RecordRepo::new(&conn);
     repo.working()?
         .delete(Key::<OfficePath, ()>::new(&office_id).supervisor(form.relation))?;
 
