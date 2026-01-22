@@ -56,38 +56,52 @@ impl Default for data::Photo {
         }
     }
 }
-
+/// Maintain a database of government officers and generate a static website.
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
+    /// Path to the database file
+    db: PathBuf,
+
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    Init {
-        output: PathBuf,
+    /// Initialize the database
+    Init,
+
+    /// Import data from the source directory into the database
+    Import { source: PathBuf },
+
+    /// Export the database into the given directory.
+    /// 
+    /// The same can be imported into another database using the import command.
+    Export { output: PathBuf },
+
+    /// Render the static website
+    Render { output: PathBuf },
+
+    /// Serve the Web UI for viewing and mantaining the database
+    Serve {
+        #[arg(short = 'p', long)]
+        port: Option<String>,
     },
 
-    Import {
-        source: PathBuf,
-        output: PathBuf,
+    /// Pull the data from a remote and replace the working copy with it
+    Pull {
+        #[arg(short = 'p', long)]
+        peer: String,
     },
 
-    Export {
-        db: PathBuf,
-        output: PathBuf,
-    },
+    /// Show statistics for the database
+    Stats,
 
-    Render {
-        db: PathBuf,
-        output: PathBuf,
-    },
+    /// Compact the database by removing data that is no longer referenced
+    Gc,
 
     Augment {
-        db: PathBuf,
-
         #[arg(short = 's', long, value_enum)]
         source: Source,
 
@@ -96,35 +110,11 @@ enum Commands {
     },
 
     Ingest {
-        db: PathBuf,
-
         #[arg(short = 's', long, value_enum)]
         source: Source,
 
         #[arg(short = 'd', long)]
         directory: Option<PathBuf>,
-    },
-
-    Serve {
-        db: PathBuf,
-
-        #[arg(short = 'p', long)]
-        port: Option<String>,
-    },
-
-    Stats {
-        db: PathBuf,
-    },
-
-    Gc {
-        db: PathBuf,
-    },
-
-    Pull {
-        db: PathBuf,
-
-        #[arg(short = 'p', long)]
-        peer: String,
     },
 }
 
@@ -148,40 +138,34 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Init { output } => {
-            import::init(output.as_path()).with_context(|| "could not run `init`")
-        }
+        Commands::Init => import::init(args.db.as_path()).with_context(|| "could not run `init`"),
 
-        Commands::Import { source, output } => import::run(source.as_path(), output.as_path())
+        Commands::Import { source } => import::run(source.as_path(), args.db.as_path())
             .with_context(|| "could not run `import`"),
 
-        Commands::Export { db, output } => {
-            export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
-        }
+        Commands::Export { output } => export::run(args.db.as_path(), output.as_path())
+            .with_context(|| "could not run `export`"),
 
-        Commands::Render { db, output } => render::run(db.as_path(), output.as_path())
+        Commands::Render { output } => render::run(args.db.as_path(), output.as_path())
             .await
             .with_context(|| "could not run `render`"),
         Commands::Augment {
-            db,
             source: source_name,
             fields,
-        } => augment::run(db.as_path(), source_name, fields)
+        } => augment::run(args.db.as_path(), source_name, fields)
             .with_context(|| "could not run `augment`"),
 
-        Commands::Ingest {
-            db,
-            source,
-            directory,
-        } => ingest::run(db.as_path(), source, directory.as_deref())
-            .with_context(|| "could not run `ingest`"),
+        Commands::Ingest { source, directory } => {
+            ingest::run(args.db.as_path(), source, directory.as_deref())
+                .with_context(|| "could not run `ingest`")
+        }
 
-        Commands::Serve { db, port } => serve::run(db, port.as_deref())
+        Commands::Serve { port } => serve::run(args.db, port.as_deref())
             .await
             .with_context(|| "failed to run `serve`"),
 
-        Commands::Stats { db } => {
-            let conn = rusqlite::Connection::open(db)?;
+        Commands::Stats => {
+            let conn = rusqlite::Connection::open(args.db)?;
             let backend = SqliteBackend::new(&conn);
             let repo = repo::Repo::new(backend);
             let stats = repo.stats()?;
@@ -201,8 +185,8 @@ async fn main() -> Result<()> {
             Ok(())
         }
 
-        Commands::Gc { db } => {
-            let conn = rusqlite::Connection::open(db)?;
+        Commands::Gc => {
+            let conn = rusqlite::Connection::open(args.db)?;
             let backend = SqliteBackend::new(&conn);
             let repo = repo::Repo::new(backend);
             let deleted = repo.gc()?;
@@ -212,18 +196,18 @@ async fn main() -> Result<()> {
             Ok(())
         }
 
-        Commands::Pull { db, peer } => {
+        Commands::Pull { peer } => {
             let peer_id = peer
                 .parse::<iroh::EndpointId>()
                 .map_err(|e| anyhow::anyhow!("failed to parse peer ID: {}", e))?;
 
             // 1. Capture old state
-            let mut conn = rusqlite::Connection::open(&db)?;
+            let mut conn = rusqlite::Connection::open(&args.db)?;
             let repo = RecordRepo::new(&conn);
             let old_hash = repo.working()?.commit_id()?;
 
             // 2. Pull
-            let manager = r2d2_sqlite::SqliteConnectionManager::file(&db);
+            let manager = r2d2_sqlite::SqliteConnectionManager::file(&args.db);
             let pool = r2d2::Pool::new(manager)?;
             let backend = crate::record::sqlitebe::SqlitePoolBackend::new(pool);
             let client = repo::sync::client::RepoClient::new(backend);
