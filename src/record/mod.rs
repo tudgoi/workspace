@@ -586,8 +586,8 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
         impl Iterator<Item = Result<(RecordKey, RecordValue), RecordRepoError>> + '_,
         RecordRepoError,
     > {
-        let prefix = key.path.as_bytes().to_vec();
-        let iter = self.repo_ref.iter_prefix(&prefix)?;
+        let prefix_bytes = key.path.as_bytes().to_vec();
+        let iter = self.repo_ref.iter_prefix(&prefix_bytes)?;
 
         Ok(iter.map(|item| {
             let (k, v) = item?;
@@ -596,6 +596,27 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
             })?;
 
             self.parse_record(&path, &v)
+        }))
+    }
+
+    pub fn list(
+        &self,
+        prefix: &str,
+    ) -> Result<
+        impl Iterator<Item = Result<(String, RecordValue), RecordRepoError>> + '_,
+        RecordRepoError,
+    > {
+        let prefix_bytes = prefix.as_bytes().to_vec();
+        let iter = self.repo_ref.iter_prefix(&prefix_bytes)?;
+
+        Ok(iter.map(|item| {
+            let (k, v) = item?;
+            let path = String::from_utf8(k).map_err(|_| {
+                RecordRepoError::Repo(RepoError::HashParse("Key is not valid UTF-8".to_string()))
+            })?;
+
+            let (_, value) = self.parse_record(&path, &v)?;
+            Ok((path, value))
         }))
     }
 
@@ -785,6 +806,33 @@ mod tests {
         assert!(found_name);
         assert!(found_photo);
         assert!(found_tenure);
+    }
+
+    #[test]
+    fn test_list() {
+        let conn = Connection::open_in_memory().unwrap();
+        setup_db(&conn);
+
+        let repo = RecordRepo::new(&conn);
+        repo.init().unwrap();
+        let p1 = Key::<PersonPath, ()>::new("p1");
+
+        repo.working()
+            .unwrap()
+            .save(p1.name(), &"Person One".to_string())
+            .unwrap();
+
+        let items: Vec<_> = repo
+            .working()
+            .unwrap()
+            .list("person/p1/")
+            .expect("List failed")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Iteration failed");
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].0, "person/p1/name");
+        assert_eq!(items[0].1, RecordValue::Name("Person One".to_string()));
     }
 
     #[test]

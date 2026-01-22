@@ -123,6 +123,12 @@ enum Commands {
         path: String,
     },
 
+    /// List keys and values with the given path prefix in JSONL format
+    List {
+        /// The path prefix to list
+        prefix: String,
+    },
+
     /// Set a value in the database
     Set {
         /// The path to the value
@@ -182,6 +188,22 @@ async fn main() -> Result<()> {
             match value {
                 Some(v) => println!("{}", serde_json::to_string_pretty(&v)?),
                 None => println!("null"),
+            }
+            Ok(())
+        }
+
+        Commands::List { prefix } => {
+            let conn = rusqlite::Connection::open(args.db)?;
+            let repo = RecordRepo::new(&conn);
+            let working = repo.working()?;
+
+            for item in working.list(&prefix)? {
+                let (path, value) = item?;
+                let output = serde_json::json!({
+                    "path": path,
+                    "value": value,
+                });
+                println!("{}", serde_json::to_string(&output)?);
             }
             Ok(())
         }
