@@ -116,6 +116,20 @@ enum Commands {
         #[arg(short = 'd', long)]
         directory: Option<PathBuf>,
     },
+
+    /// Get a value from the database
+    Get {
+        /// The path to the value
+        path: String,
+    },
+
+    /// Set a value in the database
+    Set {
+        /// The path to the value
+        path: String,
+        /// The value in JSON format
+        value: String,
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -158,6 +172,27 @@ async fn main() -> Result<()> {
         Commands::Ingest { source, directory } => {
             ingest::run(args.db.as_path(), source, directory.as_deref())
                 .with_context(|| "could not run `ingest`")
+        }
+
+        Commands::Get { path } => {
+            let conn = rusqlite::Connection::open(args.db)?;
+            let repo = RecordRepo::new(&conn);
+            let value = repo.working()?.get(&path)?;
+
+            match value {
+                Some(v) => println!("{}", serde_json::to_string_pretty(&v)?),
+                None => println!("null"),
+            }
+            Ok(())
+        }
+
+        Commands::Set { path, value } => {
+            let conn = rusqlite::Connection::open(args.db)?;
+            let mut repo = RecordRepo::new(&conn);
+
+            repo.working()?.save_from_json(&path, &value)?;
+            repo.commit()?;
+            Ok(())
         }
 
         Commands::Serve { port } => serve::run(args.db, port.as_deref())

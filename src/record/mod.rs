@@ -38,7 +38,8 @@ impl From<SqliteBackendError> for RecordRepoError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
 pub enum RecordValue {
     Name(String),
     Photo(data::Photo),
@@ -536,6 +537,46 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
         };
 
         Ok(value)
+    }
+
+    pub fn get(&self, path: &str) -> Result<Option<RecordValue>, RecordRepoError> {
+        if let Some(bytes) = self.repo_ref.read(path.as_bytes())? {
+            let (_, value) = self.parse_record(path, &bytes)?;
+            Ok(Some(value))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn save_from_json(&mut self, path: &str, json: &str) -> Result<(), RecordRepoError> {
+        if path.ends_with("/name") {
+            let value: String = serde_json::from_str(json)
+                .map_err(|e| RecordRepoError::InvalidPath(e.to_string()))?;
+            let key = RecordRepo::parse_key::<NamePath, String>(path)?;
+            self.save(key, &value)
+        } else if path.ends_with("/photo") {
+            let value: data::Photo = serde_json::from_str(json)
+                .map_err(|e| RecordRepoError::InvalidPath(e.to_string()))?;
+            let key = RecordRepo::parse_key::<PhotoPath, data::Photo>(path)?;
+            self.save(key, &value)
+        } else if path.contains("/contact/") {
+            let value: String = serde_json::from_str(json)
+                .map_err(|e| RecordRepoError::InvalidPath(e.to_string()))?;
+            let key = RecordRepo::parse_key::<ContactPath, String>(path)?;
+            self.save(key, &value)
+        } else if path.contains("/supervisor/") {
+            let value: String = serde_json::from_str(json)
+                .map_err(|e| RecordRepoError::InvalidPath(e.to_string()))?;
+            let key = RecordRepo::parse_key::<SupervisorPath, String>(path)?;
+            self.save(key, &value)
+        } else if path.contains("/tenure/") {
+            let value: Option<NaiveDate> = serde_json::from_str(json)
+                .map_err(|e| RecordRepoError::InvalidPath(e.to_string()))?;
+            let key = RecordRepo::parse_key::<TenurePath, Option<NaiveDate>>(path)?;
+            self.save(key, &value)
+        } else {
+            Err(RecordRepoError::UnknownRecordType(path.to_string()))
+        }
     }
 
     pub fn scan<P, T>(
