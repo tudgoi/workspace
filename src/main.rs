@@ -177,6 +177,12 @@ enum Commands {
         path: String,
     },
 
+    /// Show information about the database
+    Info {
+        /// Path to the database file
+        db: PathBuf,
+    },
+
     /// Show the database schema documentation
     Schema,
 }
@@ -256,7 +262,7 @@ async fn main() -> Result<()> {
 
         Commands::Set { db, path, value } => {
             let conn = rusqlite::Connection::open(db)?;
-            let mut repo = RecordRepo::new(&conn);
+            let repo = RecordRepo::new(&conn);
 
             repo.working()?.save_from_json(&path, &value)?;
             Ok(())
@@ -264,9 +270,40 @@ async fn main() -> Result<()> {
 
         Commands::Delete { db, path } => {
             let conn = rusqlite::Connection::open(db)?;
-            let mut repo = RecordRepo::new(&conn);
+            let repo = RecordRepo::new(&conn);
 
             repo.working()?.delete_path(&path)?;
+            Ok(())
+        }
+
+        Commands::Info { db } => {
+            use crate::repo::backend::Backend;
+            let conn = rusqlite::Connection::open(db)?;
+            let backend = SqliteBackend::new(&conn);
+            let repo = RecordRepo::new(&conn);
+
+            let working_ref = repo.working()?.commit_id()?;
+            let committed_ref = repo.committed()?.commit_id()?;
+
+            let iroh_secret = backend
+                .get(crate::repo::backend::KeyType::Secret, b"iroh")?
+                .ok_or_else(|| anyhow::anyhow!("iroh secret not found"))?;
+            let secret_key = iroh::SecretKey::from_bytes(
+                &iroh_secret
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("invalid secret length"))?,
+            );
+            let endpoint_id = secret_key.public();
+
+            let (persons, offices) =
+                conn.get_entity_counts(|row| Ok((row.get::<_, usize>(0)?, row.get::<_, usize>(1)?)))?;
+
+            println!("Working ref:   {}", working_ref.to_hex());
+            println!("Committed ref: {}", committed_ref.to_hex());
+            println!("Endpoint ID:   {}", endpoint_id);
+            println!("Persons:       {}", persons);
+            println!("Offices:       {}", offices);
+
             Ok(())
         }
 
