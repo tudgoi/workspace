@@ -259,7 +259,6 @@ async fn main() -> Result<()> {
             let mut repo = RecordRepo::new(&conn);
 
             repo.working()?.save_from_json(&path, &value)?;
-            repo.commit()?;
             Ok(())
         }
 
@@ -268,7 +267,6 @@ async fn main() -> Result<()> {
             let mut repo = RecordRepo::new(&conn);
 
             repo.working()?.delete_path(&path)?;
-            repo.commit()?;
             Ok(())
         }
 
