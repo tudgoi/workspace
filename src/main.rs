@@ -177,6 +177,12 @@ enum Commands {
         path: String,
     },
 
+    /// Commit the working changes to the database
+    Commit {
+        /// Path to the database file
+        db: PathBuf,
+    },
+
     /// Show information about the database
     Info {
         /// Path to the database file
@@ -273,6 +279,15 @@ async fn main() -> Result<()> {
             let repo = RecordRepo::new(&conn);
 
             repo.working()?.delete_path(&path)?;
+            Ok(())
+        }
+
+        Commands::Commit { db } => {
+            let conn = rusqlite::Connection::open(db)?;
+            let mut repo = RecordRepo::new(&conn);
+
+            repo.commit()?;
+            println!("Changes committed.");
             Ok(())
         }
 
