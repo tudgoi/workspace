@@ -579,6 +579,27 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
         }
     }
 
+    pub fn delete_path(&mut self, path: &str) -> Result<(), RecordRepoError> {
+        if path.ends_with("/name") {
+            let key = RecordRepo::parse_key::<NamePath, String>(path)?;
+            self.delete(key)
+        } else if path.ends_with("/photo") {
+            let key = RecordRepo::parse_key::<PhotoPath, data::Photo>(path)?;
+            self.delete(key)
+        } else if path.contains("/contact/") {
+            let key = RecordRepo::parse_key::<ContactPath, String>(path)?;
+            self.delete(key)
+        } else if path.contains("/supervisor/") {
+            let key = RecordRepo::parse_key::<SupervisorPath, String>(path)?;
+            self.delete(key)
+        } else if path.contains("/tenure/") {
+            let key = RecordRepo::parse_key::<TenurePath, Option<NaiveDate>>(path)?;
+            self.delete(key)
+        } else {
+            Err(RecordRepoError::UnknownRecordType(path.to_string()))
+        }
+    }
+
     pub fn scan<P, T>(
         &self,
         key: Key<P, T>,

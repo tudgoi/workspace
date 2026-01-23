@@ -136,6 +136,12 @@ enum Commands {
         /// The value in JSON format
         value: String,
     },
+
+    /// Delete a value from the database
+    Delete {
+        /// The path to the value
+        path: String,
+    },
 }
 
 #[derive(Clone, ValueEnum)]
@@ -213,6 +219,15 @@ async fn main() -> Result<()> {
             let mut repo = RecordRepo::new(&conn);
 
             repo.working()?.save_from_json(&path, &value)?;
+            repo.commit()?;
+            Ok(())
+        }
+
+        Commands::Delete { path } => {
+            let conn = rusqlite::Connection::open(args.db)?;
+            let mut repo = RecordRepo::new(&conn);
+
+            repo.working()?.delete_path(&path)?;
             repo.commit()?;
             Ok(())
         }
