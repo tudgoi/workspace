@@ -25,6 +25,14 @@ pub fn run(db: &Path, output: &Path) -> Result<()> {
     let conn = rusqlite::Connection::open(db)
         .with_context(|| format!("could not open database at {:?}", db))?;
     let repo = RecordRepo::new(&conn);
+
+    let working_hash = repo.working()?.commit_id()?;
+    let committed_hash = repo.committed()?.commit_id()?;
+
+    if working_hash != committed_hash {
+        anyhow::bail!("There are uncommitted changes in the database. Please commit them first.");
+    }
+
     let repo_ref = repo.committed()?;
 
     // Export persons
