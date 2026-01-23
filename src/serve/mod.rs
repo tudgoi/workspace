@@ -86,6 +86,7 @@ pub async fn run(db: PathBuf, port: Option<&str>) -> Result<()> {
         .route("/search.db", get(handler::search_db))
         .route("/uncommitted", get(handler::uncommitted))
         .route("/commit", post(handler::commit))
+        .route("/abandon", post(handler::abandon))
         .route("/new/{typ}", get(handler::entity::new_form))
         .route("/new/{typ}", post(handler::entity::new))
         .route("/{typ}/{id}/edit", get(handler::entity::edit))

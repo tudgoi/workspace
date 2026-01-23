@@ -157,6 +157,16 @@ pub async fn commit(
 }
 
 #[axum::debug_handler]
+pub async fn abandon(
+    State(state): State<Arc<AppState>>,
+) -> Result<axum::response::Response, AppError> {
+    let mut conn = state.get_conn()?;
+    crate::record::abandon_changes(&mut conn)?;
+
+    crate::serve::hx_redirect("/")
+}
+
+#[axum::debug_handler]
 pub async fn search_db(State(state): State<Arc<AppState>>) -> Result<Vec<u8>, AppError> {
     let conn = Connection::open_in_memory()?;
     conn.create_entity_tables()?;

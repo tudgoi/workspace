@@ -440,6 +440,10 @@ impl<'a> RecordRepo<'a> {
         Ok(self.repo.commit()?)
     }
 
+    pub fn abandon(&mut self) -> Result<(), RecordRepoError> {
+        Ok(self.repo.abandon()?)
+    }
+
     pub fn init(&self) -> Result<(), RecordRepoError> {
         Ok(self.repo.init()?)
     }
@@ -717,6 +721,58 @@ impl<'a, 'b> RecordRepoRef<'a, 'b> {
             Err(RecordRepoError::UnknownRecordType(path.to_string()))
         }
     }
+}
+
+pub fn abandon_changes(conn: &mut Connection) -> Result<(), RecordRepoError> {
+    let mut repo = RecordRepo::new(conn);
+    let old_hash = repo.working()?.commit_id()?;
+
+    repo.abandon()?;
+
+    let diffs = {
+        let new_working = repo.working()?;
+        let new_hash = new_working.commit_id()?;
+
+        if old_hash != new_hash {
+            let old_working = repo
+                .get_at(&old_hash)
+                .map_err(|e| RecordRepoError::Repo(RepoError::HashParse(e.to_string())))?;
+
+            old_working
+                .iterate_diff(&new_working)?
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            Vec::new()
+        }
+    };
+
+    if !diffs.is_empty() {
+        let mut diffs = diffs;
+        diffs.sort_by_key(|diff| {
+            match diff {
+                RecordDiff::Added(RecordKey::Name(_), _)
+                | RecordDiff::Changed(RecordKey::Name(_), _, _) => 0,
+
+                RecordDiff::Added(_, _) | RecordDiff::Changed(_, _, _) => 1,
+
+                RecordDiff::Removed(RecordKey::Name(_), _) => 3,
+
+                RecordDiff::Removed(_, _) => 2,
+            }
+        });
+
+        let tx = conn.transaction()?;
+        for diff in diffs {
+            match diff {
+                RecordDiff::Added(k, v) => k.update_index(&tx, &v)?,
+                RecordDiff::Changed(k, _, v) => k.update_index(&tx, &v)?,
+                RecordDiff::Removed(k, _) => k.delete_index(&tx)?,
+            }
+        }
+        tx.commit()?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

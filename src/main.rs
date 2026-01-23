@@ -183,6 +183,12 @@ enum Commands {
         db: PathBuf,
     },
 
+    /// Abandon the working changes and revert to the last commit
+    Abandon {
+        /// Path to the database file
+        db: PathBuf,
+    },
+
     /// Show information about the database
     Info {
         /// Path to the database file
@@ -288,6 +294,13 @@ async fn main() -> Result<()> {
 
             repo.commit()?;
             println!("Changes committed.");
+            Ok(())
+        }
+
+        Commands::Abandon { db } => {
+            let mut conn = rusqlite::Connection::open(&db)?;
+            record::abandon_changes(&mut conn)?;
+            println!("Changes abandoned.");
             Ok(())
         }
 

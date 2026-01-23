@@ -194,6 +194,23 @@ where
         Ok(())
     }
 
+    pub fn abandon(&mut self) -> Result<(), RepoError> {
+        let root_hash_bytes = self
+            .backend
+            .get(KeyType::Ref, RepoRefType::Committed.as_str().as_bytes())
+            .map_err(|e| e.to_repo_error())?;
+        if let Some(h_bytes) = root_hash_bytes {
+            self.backend
+                .set(
+                    KeyType::Ref,
+                    RepoRefType::Working.as_str().as_bytes(),
+                    &h_bytes,
+                )
+                .map_err(|e| e.to_repo_error())?;
+        }
+        Ok(())
+    }
+
     pub fn stats(&self) -> Result<RepoStats, RepoError> {
         let root_hash_bytes = self
             .backend
