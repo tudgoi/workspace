@@ -511,16 +511,37 @@ where
                         state.old_child_processed = true;
                         let old_child_hash = state.old_node.as_ref().and_then(|n| n.get_child_hash(state.old_idx));
                         if let Some(h) = old_child_hash {
-                            if Some(h) == state.new_node_hash.as_ref() {
-                                // Subtree matches new_node! Short-circuit:
-                                // Instead of saying old items are removed, we align them.
+                            // Does new_node (shorter) fit in this child of old_node?
+                            let mut fits = false;
+                            if let Some(nn) = &state.new_node {
+                                if let Some(first_ni) = nn.items.first() {
+                                    let lower_ok = if state.old_idx > 0 {
+                                        first_ni.key > state.old_node.as_ref().unwrap().items[state.old_idx - 1].key
+                                    } else {
+                                        true
+                                    };
+                                    let upper_ok = if state.old_idx < state.old_node.as_ref().unwrap().items.len() {
+                                        first_ni.key <= state.old_node.as_ref().unwrap().items[state.old_idx].key
+                                    } else {
+                                        true
+                                    };
+                                    fits = lower_ok && upper_ok;
+                                } else {
+                                    // Empty new_node fits nowhere, but we might want to align with root if it matches
+                                    fits = Some(h) == state.new_node_hash.as_ref();
+                                }
+                            }
+
+                            if fits {
+                                let child_node = self.repo.read_node(h).ok();
+                                let child_level = child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
                                 (
                                     Some(DiffIterState {
-                                        old_node: self.repo.read_node(h).ok(),
+                                        old_node: child_node,
                                         new_node: state.new_node.clone(),
                                         old_node_hash: Some(h.clone()),
                                         new_node_hash: state.new_node_hash.clone(),
-                                        old_level: state.new_level,
+                                        old_level: child_level,
                                         new_level: state.new_level,
                                         old_idx: 0,
                                         new_idx: 0,
@@ -572,16 +593,37 @@ where
                         state.new_child_processed = true;
                         let new_child_hash = state.new_node.as_ref().and_then(|n| n.get_child_hash(state.new_idx));
                         if let Some(h) = new_child_hash {
-                            if Some(h) == state.old_node_hash.as_ref() {
-                                // Subtree matches old_node! Short-circuit:
+                            // Does old_node (shorter) fit in this child of new_node?
+                            let mut fits = false;
+                            if let Some(on) = &state.old_node {
+                                if let Some(first_oi) = on.items.first() {
+                                    let lower_ok = if state.new_idx > 0 {
+                                        first_oi.key > state.new_node.as_ref().unwrap().items[state.new_idx - 1].key
+                                    } else {
+                                        true
+                                    };
+                                    let upper_ok = if state.new_idx < state.new_node.as_ref().unwrap().items.len() {
+                                        first_oi.key <= state.new_node.as_ref().unwrap().items[state.new_idx].key
+                                    } else {
+                                        true
+                                    };
+                                    fits = lower_ok && upper_ok;
+                                } else {
+                                    fits = Some(h) == state.old_node_hash.as_ref();
+                                }
+                            }
+
+                            if fits {
+                                let child_node = self.repo.read_node(h).ok();
+                                let child_level = child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
                                 (
                                     Some(DiffIterState {
                                         old_node: state.old_node.clone(),
-                                        new_node: self.repo.read_node(h).ok(),
+                                        new_node: child_node,
                                         old_node_hash: state.old_node_hash.clone(),
                                         new_node_hash: Some(h.clone()),
                                         old_level: state.old_level,
-                                        new_level: state.old_level,
+                                        new_level: child_level,
                                         old_idx: 0,
                                         new_idx: 0,
                                         old_child_processed: false,

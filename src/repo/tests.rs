@@ -320,3 +320,63 @@ fn test_iterate_diff_different_levels() {
         _ => panic!("Expected Added(k75), got {:?}", diffs[0]),
     }
 }
+
+#[test]
+fn test_iterate_diff_changed_different_height() {
+    use crate::repo::{Diff, RepoRefType};
+    let backend = TestBackend::new();
+    let mut repo = Repo::new(backend);
+    repo.init().unwrap();
+
+    // k0: L0, k75: L1
+
+    // Tree 1: Just k0=v1 (L0 root)
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"k0".to_vec(), b"v1".to_vec())
+        .unwrap();
+    repo.commit().unwrap();
+
+    // Tree 2: k0=v2 and k75=v75 (L1 root)
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"k0".to_vec(), b"v2".to_vec())
+        .unwrap();
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"k75".to_vec(), b"v75".to_vec())
+        .unwrap();
+
+    let root = repo.get_ref(RepoRefType::Working).unwrap();
+    let committed = repo.get_ref(RepoRefType::Committed).unwrap();
+    
+    let diffs: Vec<_> = committed
+        .iterate_diff(&root)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    // Should have: Changed(k0, v1, v2) and Added(k75)
+    assert_eq!(diffs.len(), 2);
+    
+    let mut found_changed = false;
+    let mut found_added = false;
+    for d in diffs {
+        match d {
+            Diff::Changed(k, v1, v2) => {
+                assert_eq!(k, b"k0");
+                assert_eq!(v1, b"v1");
+                assert_eq!(v2, b"v2");
+                found_changed = true;
+            }
+            Diff::Added(k, v) => {
+                assert_eq!(k, b"k75");
+                assert_eq!(v, b"v75");
+                found_added = true;
+            }
+            _ => panic!("Unexpected diff: {:?}", d),
+        }
+    }
+    assert!(found_changed, "Should have found Changed(k0)");
+    assert!(found_added, "Should have found Added(k75)");
+}
