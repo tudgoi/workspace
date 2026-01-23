@@ -6,6 +6,7 @@ use serve::StaticDir;
 use std::path::Path;
 use std::{fs, sync::Arc};
 
+use crate::record::RecordRepo;
 use crate::{CONFIG, LibrarySql, SchemaSql};
 use crate::{
     dto,
@@ -19,6 +20,14 @@ pub async fn run(db: &Path, output: &Path) -> Result<()> {
         CONFIG.base_url.to_string(),
     )?);
     let conn = state.db_pool.get()?;
+
+    let repo = RecordRepo::new(&conn);
+    let working_hash = repo.working()?.commit_id()?;
+    let committed_hash = repo.committed()?.commit_id()?;
+
+    if working_hash != committed_hash {
+        anyhow::bail!("There are uncommitted changes in the database. Please commit them first.");
+    }
 
     fs::create_dir(output).with_context(|| format!("could not create output dir {:?}", output))?;
 
