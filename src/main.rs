@@ -60,9 +60,6 @@ impl Default for data::Photo {
 #[derive(Parser)]
 #[command(version = env!("LONG_VERSION"), about, long_about = None)]
 struct Cli {
-    /// Path to the database file
-    db: PathBuf,
-
     #[command(subcommand)]
     command: Commands,
 }
@@ -70,38 +67,65 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Initialize the database
-    Init,
+    Init {
+        /// Path to the database file
+        db: PathBuf,
+    },
 
     /// Import data from the source directory into the database
-    Import { source: PathBuf },
+    Import {
+        /// Path to the database file
+        db: PathBuf,
+        source: PathBuf,
+    },
 
     /// Export the database into the given directory.
     /// 
     /// The same can be imported into another database using the import command.
-    Export { output: PathBuf },
+    Export {
+        /// Path to the database file
+        db: PathBuf,
+        output: PathBuf,
+    },
 
     /// Render the static website
-    Render { output: PathBuf },
+    Render {
+        /// Path to the database file
+        db: PathBuf,
+        output: PathBuf,
+    },
 
     /// Serve the Web UI for viewing and mantaining the database
     Serve {
+        /// Path to the database file
+        db: PathBuf,
         #[arg(short = 'p', long)]
         port: Option<String>,
     },
 
     /// Pull the data from a remote and replace the working copy with it
     Pull {
+        /// Path to the database file
+        db: PathBuf,
         #[arg(short = 'p', long)]
         peer: String,
     },
 
     /// Show statistics for the database
-    Stats,
+    Stats {
+        /// Path to the database file
+        db: PathBuf,
+    },
 
     /// Compact the database by removing data that is no longer referenced
-    Gc,
+    Gc {
+        /// Path to the database file
+        db: PathBuf,
+    },
 
     Augment {
+        /// Path to the database file
+        db: PathBuf,
         #[arg(short = 's', long, value_enum)]
         source: Source,
 
@@ -110,6 +134,8 @@ enum Commands {
     },
 
     Ingest {
+        /// Path to the database file
+        db: PathBuf,
         #[arg(short = 's', long, value_enum)]
         source: Source,
 
@@ -119,18 +145,24 @@ enum Commands {
 
     /// Get a value from the database
     Get {
+        /// Path to the database file
+        db: PathBuf,
         /// The path to the value
         path: String,
     },
 
     /// List keys and values with the given path prefix in JSONL format
     List {
+        /// Path to the database file
+        db: PathBuf,
         /// The path prefix to list
         prefix: String,
     },
 
     /// Set a value in the database
     Set {
+        /// Path to the database file
+        db: PathBuf,
         /// The path to the value
         path: String,
         /// The value in JSON format
@@ -139,9 +171,14 @@ enum Commands {
 
     /// Delete a value from the database
     Delete {
+        /// Path to the database file
+        db: PathBuf,
         /// The path to the value
         path: String,
     },
+
+    /// Show the database schema documentation
+    Schema,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -164,30 +201,33 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Init => import::init(args.db.as_path()).with_context(|| "could not run `init`"),
+        Commands::Init { db } => {
+            import::init(db.as_path()).with_context(|| "could not run `init`")
+        }
 
-        Commands::Import { source } => import::run(source.as_path(), args.db.as_path())
+        Commands::Import { db, source } => import::run(source.as_path(), db.as_path())
             .with_context(|| "could not run `import`"),
 
-        Commands::Export { output } => export::run(args.db.as_path(), output.as_path())
+        Commands::Export { db, output } => export::run(db.as_path(), output.as_path())
             .with_context(|| "could not run `export`"),
 
-        Commands::Render { output } => render::run(args.db.as_path(), output.as_path())
+        Commands::Render { db, output } => render::run(db.as_path(), output.as_path())
             .await
             .with_context(|| "could not run `render`"),
         Commands::Augment {
+            db,
             source: source_name,
             fields,
-        } => augment::run(args.db.as_path(), source_name, fields)
+        } => augment::run(db.as_path(), source_name, fields)
             .with_context(|| "could not run `augment`"),
 
-        Commands::Ingest { source, directory } => {
-            ingest::run(args.db.as_path(), source, directory.as_deref())
+        Commands::Ingest { db, source, directory } => {
+            ingest::run(db.as_path(), source, directory.as_deref())
                 .with_context(|| "could not run `ingest`")
         }
 
-        Commands::Get { path } => {
-            let conn = rusqlite::Connection::open(args.db)?;
+        Commands::Get { db, path } => {
+            let conn = rusqlite::Connection::open(db)?;
             let repo = RecordRepo::new(&conn);
             let value = repo.working()?.get(&path)?;
 
@@ -198,8 +238,8 @@ async fn main() -> Result<()> {
             Ok(())
         }
 
-        Commands::List { prefix } => {
-            let conn = rusqlite::Connection::open(args.db)?;
+        Commands::List { db, prefix } => {
+            let conn = rusqlite::Connection::open(db)?;
             let repo = RecordRepo::new(&conn);
             let working = repo.working()?;
 
@@ -214,8 +254,8 @@ async fn main() -> Result<()> {
             Ok(())
         }
 
-        Commands::Set { path, value } => {
-            let conn = rusqlite::Connection::open(args.db)?;
+        Commands::Set { db, path, value } => {
+            let conn = rusqlite::Connection::open(db)?;
             let mut repo = RecordRepo::new(&conn);
 
             repo.working()?.save_from_json(&path, &value)?;
@@ -223,8 +263,8 @@ async fn main() -> Result<()> {
             Ok(())
         }
 
-        Commands::Delete { path } => {
-            let conn = rusqlite::Connection::open(args.db)?;
+        Commands::Delete { db, path } => {
+            let conn = rusqlite::Connection::open(db)?;
             let mut repo = RecordRepo::new(&conn);
 
             repo.working()?.delete_path(&path)?;
@@ -232,12 +272,17 @@ async fn main() -> Result<()> {
             Ok(())
         }
 
-        Commands::Serve { port } => serve::run(args.db, port.as_deref())
+        Commands::Schema => {
+            println!("{}", include_str!("../SCHEMA.md"));
+            Ok(())
+        }
+
+        Commands::Serve { db, port } => serve::run(db, port.as_deref())
             .await
             .with_context(|| "failed to run `serve`"),
 
-        Commands::Stats => {
-            let conn = rusqlite::Connection::open(args.db)?;
+        Commands::Stats { db } => {
+            let conn = rusqlite::Connection::open(db)?;
             let backend = SqliteBackend::new(&conn);
             let repo = repo::Repo::new(backend);
             let stats = repo.stats()?;
@@ -257,8 +302,8 @@ async fn main() -> Result<()> {
             Ok(())
         }
 
-        Commands::Gc => {
-            let conn = rusqlite::Connection::open(args.db)?;
+        Commands::Gc { db } => {
+            let conn = rusqlite::Connection::open(db)?;
             let backend = SqliteBackend::new(&conn);
             let repo = repo::Repo::new(backend);
             let deleted = repo.gc()?;
@@ -268,18 +313,18 @@ async fn main() -> Result<()> {
             Ok(())
         }
 
-        Commands::Pull { peer } => {
+        Commands::Pull { db, peer } => {
             let peer_id = peer
                 .parse::<iroh::EndpointId>()
                 .map_err(|e| anyhow::anyhow!("failed to parse peer ID: {}", e))?;
 
             // 1. Capture old state
-            let mut conn = rusqlite::Connection::open(&args.db)?;
+            let mut conn = rusqlite::Connection::open(&db)?;
             let repo = RecordRepo::new(&conn);
             let old_hash = repo.working()?.commit_id()?;
 
             // 2. Pull
-            let manager = r2d2_sqlite::SqliteConnectionManager::file(&args.db);
+            let manager = r2d2_sqlite::SqliteConnectionManager::file(&db);
             let pool = r2d2::Pool::new(manager)?;
             let backend = crate::record::sqlitebe::SqlitePoolBackend::new(pool);
             let client = repo::sync::client::RepoClient::new(backend);

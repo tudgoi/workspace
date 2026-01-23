@@ -2,8 +2,8 @@ TUDGOI_DATA=../tudgoi-data
 
 import () {
     rm -rf output && mkdir output &&
-    cargo run -- output/directory.db init &&
-    cargo run -- output/directory.db import $TUDGOI_DATA 
+    cargo run -- init output/directory.db &&
+    cargo run -- import output/directory.db $TUDGOI_DATA
 }
 
 export-data () {
@@ -17,14 +17,14 @@ export-data () {
 )
     rm -rf $TUDGOI_DATA/office $TUDGOI_DATA/person
     
-    cargo run -- output/directory.db export $TUDGOI_DATA
+    cargo run -- export output/directory.db $TUDGOI_DATA
 }
 
 render() {
     (
         set -e
         rm -rf output/html output/search
-        cargo run -- output/directory.db render output/html
+        cargo run -- render output/directory.db output/html
     )
 }
 
