@@ -13,6 +13,7 @@ use crate::config::Config;
 use crate::context::Metadata;
 use crate::dto;
 use crate::record::RecordDiff;
+use crate::record::RecordKey;
 use crate::record::RecordRepo;
 use crate::{
     context::{self},
@@ -58,27 +59,11 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Result<IndexTemplate, 
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ChangeType {
-    Added,
-    Changed,
-    Removed,
-}
-
-impl ChangeType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ChangeType::Added => "Added",
-            ChangeType::Changed => "Changed",
-            ChangeType::Removed => "Removed",
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct EntityChange {
     pub entity: dto::Entity,
-    pub change_type: ChangeType,
+    pub removed: bool,
+    pub diffs: Vec<RecordDiff>,
 }
 
 #[derive(Template, WebTemplate)]
@@ -97,42 +82,34 @@ pub async fn uncommitted(
     let repo = RecordRepo::new(&conn);
     let mut changes = Vec::new();
 
-    let mut entity_changes = HashMap::new();
+    let mut entity_changes: HashMap<(dto::EntityType, String), (bool, Vec<RecordDiff>)> =
+        HashMap::new();
     if let Ok(diff_iter) = repo.iterate_diff() {
         for diff_result in diff_iter {
             if let Ok(diff) = diff_result {
-                let (info, change_type) = match diff {
-                    RecordDiff::Added(rk, _) => (rk.entity_info(), ChangeType::Added),
-                    RecordDiff::Changed(rk, _, _) => (rk.entity_info(), ChangeType::Changed),
-                    RecordDiff::Removed(rk, _) => (rk.entity_info(), ChangeType::Removed),
+                let (info, removed) = match &diff {
+                    RecordDiff::Added(rk, _) => (rk.entity_info(), false),
+                    RecordDiff::Changed(rk, _, _) => (rk.entity_info(), false),
+                    RecordDiff::Removed(rk, _) => {
+                        (rk.entity_info(), matches!(rk, RecordKey::Name(_)))
+                    }
                 };
 
-                let current_change = entity_changes.entry(info).or_insert(change_type);
-
-                match (*current_change, change_type) {
-                    (ChangeType::Added, ChangeType::Removed) => {
-                        *current_change = ChangeType::Removed;
-                    }
-                    (ChangeType::Removed, ChangeType::Added) => {
-                        *current_change = ChangeType::Added;
-                    }
-                    (ChangeType::Changed, ChangeType::Added) => *current_change = ChangeType::Added,
-                    (ChangeType::Changed, ChangeType::Removed) => {
-                        *current_change = ChangeType::Removed
-                    }
-                    _ => {}
-                }
+                let (_, current_diffs) =
+                    entity_changes.entry(info).or_insert((removed, Vec::new()));
+                current_diffs.push(diff);
             }
         }
     }
 
-    for ((typ, id), change_type) in entity_changes {
+    for ((typ, id), (removed, diffs)) in entity_changes {
         let name = conn
             .get_entity_name(&typ, &id, |row| row.get(0))
             .unwrap_or_else(|_| id.clone());
         changes.push(EntityChange {
             entity: dto::Entity { typ, id, name },
-            change_type,
+            removed,
+            diffs,
         });
     }
 

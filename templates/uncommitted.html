@@ -13,12 +13,26 @@
 <ul>
     {% for change in changes %}
     <li>
-        [{{ change.change_type.as_str() }}]
-        {% if change.change_type.as_str() == "Removed" %}
-        {{ change.entity.name }}
+        {% if change.removed %}
+        {{ change.entity.name }} ({{ change.entity.id }})
         {% else %}
         <a href="{{ change.entity.typ }}/{{ change.entity.id }}.html">{{ change.entity.name }}</a>
         {% endif %}
+        <ul>
+            {% for diff in change.diffs %}
+            <li>
+                <code>{{ diff.key().field() }}</code>:
+                {% match diff %}
+                    {% when crate::record::RecordDiff::Added with (_, new_val) %}
+                        <em>(added)</em> <code>{{ new_val }}</code>
+                    {% when crate::record::RecordDiff::Changed with (_, old_val, new_val) %}
+                        <code>{{ old_val }}</code> &rarr; <code>{{ new_val }}</code>
+                    {% when crate::record::RecordDiff::Removed with (_, old_val) %}
+                        <code>{{ old_val }}</code> <em>(removed)</em>
+                {% endmatch %}
+            </li>
+            {% endfor %}
+        </ul>
     </li>
     {% endfor %}
 </ul>

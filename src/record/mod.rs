@@ -48,6 +48,24 @@ pub enum RecordValue {
     Tenure(Option<NaiveDate>),
 }
 
+impl std::fmt::Display for RecordValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecordValue::Name(v) => write!(f, "{}", v),
+            RecordValue::Photo(v) => write!(f, "Photo({})", v.url),
+            RecordValue::Contact(v) => write!(f, "{}", v),
+            RecordValue::Supervisor(v) => write!(f, "{}", v),
+            RecordValue::Tenure(v) => {
+                if let Some(date) = v {
+                    write!(f, "{}", date)
+                } else {
+                    write!(f, "Present")
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum RecordKey {
     Name(Key<NamePath, String>),
@@ -58,6 +76,26 @@ pub enum RecordKey {
 }
 
 impl RecordKey {
+    pub fn path(&self) -> &str {
+        match self {
+            RecordKey::Name(k) => &k.path,
+            RecordKey::Photo(k) => &k.path,
+            RecordKey::Contact(k) => &k.path,
+            RecordKey::Supervisor(k) => &k.path,
+            RecordKey::Tenure(k) => &k.path,
+        }
+    }
+
+    pub fn field(&self) -> String {
+        let path = self.path();
+        let parts: Vec<&str> = path.split('/').collect();
+        if parts.len() > 2 {
+            parts[2..].join("/")
+        } else {
+            path.to_string()
+        }
+    }
+
     pub fn entity_info(&self) -> (dto::EntityType, String) {
         match self {
             RecordKey::Name(k) => (k.entity_type, k.entity_id.clone()),
@@ -96,11 +134,21 @@ impl RecordKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RecordDiff {
     Added(RecordKey, RecordValue),
     Changed(RecordKey, RecordValue, RecordValue), // key, old_value, new_value
     Removed(RecordKey, RecordValue),
+}
+
+impl RecordDiff {
+    pub fn key(&self) -> &RecordKey {
+        match self {
+            RecordDiff::Added(k, _) => k,
+            RecordDiff::Changed(k, _, _) => k,
+            RecordDiff::Removed(k, _) => k,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
