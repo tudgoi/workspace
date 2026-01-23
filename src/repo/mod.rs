@@ -453,6 +453,10 @@ pub struct DiffIterator<'a, B: Backend> {
 struct DiffIterState {
     old_node: Option<MstNode>,
     new_node: Option<MstNode>,
+    old_node_hash: Option<Hash>,
+    new_node_hash: Option<Hash>,
+    old_level: u32,
+    new_level: u32,
     old_idx: usize,
     new_idx: usize,
     old_child_processed: bool,
@@ -468,9 +472,18 @@ where
     fn new(repo: &'a Repo<B>, old_root: Option<Hash>, new_root: Option<Hash>) -> Self {
         let mut stack = Vec::new();
         if old_root != new_root {
+            let old_node = old_root.as_ref().and_then(|h| repo.read_node(h).ok());
+            let new_node = new_root.as_ref().and_then(|h| repo.read_node(h).ok());
+            let old_level = old_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+            let new_level = new_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+
             stack.push(DiffIterState {
-                old_node: old_root.and_then(|h| repo.read_node(&h).ok()),
-                new_node: new_root.and_then(|h| repo.read_node(&h).ok()),
+                old_node,
+                new_node,
+                old_node_hash: old_root,
+                new_node_hash: new_root,
+                old_level,
+                new_level,
                 old_idx: 0,
                 new_idx: 0,
                 old_child_processed: false,
@@ -492,51 +505,175 @@ where
             let (push_state, pop_state, result) = {
                 let state = self.stack.last_mut()?;
 
-                let old_item = state
-                    .old_node
-                    .as_ref()
-                    .and_then(|n| n.items.get(state.old_idx));
-                let new_item = state
-                    .new_node
-                    .as_ref()
-                    .and_then(|n| n.items.get(state.new_idx));
+                if state.old_level > state.new_level {
+                    // Descend old tree
+                    if !state.old_child_processed {
+                        state.old_child_processed = true;
+                        let old_child_hash = state.old_node.as_ref().and_then(|n| n.get_child_hash(state.old_idx));
+                        if let Some(h) = old_child_hash {
+                            if Some(h) == state.new_node_hash.as_ref() {
+                                // Subtree matches new_node! Short-circuit:
+                                // Instead of saying old items are removed, we align them.
+                                (
+                                    Some(DiffIterState {
+                                        old_node: self.repo.read_node(h).ok(),
+                                        new_node: state.new_node.clone(),
+                                        old_node_hash: Some(h.clone()),
+                                        new_node_hash: state.new_node_hash.clone(),
+                                        old_level: state.new_level,
+                                        new_level: state.new_level,
+                                        old_idx: 0,
+                                        new_idx: 0,
+                                        old_child_processed: false,
+                                        new_child_processed: false,
+                                    }),
+                                    false,
+                                    None,
+                                )
+                            } else {
+                                let child_node = self.repo.read_node(h).ok();
+                                let child_level = child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+                                (
+                                    Some(DiffIterState {
+                                        old_node: child_node,
+                                        new_node: None,
+                                        old_node_hash: Some(h.clone()),
+                                        new_node_hash: None,
+                                        old_level: child_level,
+                                        new_level: 0,
+                                        old_idx: 0,
+                                        new_idx: 0,
+                                        old_child_processed: false,
+                                        new_child_processed: false,
+                                    }),
+                                    false,
+                                    None,
+                                )
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        // Process item from old tree as Removed
+                        let old_item = state.old_node.as_ref().and_then(|n| n.items.get(state.old_idx));
+                        if let Some(oi) = old_item {
+                            let res = Some(Ok(Diff::Removed(oi.key.clone(), oi.value.clone())));
+                            state.old_idx += 1;
+                            state.old_child_processed = false;
+                            (None, false, res)
+                        } else {
+                            // Done with this node
+                            (None, true, None)
+                        }
+                    }
+                } else if state.new_level > state.old_level {
+                    // Descend new tree
+                    if !state.new_child_processed {
+                        state.new_child_processed = true;
+                        let new_child_hash = state.new_node.as_ref().and_then(|n| n.get_child_hash(state.new_idx));
+                        if let Some(h) = new_child_hash {
+                            if Some(h) == state.old_node_hash.as_ref() {
+                                // Subtree matches old_node! Short-circuit:
+                                (
+                                    Some(DiffIterState {
+                                        old_node: state.old_node.clone(),
+                                        new_node: self.repo.read_node(h).ok(),
+                                        old_node_hash: state.old_node_hash.clone(),
+                                        new_node_hash: Some(h.clone()),
+                                        old_level: state.old_level,
+                                        new_level: state.old_level,
+                                        old_idx: 0,
+                                        new_idx: 0,
+                                        old_child_processed: false,
+                                        new_child_processed: false,
+                                    }),
+                                    false,
+                                    None,
+                                )
+                            } else {
+                                let child_node = self.repo.read_node(h).ok();
+                                let child_level = child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+                                (
+                                    Some(DiffIterState {
+                                        old_node: None,
+                                        new_node: child_node,
+                                        old_node_hash: None,
+                                        new_node_hash: Some(h.clone()),
+                                        old_level: 0,
+                                        new_level: child_level,
+                                        old_idx: 0,
+                                        new_idx: 0,
+                                        old_child_processed: false,
+                                        new_child_processed: false,
+                                    }),
+                                    false,
+                                    None,
+                                )
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        // Process item from new tree as Added
+                        let new_item = state.new_node.as_ref().and_then(|n| n.items.get(state.new_idx));
+                        if let Some(ni) = new_item {
+                            let res = Some(Ok(Diff::Added(ni.key.clone(), ni.value.clone())));
+                            state.new_idx += 1;
+                            state.new_child_processed = false;
+                            (None, false, res)
+                        } else {
+                            (None, true, None)
+                        }
+                    }
+                } else {
+                    // Levels match
+                    let old_item = state.old_node.as_ref().and_then(|n| n.items.get(state.old_idx));
+                    let new_item = state.new_node.as_ref().and_then(|n| n.items.get(state.new_idx));
 
-                match (old_item, new_item) {
-                    (Some(oi), Some(ni)) => match oi.key.cmp(&ni.key) {
-                        std::cmp::Ordering::Equal => {
-                            if !state.old_child_processed {
-                                state.old_child_processed = true;
-                                state.new_child_processed = true;
-                                let old_child_hash = state
-                                    .old_node
-                                    .as_ref()
-                                    .and_then(|n| n.get_child_hash(state.old_idx));
-                                let new_child_hash = state
-                                    .new_node
-                                    .as_ref()
-                                    .and_then(|n| n.get_child_hash(state.new_idx));
-                                if old_child_hash != new_child_hash {
-                                    (
-                                        Some(DiffIterState {
-                                            old_node: old_child_hash
-                                                .and_then(|h| self.repo.read_node(h).ok()),
-                                            new_node: new_child_hash
-                                                .and_then(|h| self.repo.read_node(h).ok()),
-                                            old_idx: 0,
-                                            new_idx: 0,
-                                            old_child_processed: false,
-                                            new_child_processed: false,
-                                        }),
-                                        false,
-                                        None,
-                                    )
+                    match (old_item, new_item) {
+                        (Some(oi), Some(ni)) => match oi.key.cmp(&ni.key) {
+                            std::cmp::Ordering::Equal => {
+                                if !state.old_child_processed {
+                                    state.old_child_processed = true;
+                                    state.new_child_processed = true;
+                                    let old_child_hash = state.old_node.as_ref().and_then(|n| n.get_child_hash(state.old_idx));
+                                    let new_child_hash = state.new_node.as_ref().and_then(|n| n.get_child_hash(state.new_idx));
+                                    if old_child_hash != new_child_hash {
+                                        let old_child_node = old_child_hash.and_then(|h| self.repo.read_node(h).ok());
+                                        let new_child_node = new_child_hash.and_then(|h| self.repo.read_node(h).ok());
+                                        let old_child_lvl = old_child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+                                        let new_child_lvl = new_child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+                                        (
+                                            Some(DiffIterState {
+                                                old_node: old_child_node,
+                                                new_node: new_child_node,
+                                                old_node_hash: old_child_hash.cloned(),
+                                                new_node_hash: new_child_hash.cloned(),
+                                                old_level: old_child_lvl,
+                                                new_level: new_child_lvl,
+                                                old_idx: 0,
+                                                new_idx: 0,
+                                                old_child_processed: false,
+                                                new_child_processed: false,
+                                            }),
+                                            false,
+                                            None,
+                                        )
+                                    } else {
+                                        let res = if oi.value != ni.value {
+                                            Some(Ok(Diff::Changed(oi.key.clone(), oi.value.clone(), ni.value.clone())))
+                                        } else {
+                                            None
+                                        };
+                                        state.old_idx += 1;
+                                        state.new_idx += 1;
+                                        state.old_child_processed = false;
+                                        state.new_child_processed = false;
+                                        (None, false, res)
+                                    }
                                 } else {
                                     let res = if oi.value != ni.value {
-                                        Some(Ok(Diff::Changed(
-                                            oi.key.clone(),
-                                            oi.value.clone(),
-                                            ni.value.clone(),
-                                        )))
+                                        Some(Ok(Diff::Changed(oi.key.clone(), oi.value.clone(), ni.value.clone())))
                                     } else {
                                         None
                                     };
@@ -546,36 +683,95 @@ where
                                     state.new_child_processed = false;
                                     (None, false, res)
                                 }
-                            } else {
-                                let res = if oi.value != ni.value {
-                                    Some(Ok(Diff::Changed(
-                                        oi.key.clone(),
-                                        oi.value.clone(),
-                                        ni.value.clone(),
-                                    )))
+                            }
+                            std::cmp::Ordering::Less => {
+                                if !state.old_child_processed {
+                                    state.old_child_processed = true;
+                                    let old_child_hash = state.old_node.as_ref().and_then(|n| n.get_child_hash(state.old_idx));
+                                    if let Some(h) = old_child_hash {
+                                        let child_node = self.repo.read_node(h).ok();
+                                        let child_lvl = child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+                                        (
+                                            Some(DiffIterState {
+                                                old_node: child_node,
+                                                new_node: None,
+                                                old_node_hash: Some(h.clone()),
+                                                new_node_hash: None,
+                                                old_level: child_lvl,
+                                                new_level: 0,
+                                                old_idx: 0,
+                                                new_idx: 0,
+                                                old_child_processed: false,
+                                                new_child_processed: false,
+                                            }),
+                                            false,
+                                            None,
+                                        )
+                                    } else {
+                                        let res = Some(Ok(Diff::Removed(oi.key.clone(), oi.value.clone())));
+                                        state.old_idx += 1;
+                                        state.old_child_processed = false;
+                                        (None, false, res)
+                                    }
                                 } else {
-                                    None
-                                };
-                                state.old_idx += 1;
-                                state.new_idx += 1;
-                                state.old_child_processed = false;
-                                state.new_child_processed = false;
-                                (None, false, res)
+                                    let res = Some(Ok(Diff::Removed(oi.key.clone(), oi.value.clone())));
+                                    state.old_idx += 1;
+                                    state.old_child_processed = false;
+                                    (None, false, res)
+                                }
+                            }
+                            std::cmp::Ordering::Greater => {
+                                if !state.new_child_processed {
+                                    state.new_child_processed = true;
+                                    let new_child_hash = state.new_node.as_ref().and_then(|n| n.get_child_hash(state.new_idx));
+                                    if let Some(h) = new_child_hash {
+                                        let child_node = self.repo.read_node(h).ok();
+                                        let child_lvl = child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+                                        (
+                                            Some(DiffIterState {
+                                                old_node: None,
+                                                new_node: child_node,
+                                                old_node_hash: None,
+                                                new_node_hash: Some(h.clone()),
+                                                old_level: 0,
+                                                new_level: child_lvl,
+                                                old_idx: 0,
+                                                new_idx: 0,
+                                                old_child_processed: false,
+                                                new_child_processed: false,
+                                            }),
+                                            false,
+                                            None,
+                                        )
+                                    } else {
+                                        let res = Some(Ok(Diff::Added(ni.key.clone(), ni.value.clone())));
+                                        state.new_idx += 1;
+                                        state.new_child_processed = false;
+                                        (None, false, res)
+                                    }
+                                } else {
+                                    let res = Some(Ok(Diff::Added(ni.key.clone(), ni.value.clone())));
+                                    state.new_idx += 1;
+                                    state.new_child_processed = false;
+                                    (None, false, res)
+                                }
                             }
                         }
-                        std::cmp::Ordering::Less => {
+                        (Some(oi), None) => {
                             if !state.old_child_processed {
                                 state.old_child_processed = true;
-                                let old_child_hash = state
-                                    .old_node
-                                    .as_ref()
-                                    .and_then(|n| n.get_child_hash(state.old_idx));
-                                if old_child_hash.is_some() {
+                                let old_child_hash = state.old_node.as_ref().and_then(|n| n.get_child_hash(state.old_idx));
+                                if let Some(h) = old_child_hash {
+                                    let child_node = self.repo.read_node(h).ok();
+                                    let child_lvl = child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
                                     (
                                         Some(DiffIterState {
-                                            old_node: old_child_hash
-                                                .and_then(|h| self.repo.read_node(h).ok()),
+                                            old_node: child_node,
                                             new_node: None,
+                                            old_node_hash: Some(h.clone()),
+                                            new_node_hash: None,
+                                            old_level: child_lvl,
+                                            new_level: 0,
                                             old_idx: 0,
                                             new_idx: 0,
                                             old_child_processed: false,
@@ -585,8 +781,7 @@ where
                                         None,
                                     )
                                 } else {
-                                    let res =
-                                        Some(Ok(Diff::Removed(oi.key.clone(), oi.value.clone())));
+                                    let res = Some(Ok(Diff::Removed(oi.key.clone(), oi.value.clone())));
                                     state.old_idx += 1;
                                     state.old_child_processed = false;
                                     (None, false, res)
@@ -598,19 +793,21 @@ where
                                 (None, false, res)
                             }
                         }
-                        std::cmp::Ordering::Greater => {
+                        (None, Some(ni)) => {
                             if !state.new_child_processed {
                                 state.new_child_processed = true;
-                                let new_child_hash = state
-                                    .new_node
-                                    .as_ref()
-                                    .and_then(|n| n.get_child_hash(state.new_idx));
-                                if new_child_hash.is_some() {
+                                let new_child_hash = state.new_node.as_ref().and_then(|n| n.get_child_hash(state.new_idx));
+                                if let Some(h) = new_child_hash {
+                                    let child_node = self.repo.read_node(h).ok();
+                                    let child_lvl = child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
                                     (
                                         Some(DiffIterState {
                                             old_node: None,
-                                            new_node: new_child_hash
-                                                .and_then(|h| self.repo.read_node(h).ok()),
+                                            new_node: child_node,
+                                            old_node_hash: None,
+                                            new_node_hash: Some(h.clone()),
+                                            old_level: 0,
+                                            new_level: child_lvl,
                                             old_idx: 0,
                                             new_idx: 0,
                                             old_child_processed: false,
@@ -620,8 +817,7 @@ where
                                         None,
                                     )
                                 } else {
-                                    let res =
-                                        Some(Ok(Diff::Added(ni.key.clone(), ni.value.clone())));
+                                    let res = Some(Ok(Diff::Added(ni.key.clone(), ni.value.clone())));
                                     state.new_idx += 1;
                                     state.new_child_processed = false;
                                     (None, false, res)
@@ -633,107 +829,39 @@ where
                                 (None, false, res)
                             }
                         }
-                    },
-                    (Some(oi), None) => {
-                        if !state.old_child_processed {
-                            state.old_child_processed = true;
-                            let old_child_hash = state
-                                .old_node
-                                .as_ref()
-                                .and_then(|n| n.get_child_hash(state.old_idx));
-                            if old_child_hash.is_some() {
-                                (
-                                    Some(DiffIterState {
-                                        old_node: old_child_hash
-                                            .and_then(|h| self.repo.read_node(h).ok()),
-                                        new_node: None,
-                                        old_idx: 0,
-                                        new_idx: 0,
-                                        old_child_processed: false,
-                                        new_child_processed: false,
-                                    }),
-                                    false,
-                                    None,
-                                )
-                            } else {
-                                let res = Some(Ok(Diff::Removed(oi.key.clone(), oi.value.clone())));
-                                state.old_idx += 1;
-                                state.old_child_processed = false;
-                                (None, false, res)
-                            }
-                        } else {
-                            let res = Some(Ok(Diff::Removed(oi.key.clone(), oi.value.clone())));
-                            state.old_idx += 1;
-                            state.old_child_processed = false;
-                            (None, false, res)
-                        }
-                    }
-                    (None, Some(ni)) => {
-                        if !state.new_child_processed {
-                            state.new_child_processed = true;
-                            let new_child_hash = state
-                                .new_node
-                                .as_ref()
-                                .and_then(|n| n.get_child_hash(state.new_idx));
-                            if new_child_hash.is_some() {
-                                (
-                                    Some(DiffIterState {
-                                        old_node: None,
-                                        new_node: new_child_hash
-                                            .and_then(|h| self.repo.read_node(h).ok()),
-                                        old_idx: 0,
-                                        new_idx: 0,
-                                        old_child_processed: false,
-                                        new_child_processed: false,
-                                    }),
-                                    false,
-                                    None,
-                                )
-                            } else {
-                                let res = Some(Ok(Diff::Added(ni.key.clone(), ni.value.clone())));
-                                state.new_idx += 1;
-                                state.new_child_processed = false;
-                                (None, false, res)
-                            }
-                        } else {
-                            let res = Some(Ok(Diff::Added(ni.key.clone(), ni.value.clone())));
-                            state.new_idx += 1;
-                            state.new_child_processed = false;
-                            (None, false, res)
-                        }
-                    }
-                    (None, None) => {
-                        if !state.old_child_processed || !state.new_child_processed {
-                            let old_child_hash = state
-                                .old_node
-                                .as_ref()
-                                .and_then(|n| n.get_child_hash(state.old_idx));
-                            let new_child_hash = state
-                                .new_node
-                                .as_ref()
-                                .and_then(|n| n.get_child_hash(state.new_idx));
-                            state.old_child_processed = true;
-                            state.new_child_processed = true;
-                            if old_child_hash != new_child_hash {
-                                (
-                                    Some(DiffIterState {
-                                        old_node: old_child_hash
-                                            .and_then(|h| self.repo.read_node(h).ok()),
-                                        new_node: new_child_hash
-                                            .and_then(|h| self.repo.read_node(h).ok()),
-                                        old_idx: 0,
-                                        new_idx: 0,
-                                        old_child_processed: false,
-                                        new_child_processed: false,
-                                    }),
-                                    false,
-                                    None,
-                                )
+                        (None, None) => {
+                            if !state.old_child_processed || !state.new_child_processed {
+                                let old_child_hash = state.old_node.as_ref().and_then(|n| n.get_child_hash(state.old_idx));
+                                let new_child_hash = state.new_node.as_ref().and_then(|n| n.get_child_hash(state.new_idx));
+                                state.old_child_processed = true;
+                                state.new_child_processed = true;
+                                if old_child_hash != new_child_hash {
+                                    let old_child_node = old_child_hash.and_then(|h| self.repo.read_node(h).ok());
+                                    let new_child_node = new_child_hash.and_then(|h| self.repo.read_node(h).ok());
+                                    let old_child_lvl = old_child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+                                    let new_child_lvl = new_child_node.as_ref().and_then(|n| n.estimate_level()).unwrap_or(0);
+                                    (
+                                        Some(DiffIterState {
+                                            old_node: old_child_node,
+                                            new_node: new_child_node,
+                                            old_node_hash: old_child_hash.cloned(),
+                                            new_node_hash: new_child_hash.cloned(),
+                                            old_level: old_child_lvl,
+                                            new_level: new_child_lvl,
+                                            old_idx: 0,
+                                            new_idx: 0,
+                                            old_child_processed: false,
+                                            new_child_processed: false,
+                                        }),
+                                        false,
+                                        None,
+                                    )
+                                } else {
+                                    (None, true, None)
+                                }
                             } else {
                                 (None, true, None)
                             }
-                        } else {
-                            (None, true, None)
                         }
                     }
                 }
@@ -745,6 +873,10 @@ where
                 self.stack.pop();
             } else if result.is_some() {
                 return result;
+            }
+
+            if self.stack.is_empty() {
+                return None;
             }
         }
     }

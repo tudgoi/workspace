@@ -275,3 +275,48 @@ fn test_iterate_diff() {
     assert!(found_added);
     assert!(found_changed);
 }
+
+#[test]
+fn test_iterate_diff_different_levels() {
+    use crate::repo::{Diff, RepoRefType};
+    let backend = TestBackend::new();
+    let mut repo = Repo::new(backend);
+    repo.init().unwrap();
+
+    // "k0" is Level 0
+    // "k75" is Level 1
+    // "k1966" is Level 2
+
+    // Tree 1: Just k0 (Level 0 root)
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"k0".to_vec(), b"v0".to_vec())
+        .unwrap();
+    repo.commit().unwrap();
+
+    // Tree 2: k0 and k75 (Level 1 root, k0 is a child)
+    repo.get_ref(RepoRefType::Working)
+        .unwrap()
+        .write(b"k75".to_vec(), b"v75".to_vec())
+        .unwrap();
+
+    let root = repo.get_ref(RepoRefType::Working).unwrap();
+    let committed = repo.get_ref(RepoRefType::Committed).unwrap();
+    
+    // This should only show "k75" as Added. 
+    // If it's broken, it might show "k0" as Removed and "k75", "k0" as Added (or similar).
+    let diffs: Vec<_> = committed
+        .iterate_diff(&root)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert_eq!(diffs.len(), 1, "Should only have one change (k75 added)");
+    match &diffs[0] {
+        Diff::Added(k, v) => {
+            assert_eq!(k, b"k75");
+            assert_eq!(v, b"v75");
+        }
+        _ => panic!("Expected Added(k75), got {:?}", diffs[0]),
+    }
+}

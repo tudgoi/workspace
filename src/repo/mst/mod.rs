@@ -366,7 +366,7 @@ impl MstNode {
     }
 
     /// Estimates the level of the current node based on the keys it contains.
-    fn estimate_level(&self) -> Option<u32> {
+    pub fn estimate_level(&self) -> Option<u32> {
         self.items.first().map(|item| key_level(&item.key))
     }
 }
