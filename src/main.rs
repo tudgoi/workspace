@@ -58,7 +58,7 @@ impl Default for data::Photo {
 }
 /// Maintain a database of government officers and generate a static website.
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(version = env!("LONG_VERSION"), about, long_about = None)]
 struct Cli {
     /// Path to the database file
     db: PathBuf,
