@@ -51,11 +51,11 @@
         {{ key.reverse_label() }}
         ({{ value.len() }})</dt>
         <dd>
-          <ul>
+          <ol>
             {% for item in value %}
               <li>{% call render_officer(officer=item) %}</li>
             {% endfor %}
-          </ul>
+          </ol>
         </dd>
     {% endfor %}
   </dl>
