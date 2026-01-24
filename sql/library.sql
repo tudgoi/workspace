@@ -202,7 +202,7 @@ WHERE office_id = :office_id;
 -- name: get_person_incumbent_office_details?
 -- # Parameter
 -- param: person_id: &str
-SELECT i.office_id, e.name, p.url, p.attribution
+SELECT i.office_id, e.name, p.url, p.attribution, i.start
 FROM person_office_incumbent AS i
 JOIN entity AS e ON i.office_id = e.id AND e.type = 'office'
 LEFT JOIN entity_photo AS p ON i.office_id = p.entity_id AND p.entity_type = 'office'

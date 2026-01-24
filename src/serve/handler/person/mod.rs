@@ -78,6 +78,7 @@ pub async fn page(
             } else {
                 Some(contacts)
             },
+            start: row.get(4)?,
         });
 
         Ok(())
@@ -142,6 +143,7 @@ pub async fn page(
             } else {
                 Some(subordinates)
             },
+            start: office_dto.start,
         });
     }
 

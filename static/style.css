@@ -61,6 +61,12 @@ dl.office-list dt {
     margin-bottom: 0.3em;
 }
 
+.tenure-date {
+    font-weight: normal;
+    font-size: small;
+    color: gray;
+}
+
 span.ext-links {
     margin-left: 1em;
 }

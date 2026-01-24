@@ -35,6 +35,9 @@
         {% if let Some(office_contacts) = office.contacts %}
         {% call macros::render_ext_links(links=office_contacts) %}
         {% endif %}
+        {% if let Some(start) = office.start %}
+        <div class="tenure-date">from {{ start }}</div>
+        {% endif %}
       </dt>
       <dd>
         {% if let Some(office_contacts) = office.contacts %}

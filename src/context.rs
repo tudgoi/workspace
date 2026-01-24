@@ -38,6 +38,7 @@ pub struct OfficeDetails {
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
     pub supervisors: Option<BTreeMap<data::SupervisingRelation, Officer>>,
     pub subordinates: Option<BTreeMap<data::SupervisingRelation, Vec<Officer>>>,
+    pub start: Option<String>,
 }
 
 #[derive(Serialize, Debug)]

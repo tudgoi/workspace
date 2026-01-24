@@ -11,6 +11,7 @@ pub struct Office {
     pub name: String,
     pub photo: Option<data::Photo>,
     pub contacts: Option<BTreeMap<data::ContactType, String>>,
+    pub start: Option<String>,
 }
 
 #[derive(Debug, Clone)]
