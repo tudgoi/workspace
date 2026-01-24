@@ -263,6 +263,7 @@ async fn augment_wikidata_id(conn: &mut Connection, source: &dyn Augmentor) -> R
             persons_to_augment.push(context::Person {
                 id: row.get(0)?,
                 name: row.get(1)?,
+                start: None,
             });
 
             Ok(())

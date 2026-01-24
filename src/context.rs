@@ -23,6 +23,7 @@ pub struct TenureDetails {
 pub struct Person {
     pub id: String,
     pub name: String,
+    pub start: Option<String>,
 }
 
 #[derive(Serialize, Debug)]

@@ -86,6 +86,7 @@ pub async fn page(
             Ok(context::Person {
                 id: row.get(0)?,
                 name: row.get(1)?,
+                start: row.get(2)?,
             })
         })
         .optional()?;
@@ -96,6 +97,7 @@ pub async fn page(
             person: context::Person {
                 id: row.get(0)?,
                 name: row.get(1)?,
+                start: None,
             },
             start: row.get(2)?,
             end: row.get(3)?,

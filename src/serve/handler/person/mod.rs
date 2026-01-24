@@ -91,7 +91,11 @@ pub async fn page(
             BTreeMap::new();
         conn.get_office_supervisors(&office_dto.id, |row| {
             let person = if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
-                Some(context::Person { id, name })
+                Some(context::Person {
+                    id,
+                    name,
+                    start: None,
+                })
             } else {
                 None
             };
@@ -116,7 +120,11 @@ pub async fn page(
                 office_id: row.get(1)?,
                 office_name: row.get(2)?,
                 person: if let (Some(id), Some(name)) = (row.get(3)?, row.get(4)?) {
-                    Some(context::Person { id, name })
+                    Some(context::Person {
+                        id,
+                        name,
+                        start: None,
+                    })
                 } else {
                     None
                 },
@@ -165,6 +173,7 @@ pub async fn page(
         person: context::Person {
             id: id.to_string(),
             name,
+            start: None,
         },
         photo,
         contacts: if contacts.is_empty() {

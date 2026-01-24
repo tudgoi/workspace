@@ -158,7 +158,7 @@ WHERE q.office_id = :office_id ORDER BY q.end DESC
 -- Returns the incumbent for a given office
 -- # Parameters
 -- param: office_id: &str
-SELECT p.id, p.name FROM person_office_incumbent AS i
+SELECT p.id, p.name, i.start FROM person_office_incumbent AS i
 JOIN person AS p ON i.person_id = p.id
 WHERE i.office_id = :office_id 
 LIMIT 1

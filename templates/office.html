@@ -18,6 +18,9 @@
     </h2>
     {% if let Some(incumbent) = incumbent %}
     {% call macros::render_person(person=incumbent) %}
+    {% if let Some(start) = incumbent.start %}
+        <div class="tenure-date">from {{ start }}</div>
+    {% endif %}
     {% endif %}
     <hr />
 {% endblock content_title %}
