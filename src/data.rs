@@ -1,9 +1,16 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{
+    collections::BTreeMap,
+    fmt::Display,
+    fs,
+    path::{Path, PathBuf},
+};
 
+use anyhow::bail;
 use rusqlite::{ToSql, types::FromSql};
 use schemars::JsonSchema;
 use serde_derive::{Deserialize, Serialize};
 use strum_macros::{EnumString, VariantArray};
+use thiserror::Error;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 pub struct Person {
@@ -239,4 +246,85 @@ impl FromSql for SupervisingRelation {
             _ => Err(rusqlite::types::FromSqlError::InvalidType),
         }
     }
+}
+
+#[derive(Error, Debug)]
+pub enum DataError {
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Error deserializing TOML: {0}")]
+    Toml(#[from] toml::de::Error),
+
+    #[error("Unexpected directory: {0:?}")]
+    UnexpectedDir(PathBuf),
+
+    #[error("Unexpected extension for: {0:?}. Should be `toml`")]
+    FileExtension(PathBuf),
+
+    #[error("Empty file stem part for: {0:?}. Should be of the format `<id>.toml`")]
+    FileStem(PathBuf),
+    
+    #[error("Could not convert file name to string: {0:?}")]
+    OsStr(PathBuf),
+}
+
+pub struct Data {
+    person_dir: PathBuf,
+    office_dir: PathBuf,
+}
+
+impl Data {
+    pub fn open(base_dir: &Path) -> Result<Self, DataError> {
+        Ok(Self {
+            person_dir: base_dir.join("person"),
+            office_dir: base_dir.join("office"),
+        })
+    }
+
+    pub fn persons(&self) -> impl Iterator<Item = Result<(String, Person), DataError>> {
+        toml_content_in_dir(&self.person_dir).map(|result| {
+            let (id, content) = result?;
+            let person = toml::from_str(&content)?;
+            Ok((id, person))
+        })
+    }
+
+    pub fn offices(&self) -> impl Iterator<Item = Result<(String, Office), DataError>> {
+        toml_content_in_dir(&self.office_dir).map(|result| {
+            let (id, content) = result?;
+            let office = toml::from_str(&content)?;
+            Ok((id, office))
+        })
+    }
+}
+
+fn toml_content_in_dir(
+    dir: &Path,
+) -> impl Iterator<Item = Result<(String, String), DataError>> + '_ {
+    // TODO This doesn't return an error when dir doesn't exist. Why?
+    fs::read_dir(dir).into_iter().flatten().map(|entry| {
+        let entry = entry?;
+        let path = entry.path();
+
+        if !path.is_file() {
+            Err(DataError::UnexpectedDir(path))
+        } else {
+            let extension = path
+                .extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default();
+            if extension != "toml" {
+                Err(DataError::FileExtension(path))
+            } else {
+                let path = entry.path();
+                let stem = path
+                    .file_stem()
+                    .ok_or(DataError::FileStem(path.clone()))?;
+                let id = stem.to_str().ok_or(DataError::OsStr(path.clone()))?;
+                let content = fs::read_to_string(&path)?;
+                Ok((id.to_string(), content))
+            }
+        }
+    })
 }

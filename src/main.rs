@@ -6,6 +6,7 @@ use static_toml::static_toml;
 use std::fs;
 use std::path::PathBuf;
 
+use crate::data::Data;
 use crate::record::RecordRepo;
 use crate::record::sqlitebe::SqliteBackend;
 
@@ -66,6 +67,13 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Check the data for validity
+    Check {
+        /// Path to the data directory. Defaults to current directory.
+        #[arg(short, long, default_value = ".")]
+        data_dir: PathBuf,
+    },
+
     /// Initialize the database
     Init {
         /// Path to the database file
@@ -219,6 +227,16 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
+        Commands::Check { data_dir } => {
+            let data = Data::open(&data_dir)?;
+            for result in data.offices() {
+                let (_id,_officee) = result?;
+            }
+            for result in data.persons() {
+                let (_id,_person) = result?;
+            }
+            Ok(())
+        }
         Commands::Init { db } => {
             import::init(db.as_path()).with_context(|| "could not run `init`")
         }
@@ -472,16 +490,4 @@ fn print_binned_distribution(dist: std::collections::BTreeMap<usize, usize>) {
     for ((left, right), count) in binned {
         println!("  {:>6} - {:>6} bytes: {:>5}", left, right - 1, count);
     }
-}
-
-fn from_toml_file<T>(path: PathBuf) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    let str = fs::read_to_string(path.as_path())
-        .with_context(|| format!("could not read toml file {:?}", path))?;
-    let value =
-        toml::from_str(&str).with_context(|| format!("failed to parse toml file {:?}", path))?;
-
-    Ok(value)
 }

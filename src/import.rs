@@ -4,10 +4,10 @@ use rusqlite::Transaction;
 use std::path::Path;
 
 use crate::SchemaSql;
+use crate::data::Data;
 use crate::record::{Key, OfficePath, PersonPath, RecordRepo};
 
 use super::data;
-use super::from_toml_file;
 
 pub fn init(output: &Path) -> Result<()> {
     ensure!(!output.exists(), "output DB already exists at {:?}", output);
@@ -32,49 +32,17 @@ pub fn run(source: &Path, output: &Path) -> Result<()> {
         .with_context(|| format!("could not open sqlite DB at {:?}", output))?;
 
     let mut tx = conn.transaction()?;
-    let data_dir = source.join("office");
-    let paths = data_dir
-        .read_dir()
-        .with_context(|| format!("could not open office directory {:?}", data_dir))?;
-
-    for path in paths {
-        let file_entry =
-            path.with_context(|| format!("could not read office data directory {:?}", data_dir))?;
-        let file_path = file_entry.path();
-        let file_stem = file_path
-            .file_stem()
-            .with_context(|| format!("invalid file name {:?} in office directory", file_path))?;
-        let id = file_stem.to_str().context(format!(
-            "could not convert filename {:?} to string",
-            file_stem
-        ))?;
-
-        let office: data::Office =
-            from_toml_file(file_entry.path()).context("could not load office")?;
-        insert_office_data(&mut tx, id, &office)?;
+    
+    let data = Data::open(source)?;
+    
+    for result in data.offices() {
+        let (id, office) = result?;
+        insert_office_data(&mut tx, &id, &office)?;
     }
 
-    // process person
-    let data_dir = source.join("person");
-    let paths = data_dir
-        .read_dir()
-        .with_context(|| format!("could not open person directory {:?}", data_dir))?;
-
-    for path in paths {
-        let file_entry =
-            path.with_context(|| format!("could not read person data directory {:?}", data_dir))?;
-        let file_path = file_entry.path();
-        let file_stem = file_path
-            .file_stem()
-            .with_context(|| format!("invalid file name {:?} in person directory", file_path))?;
-        let id = file_stem.to_str().context(format!(
-            "could not convert filename {:?} to string",
-            file_stem
-        ))?;
-
-        let person: data::Person =
-            from_toml_file(file_entry.path()).context("could not load person")?;
-        insert_person_data(&mut tx, id, &person)?;
+    for result in data.persons() {
+        let (id, person) = result?;
+        insert_person_data(&mut tx, &id, &person)?;
     }
 
     RecordRepo::new(&tx).commit()?;
