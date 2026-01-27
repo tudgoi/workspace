@@ -5,25 +5,31 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::bail;
 use rusqlite::{ToSql, types::FromSql};
 use schemars::JsonSchema;
 use serde_derive::{Deserialize, Serialize};
 use strum_macros::{EnumString, VariantArray};
 use thiserror::Error;
+use garde::Validate;
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Validate)]
 pub struct Person {
+    #[garde(ascii, length(max=32))]
     pub name: String,
+    #[garde(dive)]
     pub photo: Option<Photo>,
+    #[garde(skip)]
     pub contacts: Option<BTreeMap<ContactType, String>>,
+    #[garde(dive)]
     pub tenures: Option<Vec<Tenure>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, PartialEq, Eq, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Photo {
+    #[garde(url)]
     pub url: String,
+    #[garde(length(max=64))]
     pub attribution: Option<String>,
 }
 
@@ -138,11 +144,14 @@ impl FromSql for ContactType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq, Eq, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Tenure {
+    #[garde(ascii, length(max=32))]
     pub office_id: String,
+    #[garde(ascii, length(max=10))]
     pub start: Option<String>,
+    #[garde(ascii, length(max=10))]
     pub end: Option<String>,
 }
 

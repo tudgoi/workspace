@@ -1,10 +1,9 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use include_sqlite_sql::{impl_sql, include_sql};
-use serde::de::DeserializeOwned;
 use static_toml::static_toml;
-use std::fs;
 use std::path::PathBuf;
+use garde::Validate;
 
 use crate::data::Data;
 use crate::record::RecordRepo;
@@ -230,10 +229,14 @@ async fn main() -> Result<()> {
         Commands::Check { data_dir } => {
             let data = Data::open(&data_dir)?;
             for result in data.offices() {
-                let (_id,_officee) = result?;
+                let (_id,_office) = result?;
             }
             for result in data.persons() {
-                let (_id,_person) = result?;
+                let (_id, person) = result?;
+                if let Err(e) = person.validate() {
+                    // TODO use miette to report error
+                    println!("invalid person: {e}");
+                }
             }
             Ok(())
         }
