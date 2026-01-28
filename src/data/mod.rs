@@ -354,18 +354,6 @@ pub enum DataError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     OfficeValidation(#[from] OfficeValidationError),
-
-    #[error("tantivy error: {0}")]
-    #[diagnostic(code(tudgoi::tantivy))]
-    Tantivy(#[from] tantivy::TantivyError),
-
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Indexer(#[from] crate::data::indexer::IndexerError),
-
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Searcher(#[from] crate::data::searcher::SearcherError),
 }
 
 pub struct Data {
@@ -413,20 +401,6 @@ impl Data {
             }
             Ok((id, office))
         })
-    }
-
-    pub fn index(&self, output_dir: &Path) -> Result<(), DataError> {
-        let mut indexer = crate::data::indexer::Indexer::new(output_dir)?;
-        for result in self.offices() {
-            let (id, office) = result?;
-            indexer.add_office(&id, office)?;
-        }
-        for result in self.persons() {
-            let (id, person) = result?;
-            indexer.add_person(&id, person)?;
-        }
-        indexer.commit()?;
-        Ok(())
     }
 }
 
@@ -496,46 +470,4 @@ fn toml_content_in_dir(
             }
         }
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::tempdir;
-    use tantivy::Index;
-
-    #[test]
-    fn test_index() {
-        let data_dir = tempdir().unwrap();
-        let person_dir = data_dir.path().join("person");
-        let office_dir = data_dir.path().join("office");
-        fs::create_dir_all(&person_dir).unwrap();
-        fs::create_dir_all(&office_dir).unwrap();
-
-        fs::write(
-            person_dir.join("p1.toml"),
-            r#"
-name = "Person One"
-"#,
-        )
-        .unwrap();
-
-        fs::write(
-            office_dir.join("o1.toml"),
-            r#"
-name = "Office One"
-"#,
-        )
-        .unwrap();
-
-        let data = Data::open(data_dir.path()).unwrap();
-        let index_dir = tempdir().unwrap();
-        data.index(index_dir.path()).unwrap();
-
-        let index = Index::open_in_dir(index_dir.path().join("index")).unwrap();
-        let reader = index.reader().unwrap();
-        let searcher = reader.searcher();
-
-        assert_eq!(searcher.num_docs(), 2);
-    }
 }
