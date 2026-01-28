@@ -1,4 +1,4 @@
-use std::{fs, path::{Path, PathBuf}};
+use std::{fs, path::Path};
 
 use miette::Diagnostic;
 use tantivy::{Index, IndexWriter, doc, schema::{Field, STORED, STRING, Schema, TEXT}};
@@ -21,14 +21,14 @@ pub enum IndexerError {
     
     #[error("tantivy error: {0}")]
     #[diagnostic(code(tudgoi::tantivy))]
-    Tantivy(#[from] tantivy::TantivyError)
+    Tantivy(#[from] tantivy::TantivyError),
 }
 
 impl Indexer {
     pub fn new(output_dir: &Path) -> Result<Self, IndexerError> {
         let mut schema_builder = Schema::builder();
         let id_field = schema_builder.add_text_field("id", STRING | STORED);
-        let name_field = schema_builder.add_text_field("name", TEXT | STORED);
+        let name_field = schema_builder.add_text_field("name", TEXT);
         let type_field = schema_builder.add_text_field("type", STRING | STORED);
         let schema = schema_builder.build();
 

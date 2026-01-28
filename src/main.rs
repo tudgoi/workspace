@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use crate::data::Data;
 use crate::data::indexer::Indexer;
+use crate::data::searcher::Searcher;
 use crate::record::RecordRepo;
 use crate::record::sqlitebe::SqliteBackend;
 
@@ -74,6 +75,18 @@ enum Commands {
         /// Path to the output directory. Defaults to `output` in current directory.
         #[arg(short, long)]
         output_dir: Option<PathBuf>,
+    },
+
+    /// Search the Index
+    Search {
+        /// Path to the data directory. Defaults to current directory.
+        #[arg(short, long, default_value = ".")]
+        data_dir: PathBuf,
+        /// Path to the output directory where the index is stored.
+        #[arg(short, long)]
+        output_dir: Option<PathBuf>,
+        /// The search query
+        query: String,
     },
 
     /// Initialize the database
@@ -260,6 +273,21 @@ async fn main() -> Result<()> {
                 }
             }
             indexer.commit()?;
+
+            Ok(())
+        }
+        Commands::Search {
+            data_dir, 
+            output_dir,
+            query,
+        } => {
+            let output_dir = output_dir.unwrap_or_else(|| data_dir.join("output"));
+            let searcher = Searcher::open(&output_dir)?;
+            let results = searcher.search(&query)?;
+
+            for result in results {
+                println!("{}/{}", result.type_str, result.id);
+            }
 
             Ok(())
         }

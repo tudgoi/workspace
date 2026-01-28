@@ -14,6 +14,7 @@ use garde::Validate;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
 
 pub mod indexer;
+pub mod searcher;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Validate)]
 pub struct Person {
@@ -357,6 +358,14 @@ pub enum DataError {
     #[error("tantivy error: {0}")]
     #[diagnostic(code(tudgoi::tantivy))]
     Tantivy(#[from] tantivy::TantivyError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Indexer(#[from] crate::data::indexer::IndexerError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Searcher(#[from] crate::data::searcher::SearcherError),
 }
 
 pub struct Data {
@@ -404,6 +413,20 @@ impl Data {
             }
             Ok((id, office))
         })
+    }
+
+    pub fn index(&self, output_dir: &Path) -> Result<(), DataError> {
+        let mut indexer = crate::data::indexer::Indexer::new(output_dir)?;
+        for result in self.offices() {
+            let (id, office) = result?;
+            indexer.add_office(&id, office)?;
+        }
+        for result in self.persons() {
+            let (id, person) = result?;
+            indexer.add_person(&id, person)?;
+        }
+        indexer.commit()?;
+        Ok(())
     }
 }
 
@@ -479,6 +502,7 @@ fn toml_content_in_dir(
 mod tests {
     use super::*;
     use tempfile::tempdir;
+    use tantivy::Index;
 
     #[test]
     fn test_index() {
@@ -508,7 +532,7 @@ name = "Office One"
         let index_dir = tempdir().unwrap();
         data.index(index_dir.path()).unwrap();
 
-        let index = Index::open_in_dir(index_dir.path()).unwrap();
+        let index = Index::open_in_dir(index_dir.path().join("index")).unwrap();
         let reader = index.reader().unwrap();
         let searcher = reader.searcher();
 
