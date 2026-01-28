@@ -11,10 +11,11 @@ use serde_derive::{Deserialize, Serialize};
 use strum_macros::{EnumString, VariantArray};
 use thiserror::Error;
 use garde::Validate;
+use miette::Diagnostic;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Validate)]
 pub struct Person {
-    #[garde(ascii, length(max=32))]
+    #[garde(ascii, length(max=64))]
     pub name: String,
     #[garde(dive)]
     pub photo: Option<Photo>,
@@ -29,7 +30,7 @@ pub struct Person {
 pub struct Photo {
     #[garde(url)]
     pub url: String,
-    #[garde(length(max=64))]
+    #[garde(length(max=256))]
     pub attribution: Option<String>,
 }
 
@@ -147,7 +148,7 @@ impl FromSql for ContactType {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq, Eq, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Tenure {
-    #[garde(ascii, length(max=32))]
+    #[garde(ascii, length(max=64))]
     pub office_id: String,
     #[garde(ascii, length(max=10))]
     pub start: Option<String>,
@@ -155,11 +156,15 @@ pub struct Tenure {
     pub end: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Validate)]
 pub struct Office {
+    #[garde(ascii, length(max=64))]
     pub name: String,
+    #[garde(dive)]
     pub photo: Option<Photo>,
+    #[garde(skip)]
     pub contacts: Option<BTreeMap<ContactType, String>>,
+    #[garde(skip)]
     pub supervisors: Option<BTreeMap<SupervisingRelation, String>>,
 }
 
@@ -257,25 +262,63 @@ impl FromSql for SupervisingRelation {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error, Diagnostic)]
+#[error("Invalid person data for '{id}'")]
+#[diagnostic(
+    code(tudgoi::validation::person),
+    help("The following validation errors occurred:")
+)]
+pub struct PersonValidationError {
+    pub id: String,
+    #[source]
+    pub source: garde::Report,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("Invalid office data for '{id}'")]
+#[diagnostic(
+    code(tudgoi::validation::office),
+    help("The following validation errors occurred:")
+)]
+pub struct OfficeValidationError {
+    pub id: String,
+    #[source]
+    pub source: garde::Report,
+}
+
+#[derive(Error, Debug, Diagnostic)]
 pub enum DataError {
     #[error("io error: {0}")]
+    #[diagnostic(code(tudgoi::io))]
     Io(#[from] std::io::Error),
 
     #[error("Error deserializing TOML: {0}")]
+    #[diagnostic(code(tudgoi::toml))]
     Toml(#[from] toml::de::Error),
 
     #[error("Unexpected directory: {0:?}")]
+    #[diagnostic(code(tudgoi::fs::unexpected_dir))]
     UnexpectedDir(PathBuf),
 
     #[error("Unexpected extension for: {0:?}. Should be `toml`")]
+    #[diagnostic(code(tudgoi::fs::extension))]
     FileExtension(PathBuf),
 
     #[error("Empty file stem part for: {0:?}. Should be of the format `<id>.toml`")]
+    #[diagnostic(code(tudgoi::fs::stem))]
     FileStem(PathBuf),
     
     #[error("Could not convert file name to string: {0:?}")]
+    #[diagnostic(code(tudgoi::fs::os_str))]
     OsStr(PathBuf),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    PersonValidation(#[from] PersonValidationError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    OfficeValidation(#[from] OfficeValidationError),
 }
 
 pub struct Data {
@@ -294,7 +337,10 @@ impl Data {
     pub fn persons(&self) -> impl Iterator<Item = Result<(String, Person), DataError>> {
         toml_content_in_dir(&self.person_dir).map(|result| {
             let (id, content) = result?;
-            let person = toml::from_str(&content)?;
+            let person: Person = toml::from_str(&content)?;
+            if let Err(e) = person.validate() {
+                return Err(DataError::PersonValidation(PersonValidationError { id, source: e }));
+            }
             Ok((id, person))
         })
     }
@@ -302,7 +348,10 @@ impl Data {
     pub fn offices(&self) -> impl Iterator<Item = Result<(String, Office), DataError>> {
         toml_content_in_dir(&self.office_dir).map(|result| {
             let (id, content) = result?;
-            let office = toml::from_str(&content)?;
+            let office: Office = toml::from_str(&content)?;
+            if let Err(e) = office.validate() {
+                return Err(DataError::OfficeValidation(OfficeValidationError { id, source: e }));
+            }
             Ok((id, office))
         })
     }

@@ -3,7 +3,6 @@ use clap::{Parser, Subcommand, ValueEnum};
 use include_sqlite_sql::{impl_sql, include_sql};
 use static_toml::static_toml;
 use std::path::PathBuf;
-use garde::Validate;
 
 use crate::data::Data;
 use crate::record::RecordRepo;
@@ -229,13 +228,21 @@ async fn main() -> Result<()> {
         Commands::Check { data_dir } => {
             let data = Data::open(&data_dir)?;
             for result in data.offices() {
-                let (_id,_office) = result?;
+                match result {
+                    Ok(_) => {}
+                    Err(crate::data::DataError::OfficeValidation(e)) => {
+                        eprintln!("{:?}", miette::Report::new(e));
+                    }
+                    Err(e) => return Err(e.into()),
+                }
             }
             for result in data.persons() {
-                let (_id, person) = result?;
-                if let Err(e) = person.validate() {
-                    // TODO use miette to report error
-                    println!("invalid person: {e}");
+                match result {
+                    Ok(_) => {}
+                    Err(crate::data::DataError::PersonValidation(e)) => {
+                        eprintln!("{:?}", miette::Report::new(e));
+                    }
+                    Err(e) => return Err(e.into()),
                 }
             }
             Ok(())
