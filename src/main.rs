@@ -5,6 +5,7 @@ use static_toml::static_toml;
 use std::path::PathBuf;
 
 use crate::data::Data;
+use crate::data::indexer::Indexer;
 use crate::record::RecordRepo;
 use crate::record::sqlitebe::SqliteBackend;
 
@@ -65,11 +66,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Check the data for validity
-    Check {
+    /// Build the Index
+    Build {
         /// Path to the data directory. Defaults to current directory.
         #[arg(short, long, default_value = ".")]
         data_dir: PathBuf,
+        /// Path to the output directory. Defaults to `output` in current directory.
+        #[arg(short, long)]
+        output_dir: Option<PathBuf>,
     },
 
     /// Initialize the database
@@ -86,7 +90,7 @@ enum Commands {
     },
 
     /// Export the database into the given directory.
-    /// 
+    ///
     /// The same can be imported into another database using the import command.
     Export {
         /// Path to the database file
@@ -225,11 +229,19 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Check { data_dir } => {
+        Commands::Build {
+            data_dir,
+            output_dir,
+        } => {
+            let output_dir = output_dir.unwrap_or(data_dir.join("output"));
+
             let data = Data::open(&data_dir)?;
+            let mut indexer = Indexer::new(&output_dir)?;
             for result in data.offices() {
                 match result {
-                    Ok(_) => {}
+                    Ok((id, office)) => {
+                        indexer.add_office(&id, office)?;
+                    }
                     Err(crate::data::DataError::OfficeValidation(e)) => {
                         eprintln!("{:?}", miette::Report::new(e));
                     }
@@ -238,24 +250,28 @@ async fn main() -> Result<()> {
             }
             for result in data.persons() {
                 match result {
-                    Ok(_) => {}
+                    Ok((id, person)) => {
+                        indexer.add_person(&id, person)?;
+                    }
                     Err(crate::data::DataError::PersonValidation(e)) => {
                         eprintln!("{:?}", miette::Report::new(e));
                     }
                     Err(e) => return Err(e.into()),
                 }
             }
+            indexer.commit()?;
+
             Ok(())
         }
-        Commands::Init { db } => {
-            import::init(db.as_path()).with_context(|| "could not run `init`")
+        Commands::Init { db } => import::init(db.as_path()).with_context(|| "could not run `init`"),
+
+        Commands::Import { db, source } => {
+            import::run(source.as_path(), db.as_path()).with_context(|| "could not run `import`")
         }
 
-        Commands::Import { db, source } => import::run(source.as_path(), db.as_path())
-            .with_context(|| "could not run `import`"),
-
-        Commands::Export { db, output } => export::run(db.as_path(), output.as_path())
-            .with_context(|| "could not run `export`"),
+        Commands::Export { db, output } => {
+            export::run(db.as_path(), output.as_path()).with_context(|| "could not run `export`")
+        }
 
         Commands::Render { db, output } => render::run(db.as_path(), output.as_path())
             .await
@@ -267,10 +283,12 @@ async fn main() -> Result<()> {
         } => augment::run(db.as_path(), source_name, fields)
             .with_context(|| "could not run `augment`"),
 
-        Commands::Ingest { db, source, directory } => {
-            ingest::run(db.as_path(), source, directory.as_deref())
-                .with_context(|| "could not run `ingest`")
-        }
+        Commands::Ingest {
+            db,
+            source,
+            directory,
+        } => ingest::run(db.as_path(), source, directory.as_deref())
+            .with_context(|| "could not run `ingest`"),
 
         Commands::Get { db, path } => {
             let conn = rusqlite::Connection::open(db)?;
@@ -351,8 +369,8 @@ async fn main() -> Result<()> {
             );
             let endpoint_id = secret_key.public();
 
-            let (persons, offices) =
-                conn.get_entity_counts(|row| Ok((row.get::<_, usize>(0)?, row.get::<_, usize>(1)?)))?;
+            let (persons, offices) = conn
+                .get_entity_counts(|row| Ok((row.get::<_, usize>(0)?, row.get::<_, usize>(1)?)))?;
 
             println!("Working ref:   {}", working_ref.to_hex());
             println!("Committed ref: {}", committed_ref.to_hex());

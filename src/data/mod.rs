@@ -11,7 +11,9 @@ use serde_derive::{Deserialize, Serialize};
 use strum_macros::{EnumString, VariantArray};
 use thiserror::Error;
 use garde::Validate;
-use miette::{Diagnostic, NamedSource, LabeledSpan, SourceSpan};
+use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
+
+pub mod indexer;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Validate)]
 pub struct Person {
@@ -351,6 +353,10 @@ pub enum DataError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     OfficeValidation(#[from] OfficeValidationError),
+
+    #[error("tantivy error: {0}")]
+    #[diagnostic(code(tudgoi::tantivy))]
+    Tantivy(#[from] tantivy::TantivyError),
 }
 
 pub struct Data {
@@ -467,4 +473,45 @@ fn toml_content_in_dir(
             }
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_index() {
+        let data_dir = tempdir().unwrap();
+        let person_dir = data_dir.path().join("person");
+        let office_dir = data_dir.path().join("office");
+        fs::create_dir_all(&person_dir).unwrap();
+        fs::create_dir_all(&office_dir).unwrap();
+
+        fs::write(
+            person_dir.join("p1.toml"),
+            r#"
+name = "Person One"
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            office_dir.join("o1.toml"),
+            r#"
+name = "Office One"
+"#,
+        )
+        .unwrap();
+
+        let data = Data::open(data_dir.path()).unwrap();
+        let index_dir = tempdir().unwrap();
+        data.index(index_dir.path()).unwrap();
+
+        let index = Index::open_in_dir(index_dir.path()).unwrap();
+        let reader = index.reader().unwrap();
+        let searcher = reader.searcher();
+
+        assert_eq!(searcher.num_docs(), 2);
+    }
 }
