@@ -11,11 +11,11 @@ use serde_derive::{Deserialize, Serialize};
 use strum_macros::{EnumString, VariantArray};
 use thiserror::Error;
 use garde::Validate;
-use miette::Diagnostic;
+use miette::{Diagnostic, NamedSource, LabeledSpan, SourceSpan};
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Validate)]
 pub struct Person {
-    #[garde(ascii, length(max=64))]
+    #[garde(length(max=64))]
     pub name: String,
     #[garde(dive)]
     pub photo: Option<Photo>,
@@ -158,7 +158,7 @@ pub struct Tenure {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Validate)]
 pub struct Office {
-    #[garde(ascii, length(max=64))]
+    #[garde(length(max=128))]
     pub name: String,
     #[garde(dive)]
     pub photo: Option<Photo>,
@@ -262,28 +262,60 @@ impl FromSql for SupervisingRelation {
     }
 }
 
-#[derive(Debug, Error, Diagnostic)]
+#[derive(Debug, Error)]
 #[error("Invalid person data for '{id}'")]
-#[diagnostic(
-    code(tudgoi::validation::person),
-    help("The following validation errors occurred:")
-)]
 pub struct PersonValidationError {
     pub id: String,
+    pub src: NamedSource<String>,
+    pub labels: Vec<miette::LabeledSpan>,
     #[source]
     pub source: garde::Report,
 }
 
-#[derive(Debug, Error, Diagnostic)]
+impl Diagnostic for PersonValidationError {
+    fn code<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
+        Some(Box::new("tudgoi::validation::person"))
+    }
+
+    fn help<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
+        Some(Box::new("The following validation errors occurred:"))
+    }
+
+    fn source_code(&self) -> Option<&dyn miette::SourceCode> {
+        Some(&self.src)
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
+        Some(Box::new(self.labels.iter().cloned()))
+    }
+}
+
+#[derive(Debug, Error)]
 #[error("Invalid office data for '{id}'")]
-#[diagnostic(
-    code(tudgoi::validation::office),
-    help("The following validation errors occurred:")
-)]
 pub struct OfficeValidationError {
     pub id: String,
+    pub src: NamedSource<String>,
+    pub labels: Vec<miette::LabeledSpan>,
     #[source]
     pub source: garde::Report,
+}
+
+impl Diagnostic for OfficeValidationError {
+    fn code<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
+        Some(Box::new("tudgoi::validation::office"))
+    }
+
+    fn help<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
+        Some(Box::new("The following validation errors occurred:"))
+    }
+
+    fn source_code(&self) -> Option<&dyn miette::SourceCode> {
+        Some(&self.src)
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
+        Some(Box::new(self.labels.iter().cloned()))
+    }
 }
 
 #[derive(Error, Debug, Diagnostic)]
@@ -339,7 +371,13 @@ impl Data {
             let (id, content) = result?;
             let person: Person = toml::from_str(&content)?;
             if let Err(e) = person.validate() {
-                return Err(DataError::PersonValidation(PersonValidationError { id, source: e }));
+                let labels = to_labels(&content, &e);
+                return Err(DataError::PersonValidation(PersonValidationError {
+                    id: id.clone(),
+                    src: NamedSource::new(format!("{}.toml", id), content),
+                    labels,
+                    source: e,
+                }));
             }
             Ok((id, person))
         })
@@ -350,11 +388,55 @@ impl Data {
             let (id, content) = result?;
             let office: Office = toml::from_str(&content)?;
             if let Err(e) = office.validate() {
-                return Err(DataError::OfficeValidation(OfficeValidationError { id, source: e }));
+                let labels = to_labels(&content, &e);
+                return Err(DataError::OfficeValidation(OfficeValidationError {
+                    id: id.clone(),
+                    src: NamedSource::new(format!("{}.toml", id), content),
+                    labels,
+                    source: e,
+                }));
             }
             Ok((id, office))
         })
     }
+}
+
+fn to_labels(content: &str, report: &garde::Report) -> Vec<miette::LabeledSpan> {
+    report
+        .iter()
+        .map(|(path, error)| {
+            let path_str = path.to_string();
+            let span = find_span(content, &path_str).unwrap_or(SourceSpan::new(0.into(), 0));
+            LabeledSpan::new_with_span(Some(error.to_string()), span)
+        })
+        .collect()
+}
+
+fn find_span(content: &str, path: &str) -> Option<SourceSpan> {
+    let key = path
+        .split(|c| c == '.' || c == '[' || c == ']')
+        .filter(|s| !s.is_empty())
+        .last()?;
+
+    if let Some(pos) = content.find(key) {
+        // Try to find the value after the key
+        let rest = &content[pos + key.len()..];
+        if let Some(eq_pos) = rest.find('=') {
+            let after_eq = &rest[eq_pos + 1..];
+            // Find the first non-whitespace character
+            if let Some(val_start) = after_eq.find(|c: char| !c.is_whitespace()) {
+                // Find the end of the line or the end of the value
+                let val_content = &after_eq[val_start..];
+                let val_len = val_content.find(['\n', '\r']).unwrap_or(val_content.len());
+                return Some(SourceSpan::new(
+                    (pos + key.len() + eq_pos + 1 + val_start).into(),
+                    val_len,
+                ));
+            }
+        }
+        return Some(SourceSpan::new(pos.into(), key.len().into()));
+    }
+    None
 }
 
 fn toml_content_in_dir(
