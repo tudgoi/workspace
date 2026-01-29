@@ -272,6 +272,9 @@ async fn main() -> Result<()> {
                     Err(e) => return Err(e.into()),
                 }
             }
+            let wc_commit_id = data.commit_id()?;
+            std::fs::write(output_dir.join("commit_id"), wc_commit_id)?;
+
             indexer.commit()?;
 
             Ok(())
@@ -526,6 +529,10 @@ async fn main() -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn save_jj_commit_id(data_dir: &PathBuf, output_dir: &PathBuf) -> Result<()> {
+    Ok(())
 }
 
 fn print_binned_distribution(dist: std::collections::BTreeMap<usize, usize>) {

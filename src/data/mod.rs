@@ -5,20 +5,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use garde::Validate;
+use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
 use rusqlite::{ToSql, types::FromSql};
 use schemars::JsonSchema;
 use serde_derive::{Deserialize, Serialize};
 use strum_macros::{EnumString, VariantArray};
 use thiserror::Error;
-use garde::Validate;
-use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
 
 pub mod indexer;
 pub mod searcher;
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, Validate)]
 pub struct Person {
-    #[garde(length(max=64))]
+    #[garde(length(max = 64))]
     pub name: String,
     #[garde(dive)]
     pub photo: Option<Photo>,
@@ -33,7 +33,7 @@ pub struct Person {
 pub struct Photo {
     #[garde(url)]
     pub url: String,
-    #[garde(length(max=256))]
+    #[garde(length(max = 256))]
     pub attribution: Option<String>,
 }
 
@@ -151,17 +151,17 @@ impl FromSql for ContactType {
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq, Eq, Validate)]
 #[serde(deny_unknown_fields)]
 pub struct Tenure {
-    #[garde(ascii, length(max=64))]
+    #[garde(ascii, length(max = 64))]
     pub office_id: String,
-    #[garde(ascii, length(max=10))]
+    #[garde(ascii, length(max = 10))]
     pub start: Option<String>,
-    #[garde(ascii, length(max=10))]
+    #[garde(ascii, length(max = 10))]
     pub end: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Validate)]
 pub struct Office {
-    #[garde(length(max=128))]
+    #[garde(length(max = 128))]
     pub name: String,
     #[garde(dive)]
     pub photo: Option<Photo>,
@@ -342,10 +342,26 @@ pub enum DataError {
     #[error("Empty file stem part for: {0:?}. Should be of the format `<id>.toml`")]
     #[diagnostic(code(tudgoi::fs::stem))]
     FileStem(PathBuf),
-    
+
     #[error("Could not convert file name to string: {0:?}")]
     #[diagnostic(code(tudgoi::fs::os_str))]
     OsStr(PathBuf),
+
+    #[error("Could not load Jujutsu config: {0}")]
+    #[diagnostic(code(tudgoi::jj::config))]
+    Config(#[from] jj_lib::config::ConfigGetError),
+
+    #[error("Could not load Jujutsu repository: {0}")]
+    #[diagnostic(code(tudgoi::jj::repo))]
+    RepoLoad(#[from] jj_lib::repo::RepoLoaderError),
+
+    #[error("Could not load Jujutsu workspace: {0}")]
+    #[diagnostic(code(tudgoi::jj::ws))]
+    WorkspaceLoad(#[from] jj_lib::workspace::WorkspaceLoadError),
+
+    #[error("Could not get commit id: {0}")]
+    #[diagnostic(code(tudgoi::jj::commit_id))]
+    CommitId(PathBuf),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -357,20 +373,47 @@ pub enum DataError {
 }
 
 pub struct Data {
-    person_dir: PathBuf,
-    office_dir: PathBuf,
+    dir: PathBuf,
 }
 
 impl Data {
     pub fn open(base_dir: &Path) -> Result<Self, DataError> {
         Ok(Self {
-            person_dir: base_dir.join("person"),
-            office_dir: base_dir.join("office"),
+            dir: base_dir.to_path_buf(),
         })
     }
 
+    pub fn commit_id(&self) -> Result<String, DataError> {
+        use jj_lib::local_working_copy::LocalWorkingCopyFactory;
+        use jj_lib::object_id::ObjectId;
+        use jj_lib::workspace::WorkingCopyFactories;
+
+        let stacked = jj_lib::config::StackedConfig::with_defaults();
+        let settings = jj_lib::settings::UserSettings::from_config(stacked)?;
+
+        let store_factories = jj_lib::repo::StoreFactories::default();
+        let mut wc_factories = WorkingCopyFactories::new();
+        wc_factories.insert("local".to_owned(), Box::new(LocalWorkingCopyFactory {}));
+
+        let workspace = jj_lib::workspace::Workspace::load(
+            &settings,
+            &self.dir,
+            &store_factories,
+            &wc_factories,
+        )?;
+        let repo = workspace.repo_loader().load_at_head()?;
+
+        let wc_commit_id = repo
+            .view()
+            .get_wc_commit_id(workspace.workspace_name())
+            .ok_or(DataError::CommitId(self.dir.clone()))?;
+
+        Ok(wc_commit_id.hex())
+    }
+
     pub fn persons(&self) -> impl Iterator<Item = Result<(String, Person), DataError>> {
-        toml_content_in_dir(&self.person_dir).map(|result| {
+        let person_dir = self.dir.join("person");
+        toml_content_in_dir(person_dir).map(|result| {
             let (id, content) = result?;
             let person: Person = toml::from_str(&content)?;
             if let Err(e) = person.validate() {
@@ -387,7 +430,8 @@ impl Data {
     }
 
     pub fn offices(&self) -> impl Iterator<Item = Result<(String, Office), DataError>> {
-        toml_content_in_dir(&self.office_dir).map(|result| {
+        let office_dir = self.dir.join("office");
+        toml_content_in_dir(office_dir).map(|result| {
             let (id, content) = result?;
             let office: Office = toml::from_str(&content)?;
             if let Err(e) = office.validate() {
@@ -443,8 +487,8 @@ fn find_span(content: &str, path: &str) -> Option<SourceSpan> {
 }
 
 fn toml_content_in_dir(
-    dir: &Path,
-) -> impl Iterator<Item = Result<(String, String), DataError>> + '_ {
+    dir: PathBuf,
+) -> impl Iterator<Item = Result<(String, String), DataError>> {
     // TODO This doesn't return an error when dir doesn't exist. Why?
     fs::read_dir(dir).into_iter().flatten().map(|entry| {
         let entry = entry?;
@@ -461,9 +505,7 @@ fn toml_content_in_dir(
                 Err(DataError::FileExtension(path))
             } else {
                 let path = entry.path();
-                let stem = path
-                    .file_stem()
-                    .ok_or(DataError::FileStem(path.clone()))?;
+                let stem = path.file_stem().ok_or(DataError::FileStem(path.clone()))?;
                 let id = stem.to_str().ok_or(DataError::OsStr(path.clone()))?;
                 let content = fs::read_to_string(&path)?;
                 Ok((id.to_string(), content))

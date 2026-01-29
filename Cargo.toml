@@ -45,6 +45,7 @@ futures = "0.3.31"
 garde = { version = "0.22.1", features = ["derive", "url"] }
 miette = { version = "7.6.0", features = ["fancy"] }
 tantivy = "0.22.0"
+jj-lib = "0.37.0"
 
 [dev-dependencies]
 tempfile = "3.24.0"
