@@ -4,13 +4,12 @@ use include_sqlite_sql::{impl_sql, include_sql};
 use static_toml::static_toml;
 use std::path::PathBuf;
 
-use crate::data::Data;
-use crate::data::indexer::Indexer;
 use crate::data::searcher::Searcher;
 use crate::record::RecordRepo;
 use crate::record::sqlitebe::SqliteBackend;
 
 mod augment;
+mod build;
 mod context;
 mod data;
 mod dto;
@@ -21,6 +20,7 @@ mod ingest;
 mod record;
 mod render;
 mod repo;
+mod search;
 mod serve;
 
 include_sql!("sql/schema.sql");
@@ -72,9 +72,6 @@ enum Commands {
         /// Path to the data directory. Defaults to current directory.
         #[arg(short, long, default_value = ".")]
         data_dir: PathBuf,
-        /// Path to the output directory. Defaults to `output` in current directory.
-        #[arg(short, long)]
-        output_dir: Option<PathBuf>,
     },
 
     /// Search the Index
@@ -82,9 +79,6 @@ enum Commands {
         /// Path to the data directory. Defaults to current directory.
         #[arg(short, long, default_value = ".")]
         data_dir: PathBuf,
-        /// Path to the output directory where the index is stored.
-        #[arg(short, long)]
-        output_dir: Option<PathBuf>,
         /// The search query
         query: String,
     },
@@ -242,58 +236,8 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Build {
-            data_dir,
-            output_dir,
-        } => {
-            let output_dir = output_dir.unwrap_or(data_dir.join("output"));
-
-            let data = Data::open(&data_dir)?;
-            let mut indexer = Indexer::new(&output_dir)?;
-            for result in data.offices() {
-                match result {
-                    Ok((id, office)) => {
-                        indexer.add_office(&id, office)?;
-                    }
-                    Err(crate::data::DataError::OfficeValidation(e)) => {
-                        eprintln!("{:?}", miette::Report::new(e));
-                    }
-                    Err(e) => return Err(e.into()),
-                }
-            }
-            for result in data.persons() {
-                match result {
-                    Ok((id, person)) => {
-                        indexer.add_person(&id, person)?;
-                    }
-                    Err(crate::data::DataError::PersonValidation(e)) => {
-                        eprintln!("{:?}", miette::Report::new(e));
-                    }
-                    Err(e) => return Err(e.into()),
-                }
-            }
-            let wc_commit_id = data.commit_id()?;
-            std::fs::write(output_dir.join("commit_id"), wc_commit_id)?;
-
-            indexer.commit()?;
-
-            Ok(())
-        }
-        Commands::Search {
-            data_dir, 
-            output_dir,
-            query,
-        } => {
-            let output_dir = output_dir.unwrap_or_else(|| data_dir.join("output"));
-            let searcher = Searcher::open(&output_dir)?;
-            let results = searcher.search(&query)?;
-
-            for result in results {
-                println!("{}/{}", result.type_str, result.id);
-            }
-
-            Ok(())
-        }
+        Commands::Build { data_dir } => build::run(&data_dir),
+        Commands::Search { data_dir, query } => search::run(&data_dir, &query),
         Commands::Init { db } => import::init(db.as_path()).with_context(|| "could not run `init`"),
 
         Commands::Import { db, source } => {
@@ -529,10 +473,6 @@ async fn main() -> Result<()> {
             Ok(())
         }
     }
-}
-
-fn save_jj_commit_id(data_dir: &PathBuf, output_dir: &PathBuf) -> Result<()> {
-    Ok(())
 }
 
 fn print_binned_distribution(dist: std::collections::BTreeMap<usize, usize>) {

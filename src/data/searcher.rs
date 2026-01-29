@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn test_search_by_id() {
         let tmp_dir = tempdir().unwrap();
-        let mut indexer = Indexer::new(tmp_dir.path()).unwrap();
+        let mut indexer = Indexer::open(tmp_dir.path()).unwrap();
         
         indexer.add_person("p1", Person {
             name: "Person One".to_string(),
@@ -90,7 +90,7 @@ mod tests {
             supervisors: None,
         }).unwrap();
         
-        indexer.commit().unwrap();
+        indexer.commit("test").unwrap();
         
         let searcher = Searcher::open(tmp_dir.path()).unwrap();
         
