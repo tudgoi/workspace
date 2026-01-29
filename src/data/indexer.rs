@@ -63,6 +63,7 @@ impl Indexer {
     }
 
     pub fn add_person(&mut self, id: &str, person: Person) -> Result<(), IndexerError> {
+        self.delete(id)?;
         self.writer.add_document(doc!(
             self.id_field => id,
             self.name_field => person.name,
@@ -73,11 +74,19 @@ impl Indexer {
     }
 
     pub fn add_office(&mut self, id: &str, office: Office) -> Result<(), IndexerError> {
+        self.delete(id)?;
         self.writer.add_document(doc!(
             self.id_field => id,
             self.name_field => office.name,
             self.type_field => "office",
         ))?;
+
+        Ok(())
+    }
+
+    pub fn delete(&mut self, id: &str) -> Result<(), IndexerError> {
+        let term = tantivy::Term::from_field_text(self.id_field, id);
+        self.writer.delete_term(term);
 
         Ok(())
     }

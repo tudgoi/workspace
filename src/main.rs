@@ -4,7 +4,6 @@ use include_sqlite_sql::{impl_sql, include_sql};
 use static_toml::static_toml;
 use std::path::PathBuf;
 
-use crate::data::searcher::Searcher;
 use crate::record::RecordRepo;
 use crate::record::sqlitebe::SqliteBackend;
 
@@ -236,8 +235,8 @@ async fn main() -> Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::Build { data_dir } => build::run(&data_dir),
-        Commands::Search { data_dir, query } => search::run(&data_dir, &query),
+        Commands::Build { data_dir } => build::run(&data_dir).await,
+        Commands::Search { data_dir, query } => search::run(&data_dir, &query).await,
         Commands::Init { db } => import::init(db.as_path()).with_context(|| "could not run `init`"),
 
         Commands::Import { db, source } => {

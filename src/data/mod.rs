@@ -6,6 +6,8 @@ use std::{
 };
 
 use garde::Validate;
+use jj_lib::object_id::ObjectId;
+use jj_lib::repo::Repo;
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
 use rusqlite::{ToSql, types::FromSql};
 use schemars::JsonSchema;
@@ -363,6 +365,10 @@ pub enum DataError {
     #[diagnostic(code(tudgoi::jj::commit_id))]
     CommitId(PathBuf),
 
+    #[error("Jujutsu error: {0}")]
+    #[diagnostic(code(tudgoi::jj::other))]
+    Jj(String),
+
     #[error(transparent)]
     #[diagnostic(transparent)]
     PersonValidation(#[from] PersonValidationError),
@@ -370,6 +376,25 @@ pub enum DataError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     OfficeValidation(#[from] OfficeValidationError),
+}
+
+#[derive(Debug, Clone)]
+pub enum DataDiff {
+    Added(String, DataItem),
+    Modified(String, DataItem),
+    Deleted(String, DataItemType),
+}
+
+#[derive(Debug, Clone)]
+pub enum DataItem {
+    Person(Person),
+    Office(Office),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataItemType {
+    Person,
+    Office,
 }
 
 pub struct Data {
@@ -383,9 +408,17 @@ impl Data {
         })
     }
 
-    pub fn commit_id(&self) -> Result<String, DataError> {
+    fn jj_repo(
+        &self,
+    ) -> Result<
+        (
+            jj_lib::settings::UserSettings,
+            jj_lib::workspace::Workspace,
+            std::sync::Arc<jj_lib::repo::ReadonlyRepo>,
+        ),
+        DataError,
+    > {
         use jj_lib::local_working_copy::LocalWorkingCopyFactory;
-        use jj_lib::object_id::ObjectId;
         use jj_lib::workspace::WorkingCopyFactories;
 
         let stacked = jj_lib::config::StackedConfig::with_defaults();
@@ -403,12 +436,143 @@ impl Data {
         )?;
         let repo = workspace.repo_loader().load_at_head()?;
 
+        Ok((settings, workspace, repo))
+    }
+
+    pub fn commit_id(&self) -> Result<String, DataError> {
+        let (_settings, workspace, repo) = self.jj_repo()?;
+
         let wc_commit_id = repo
             .view()
             .get_wc_commit_id(workspace.workspace_name())
             .ok_or(DataError::CommitId(self.dir.clone()))?;
 
         Ok(wc_commit_id.hex())
+    }
+
+    pub async fn diff(&self, from_commit_id: &str) -> Result<Vec<DataDiff>, DataError> {
+        use futures::StreamExt;
+        use jj_lib::repo::Repo;
+
+        let (_settings, workspace, repo) = self.jj_repo()?;
+
+        let from_id = jj_lib::backend::CommitId::from_bytes(
+            &jj_lib::hex_util::decode_hex(from_commit_id)
+                .ok_or_else(|| DataError::CommitId(self.dir.clone()))?,
+        );
+        let from_commit = repo
+            .store()
+            .get_commit(&from_id)
+            .map_err(|_| DataError::CommitId(self.dir.clone()))?;
+
+        let to_commit_id = repo
+            .view()
+            .get_wc_commit_id(workspace.workspace_name())
+            .ok_or(DataError::CommitId(self.dir.clone()))?;
+        let to_commit = repo
+            .store()
+            .get_commit(to_commit_id)
+            .map_err(|_| DataError::CommitId(self.dir.clone()))?;
+
+        let from_tree = from_commit.tree();
+        let to_tree = to_commit.tree();
+
+        let mut diffs = Vec::new();
+
+        let mut diff_stream =
+            from_tree.diff_stream(&to_tree, &jj_lib::matchers::EverythingMatcher);
+        while let Some(entry) = diff_stream.next().await {
+            let path = entry.path;
+            let path_str = path.as_internal_file_string();
+            let (item_type, id) = if path_str.starts_with("person/") && path_str.ends_with(".toml") {
+                let id = &path_str[7..path_str.len() - 5];
+                (DataItemType::Person, id.to_string())
+            } else if path_str.starts_with("office/") && path_str.ends_with(".toml") {
+                let id = &path_str[7..path_str.len() - 5];
+                (DataItemType::Office, id.to_string())
+            } else {
+                continue;
+            };
+
+            let diff = entry
+                .values
+                .map_err(|e| DataError::Jj(format!("Diff error: {e}")))?;
+
+            if let Some(to_value) = diff.after.as_resolved().as_ref().and_then(|v| v.as_ref()) {
+                if diff.before.is_absent() {
+                    if let Some(item) = self
+                        .load_item_from_value(&path, to_value, item_type, &id, repo.as_ref())
+                        .await?
+                    {
+                        diffs.push(DataDiff::Added(id.to_string(), item));
+                    }
+                } else {
+                    if let Some(item) = self
+                        .load_item_from_value(&path, to_value, item_type, &id, repo.as_ref())
+                        .await?
+                    {
+                        diffs.push(DataDiff::Modified(id.to_string(), item));
+                    }
+                }
+            } else if diff.after.is_absent() && diff.before.is_present() {
+                diffs.push(DataDiff::Deleted(id.to_string(), item_type));
+            }
+        }
+
+        Ok(diffs)
+    }
+
+    async fn load_item_from_value(
+        &self,
+        path: &jj_lib::repo_path::RepoPath,
+        value: &jj_lib::backend::TreeValue,
+        item_type: DataItemType,
+        id: &str,
+        repo: &jj_lib::repo::ReadonlyRepo,
+    ) -> Result<Option<DataItem>, DataError> {
+        use tokio::io::AsyncReadExt;
+
+        let file_id = match value {
+            jj_lib::backend::TreeValue::File { id, .. } => id,
+            _ => return Ok(None),
+        };
+
+        let mut reader = repo
+            .store()
+            .read_file(path, file_id)
+            .await
+            .map_err(|e| DataError::Jj(format!("Failed to read file: {e}")))?;
+        let mut content = String::new();
+        reader.read_to_string(&mut content).await?;
+
+        match item_type {
+            DataItemType::Person => {
+                let person: Person = toml::from_str(&content)?;
+                if let Err(e) = person.validate() {
+                    let labels = to_labels(&content, &e);
+                    return Err(DataError::PersonValidation(PersonValidationError {
+                        id: id.to_string(),
+                        src: NamedSource::new(format!("{}.toml", id), content),
+                        labels,
+                        source: e,
+                    }));
+                }
+                Ok(Some(DataItem::Person(person)))
+            }
+            DataItemType::Office => {
+                let office: Office = toml::from_str(&content)?;
+                if let Err(e) = office.validate() {
+                    let labels = to_labels(&content, &e);
+                    return Err(DataError::OfficeValidation(OfficeValidationError {
+                        id: id.to_string(),
+                        src: NamedSource::new(format!("{}.toml", id), content),
+                        labels,
+                        source: e,
+                    }));
+                }
+                Ok(Some(DataItem::Office(office)))
+            }
+        }
     }
 
     pub fn persons(&self) -> impl Iterator<Item = Result<(String, Person), DataError>> {

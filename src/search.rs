@@ -4,8 +4,8 @@ use anyhow::Result;
 
 use crate::{build, data::searcher::Searcher};
 
-pub fn run(data_dir: &Path, query: &str) -> Result<()> {
-    build::run(data_dir)?;
+pub async fn run(data_dir: &Path, query: &str) -> Result<()> {
+    build::run(data_dir).await?;
 
     let output_dir = data_dir.join("output");
     let searcher = Searcher::open(&output_dir)?;
